@@ -175,15 +175,20 @@ impl<T:Scalar, S:GemmNode<T>> GemmNode<T> for PackB<T,S> {
     }
 }
 */
-
 struct PartM<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {
-    nb: usize,
+    bsz: usize,
     iota: usize,
     child: S,
     _t: PhantomData<T>,
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
+}
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> PartM<T,At,Bt,Ct,S> {
+    fn new( bsz: usize, iota: usize, child: S ) -> PartM<T, At, Bt, Ct, S>{
+        return PartM{ bsz: bsz, iota: iota, child: child, 
+            _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }; 
+    }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PartM<T,At,Bt,Ct,S> {
@@ -193,23 +198,91 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         
         let mut i = 0;
         while i < m_save  {
-            let nb_step = std::cmp::min( self.nb, m_save - i );   
-            v.m = nb_step;
+            let bsz_step = std::cmp::min( self.bsz, m_save - i );   
+            v.m = bsz_step;
             v.m_off = m_off_save + i;
             self.child.run(a, b, c, v);
-            i += nb_step;
+            i += bsz_step;
         }
         v.m = m_save;
         v.m_off = m_off_save;
     }
 }
 
+struct PartN<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {
+    bsz: usize,
+    iota: usize,
+    child: S,
+    _t: PhantomData<T>,
+    _at: PhantomData<At>,
+    _bt: PhantomData<Bt>,
+    _ct: PhantomData<Ct>,
+}
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> PartN<T,At,Bt,Ct,S> {
+    fn new( bsz: usize, iota: usize, child: S ) -> PartN<T, At, Bt, Ct, S>{
+        return PartN{ bsz: bsz, iota: iota, child: child, 
+            _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }; 
+    }
+}
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
+    GemmNode<T, At, Bt, Ct> for PartN<T,At,Bt,Ct,S> {
+    fn run( &self, a: &At, b: &Bt, c:&mut Ct, v: &mut View ) -> () {
+        let n_save = v.n;
+        let n_off_save = v.n_off;
+        
+        let mut i = 0;
+        while i < n_save  {
+            let bsz_step = std::cmp::min( self.bsz, n_save - i );   
+            v.n = bsz_step;
+            v.n_off = n_off_save + i;
+            self.child.run(a, b, c, v);
+            i += bsz_step;
+        }
+        v.n = n_save;
+        v.n_off = n_off_save;
+    }
+}
+
+struct PartK<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {
+    bsz: usize,
+    iota: usize,
+    child: S,
+    _t: PhantomData<T>,
+    _at: PhantomData<At>,
+    _bt: PhantomData<Bt>,
+    _ct: PhantomData<Ct>,
+}
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> PartK<T,At,Bt,Ct,S> {
+    fn new( bsz: usize, iota: usize, child: S ) -> PartK<T, At, Bt, Ct, S>{
+        return PartK{ bsz: bsz, iota: iota, child: child, 
+            _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }; 
+    }
+}
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
+    GemmNode<T, At, Bt, Ct> for PartK<T,At,Bt,Ct,S> {
+    fn run( &self, a: &At, b: &Bt, c:&mut Ct, v: &mut View ) -> () {
+        let k_save = v.k;
+        let k_off_save = v.k_off;
+        
+        let mut i = 0;
+        while i < k_save  {
+            let bsz_step = std::cmp::min( self.bsz, k_save - i );   
+            v.k = bsz_step;
+            v.k_off = k_off_save + i;
+            self.child.run(a, b, c, v);
+            i += bsz_step;
+        }
+        v.k = k_save;
+        v.k_off = k_off_save;
+    }
+}
+
 //Leaf node that does nothing. For testing.
-struct End { }
+/*struct End { }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> GemmNode<T, At, Bt, Ct> for End {
     fn run( &self, a: &At, b: &Bt, c: &mut Ct, v: &mut View ) -> () {
     }
-}
+}*/
 
 struct TripleLoopKernel{}
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> 
@@ -260,20 +333,28 @@ fn main() {
     bw.fill_zero();
     abw.fill_zero();
 
-    
+ 
     let kernel : TripleLoopKernel = TripleLoopKernel{};
+    let loop1 : PartM<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, TripleLoopKernel> = PartM::new(5, 1, kernel);
+    let loop2 : PartK<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, 
+                PartM<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, TripleLoopKernel>> = PartK::new(5, 1, loop1);
+    let loop3 : PartN<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, 
+                PartK<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, 
+                PartM<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, TripleLoopKernel>>> = PartN::new(5, 1, loop2);
+
+    let ref_gemm : TripleLoopKernel = TripleLoopKernel{};
     //C = AB
-    kernel.run( &a, &b, &mut c, &mut gemm_view );
+    loop3.run( &a, &b, &mut c, &mut gemm_view );
 
     //Do bw = Bw, then abw = A*(Bw)   
     let mut bw_view : View = View::new(&b, &w, &bw);
-    kernel.run( &b, &w, &mut bw, &mut bw_view );
+    ref_gemm.run( &b, &w, &mut bw, &mut bw_view );
     let mut abw_view : View = View::new(&a, &bw, &abw);
-    kernel.run( &a, &bw, &mut abw, &mut abw_view );
+    ref_gemm.run( &a, &bw, &mut abw, &mut abw_view );
 
     //Do cw = Cw
     let mut cw_view : View = View::new(&c, &w, &cw);
-    kernel.run( &c, &w, &mut cw, &mut cw_view );
+    ref_gemm.run( &c, &w, &mut cw, &mut cw_view );
     
     //Cw -= abw
     axpy( 1.0, &abw, -1.0, &mut cw );
