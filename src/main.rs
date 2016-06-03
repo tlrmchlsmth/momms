@@ -42,7 +42,7 @@ trait Mat<T: Scalar> {
     fn set_off_y( &mut self, off_y: usize ) -> ();
     fn set_off_x( &mut self, off_x: usize ) -> ();
 
-    fn printWolfram( &self ) -> () {
+    fn print_wolfram( &self ) -> () {
         print!("{{");
         for y in 0..self.height() {
             print!("{{");
@@ -67,6 +67,7 @@ trait Mat<T: Scalar> {
                 let formatted_number = format!("{:.*}", 2, self.get(y,x));
                 print!("{} ", formatted_number);
             }
+            println!("");
         }
     }
 
@@ -96,7 +97,7 @@ trait Mat<T: Scalar> {
         return norm;
     }
    
-    fn copyFrom( &mut self, other: &Mat<T>  ) {
+    fn copy_from( &mut self, other: &Mat<T>  ) {
         if self.width() != other.width() || self.height() != other.height() {
             panic!("Cannot copy nonconformal matrices!");
         }
@@ -164,9 +165,9 @@ struct ColumnPanelMatrix<T: Scalar> {
 }
 impl<T: Scalar> ColumnPanelMatrix<T> {
     fn new( h: usize, w: usize, panel_w: usize ) -> ColumnPanelMatrix<T> {
-        let n_panels = w / panel_w;
+        let mut n_panels = w / panel_w;
         if !(w % panel_w) == 0 { 
-            let n_panels = w / panel_w + 1; 
+            n_panels = w / panel_w + 1; 
         }
 
         let capacity = n_panels * panel_w * h;
@@ -188,8 +189,8 @@ impl<T: Scalar> Mat<T> for ColumnPanelMatrix<T> {
         return self.buffer[ elem_index ];
     }
     fn set( &mut self, y: usize, x:usize, alpha: T) -> () {
-        let panel_id = y / self.panel_w;
-        let panel_index  = y % self.panel_w;
+        let panel_id = x / self.panel_w;
+        let panel_index  = x % self.panel_w;
         let elem_index = (panel_id + self.off_panel) * self.panel_stride + (y + self.off_y) * self.panel_w + panel_index;
 
         self.buffer[ elem_index ] = alpha;
@@ -212,32 +213,171 @@ impl<T: Scalar> Mat<T> for ColumnPanelMatrix<T> {
     }
 }
 
+struct RowPanelMatrix<T: Scalar> {
+    h: usize,
+    w: usize,
+
+    off_x: usize,
+    off_panel: usize,
+
+    //Panel_h is always h
+    panel_h: usize,
+    panel_stride: usize,
+    buffer: Vec<T>,
+}
+impl<T: Scalar> RowPanelMatrix<T> {
+    fn new( h: usize, w: usize, panel_h: usize ) -> RowPanelMatrix<T> {
+        let mut n_panels = h / panel_h;
+        if !(h % panel_h) == 0 { 
+            n_panels = h / panel_h + 1; 
+        }
+
+        let capacity = n_panels * panel_h * w;
+        
+        let mut buf = Vec::with_capacity( capacity );
+        unsafe{ buf.set_len( h * w );}
+        let mat = RowPanelMatrix{ h: h, w: w,
+                off_x: 0, off_panel: 0,
+                panel_h: panel_h, panel_stride: panel_h*w, buffer: buf };
+        return mat;
+    }
+}
+impl<T: Scalar> Mat<T> for RowPanelMatrix<T> {
+    fn get( &self, y: usize, x:usize ) -> T {
+        let panel_id = y / self.panel_h;
+        let panel_index  = y % self.panel_h;
+        let elem_index = (panel_id + self.off_panel) * self.panel_stride + (x + self.off_x) * self.panel_h + panel_index;
+
+        return self.buffer[ elem_index ];
+    }
+    fn set( &mut self, y: usize, x:usize, alpha: T) -> () {
+        let panel_id = y / self.panel_h;
+        let panel_index  = y % self.panel_h;
+        let elem_index = (panel_id + self.off_panel) * self.panel_stride + (x + self.off_x) * self.panel_h + panel_index;
+
+        self.buffer[ elem_index ] = alpha;
+    }
+    fn height( &self ) -> usize{ return self.h; }
+    fn width( &self ) -> usize{ return self.w; }
+    fn off_y( &self ) -> usize {
+        return self.off_panel * self.panel_h; 
+    }
+    fn off_x( &self ) -> usize { return self.off_x; }
+    fn set_height( &mut self, h: usize ) { self.h = h; }
+    fn set_width( &mut self, w: usize ) { self.w = w; }
+    fn set_off_y( &mut self, off_y: usize ) { 
+        if off_y % self.panel_h != 0 {
+            println!("{} {}", off_y, self.panel_h);
+            panic!("Illegal partitioning within ColumnPanelMatrix!");
+        }
+        self.off_panel = off_y / self.panel_h;
+    }
+    fn set_off_x( &mut self, off_x: usize ) { self.off_x = off_x }
+}
+
+
 trait GemmNode<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> {
      fn run( &self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> ();
 }
 
-struct PackACP<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {
+struct PackAcp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, ColumnPanelMatrix<T>, Bt, Ct>> {
     child: S,
     panel_width: usize,
-    _dt: PhantomData<T>,
+    _t: PhantomData<T>,
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
 }
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
-    PackACP <T,At,Bt,Ct,S> {
-    fn new( panel_width: usize, child: S ) -> PackACP<T, At, Bt, Ct, S>{
-        return PackACP{ panel_width: panel_width, child: child, 
-            _dt: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }; 
+impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, ColumnPanelMatrix<T>, Bt, Ct>> 
+    PackAcp <T,At,Bt,Ct,S> {
+    fn new( panel_width: usize, child: S ) -> PackAcp<T, At, Bt, Ct, S>{
+        return PackAcp{ panel_width: panel_width, child: child, 
+            _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }; 
     }
 }
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
-    GemmNode<T, At, Bt, Ct> for PackACP<T, At, Bt, Ct, S> {
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, ColumnPanelMatrix<T>, Bt, Ct>>
+    GemmNode<T, At, Bt, Ct> for PackAcp<T, At, Bt, Ct, S> {
     fn run( &self, a: &mut At, b: &mut Bt, c:&mut Ct ) -> () {
         let mut a_pack : ColumnPanelMatrix<T> = ColumnPanelMatrix::new( a.height(), a.width(), self.panel_width );
 
-        //pack( a );
-        self.child.run(a, b, c);
+        a_pack.copy_from( a );
+
+        self.child.run(&mut a_pack, b, c);
+    }
+}
+struct PackBcp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPanelMatrix<T>, Ct>> {
+    child: S,
+    panel_width: usize,
+    _t: PhantomData<T>,
+    _at: PhantomData<At>,
+    _bt: PhantomData<Bt>,
+    _ct: PhantomData<Ct>,
+}
+impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPanelMatrix<T>, Ct>> 
+    PackBcp <T,At,Bt,Ct,S> {
+    fn new( panel_width: usize, child: S ) -> PackBcp<T, At, Bt, Ct, S>{
+        return PackBcp{ panel_width: panel_width, child: child, 
+            _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }; 
+    }
+}
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPanelMatrix<T>, Ct>>
+    GemmNode<T, At, Bt, Ct> for PackBcp<T, At, Bt, Ct, S> {
+    fn run( &self, a: &mut At, b: &mut Bt, c:&mut Ct ) -> () {
+        let mut b_pack : ColumnPanelMatrix<T> = ColumnPanelMatrix::new( a.height(), a.width(), self.panel_width );
+
+        b_pack.copy_from( b );
+
+        self.child.run( a, &mut b_pack, c);
+    }
+}
+struct PackArp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix<T>, Bt, Ct>> {
+    child: S,
+    panel_height: usize,
+    _t: PhantomData<T>,
+    _at: PhantomData<At>,
+    _bt: PhantomData<Bt>,
+    _ct: PhantomData<Ct>,
+}
+impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix<T>, Bt, Ct>> 
+    PackArp <T,At,Bt,Ct,S> {
+    fn new( panel_height: usize, child: S ) -> PackArp<T, At, Bt, Ct, S>{
+        return PackArp{ panel_height: panel_height, child: child, 
+            _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }; 
+    }
+}
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix<T>, Bt, Ct>>
+    GemmNode<T, At, Bt, Ct> for PackArp<T, At, Bt, Ct, S> {
+    fn run( &self, a: &mut At, b: &mut Bt, c:&mut Ct ) -> () {
+        let mut a_pack : RowPanelMatrix<T> = RowPanelMatrix::new( a.height(), a.width(), self.panel_height );
+
+        a_pack.copy_from( a );
+
+        self.child.run(&mut a_pack, b, c);
+    }
+}
+struct PackBrp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, RowPanelMatrix<T>, Ct>> {
+    child: S,
+    panel_height: usize,
+    _t: PhantomData<T>,
+    _at: PhantomData<At>,
+    _bt: PhantomData<Bt>,
+    _ct: PhantomData<Ct>,
+}
+impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, RowPanelMatrix<T>, Ct>> 
+    PackBrp <T,At,Bt,Ct,S> {
+    fn new( panel_height: usize, child: S ) -> PackBrp<T, At, Bt, Ct, S>{
+        return PackBrp{ panel_height: panel_height, child: child, 
+            _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }; 
+    }
+}
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, RowPanelMatrix<T>, Ct>>
+    GemmNode<T, At, Bt, Ct> for PackBrp<T, At, Bt, Ct, S> {
+    fn run( &self, a: &mut At, b: &mut Bt, c:&mut Ct ) -> () {
+        let mut b_pack : RowPanelMatrix<T> = RowPanelMatrix::new( a.height(), a.width(), self.panel_height );
+
+        b_pack.copy_from( b );
+
+        self.child.run( a, &mut b_pack, c);
     }
 }
 
@@ -369,9 +509,6 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
         for x in 0..c.width() {
             for z in 0..a.width() {
                 for y in 0..c.height() {
-/*                    let y = im+v.m_off;
-                    let x = jn+v.n_off;
-                    let z = pk+v.k_off;*/
                     let t = a.get(y,z) * b.get(z,x) + c.get(y,x);
                     c.set( y, x, t );
                 }
@@ -396,7 +533,19 @@ fn main() {
     let n = 10;
     let k = 10;
 
-    let mut a : ColumnPanelMatrix<f64> = ColumnPanelMatrix::new(m, k, 2);
+    /*let mut t: Matrix<f64> = Matrix::new(m, m);
+    let mut t_pack : RowPanelMatrix<f64> = RowPanelMatrix::new( t.height(), t.width(), 2 );
+    t.fill_rand();
+    t.print();
+    println!("");
+    t_pack.copy_from( &t );
+    t_pack.print();
+    println!("");
+    return;*/
+
+
+
+    let mut a : Matrix<f64> = Matrix::new(m, k);
     let mut b : Matrix<f64> = Matrix::new(k, n);
     let mut c : Matrix<f64> = Matrix::new(m, n);
     a.fill_rand();
@@ -417,12 +566,12 @@ fn main() {
     //You can be explicit with the types like here:
     //The problem is that the types grow quadratically with the number of steps in the control tree!
     let kernel : TripleLoopKernel = TripleLoopKernel{};
-    let loop1 : PartM<f64, ColumnPanelMatrix<f64>, Matrix<f64>, Matrix<f64>, TripleLoopKernel> = PartM::new(5, 1, kernel);
-    let loop2 : PartK<f64, ColumnPanelMatrix<f64>, Matrix<f64>, Matrix<f64>, 
-                PartM<f64, ColumnPanelMatrix<f64>, Matrix<f64>, Matrix<f64>, TripleLoopKernel>> = PartK::new(4, 1, loop1);
-    let loop3 : PartN<f64, ColumnPanelMatrix<f64>, Matrix<f64>, Matrix<f64>, 
-                PartK<f64, ColumnPanelMatrix<f64>, Matrix<f64>, Matrix<f64>, 
-                PartM<f64, ColumnPanelMatrix<f64>, Matrix<f64>, Matrix<f64>, TripleLoopKernel>>> = PartN::new(5, 1, loop2);
+    let loop1 : PartM<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, TripleLoopKernel> = PartM::new(5, 1, kernel);
+    let loop2 : PartK<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, 
+                PartM<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, TripleLoopKernel>> = PartK::new(4, 1, loop1);
+    let loop3 : PartN<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, 
+                PartK<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, 
+                PartM<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, TripleLoopKernel>>> = PartN::new(5, 1, loop2);
 
     //If you instead delcare the phantom data here, the type inference system works
     //I.E. the compiler can infer the type of loop1_inf when you use that type in loop2_inf
@@ -431,21 +580,23 @@ fn main() {
     let kernel_inf = TripleLoopKernel{};
     let loop1_inf = PartM{ bsz: 5, iota: 1, child: kernel_inf, 
         _t: PhantomData::<f64>, _at: PhantomData::<ColumnPanelMatrix<f64>>, _bt: PhantomData::<Matrix<f64>>, _ct: PhantomData::<Matrix<f64>> };
-    let loop2_inf = PartK{ bsz: 4, iota: 1, child: loop1_inf, 
+    let loop2_inf = PartK{ bsz: 5, iota: 1, child: loop1_inf, 
         _t: PhantomData::<f64>, _at: PhantomData::<ColumnPanelMatrix<f64>>, _bt: PhantomData::<Matrix<f64>>, _ct: PhantomData::<Matrix<f64>> };
     let loop3_inf = PartN{ bsz: 5, iota: 1, child: loop2_inf, 
         _t: PhantomData::<f64>, _at: PhantomData::<ColumnPanelMatrix<f64>>, _bt: PhantomData::<Matrix<f64>>, _ct: PhantomData::<Matrix<f64>> };
+    let gemm = PackAcp{ panel_width: 5, child: loop3_inf,
+        _t: PhantomData::<f64>, _at: PhantomData::<Matrix<f64>>, _bt: PhantomData::<Matrix<f64>>, _ct: PhantomData::<Matrix<f64>> };
 
     let ref_gemm : TripleLoopKernel = TripleLoopKernel{};
     //C = AB
-    loop3_inf.run( &mut a, &mut b, &mut c );
+    gemm.run( &mut a, &mut b, &mut c );
     //loop3.run( &mut a, &mut b, &mut c );
 
-    a.printWolfram();
+    a.print_wolfram();
     println!("");
-    b.printWolfram();
+    b.print_wolfram();
     println!("");
-    c.printWolfram();
+    c.print_wolfram();
     println!("");
 
     //Do bw = Bw, then abw = A*(Bw)   
