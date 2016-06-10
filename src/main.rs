@@ -1,6 +1,7 @@
 #![feature(specialization)]
 #![feature(zero_one)]
 #![feature(asm)]
+#![feature(unique, alloc, heap_api)]
 
 extern crate core;
 use core::marker::{PhantomData};

@@ -1,7 +1,13 @@
+extern crate rand;
+extern crate alloc;
+
+use std::ptr::{Unique, self};
+use std::mem;
+use self::alloc::heap;
+
 use std::ops::{Add, Mul, Sub, Div, AddAssign, MulAssign, SubAssign, DivAssign};
 use std::num::{Zero,One};
 use core::fmt::{Display};
-extern crate rand;
 
 pub trait Scalar where
     Self: Add<Self, Output=Self>,
@@ -163,15 +169,21 @@ pub struct Matrix<T: Scalar> {
     //Strides and buffer
     row_stride: usize,
     column_stride: usize,
-    buffer: Vec<T>,
+    buffer: Unique<T>,
+    capacity: usize,
 }
 impl<T: Scalar> Matrix<T> {
     pub fn new( h: usize, w: usize ) -> Matrix<T> {
-        let mut buf: Vec<T> = Vec::with_capacity( h * w );
-        unsafe{ buf.set_len( h * w );}
-        Matrix{ h: h, w: w, 
-                off_y: 0, off_x: 0,
-                row_stride: 1, column_stride: h, buffer: buf }
+        assert!(mem::size_of::<T>() != 0, "Matrix can't handle ZSTs");
+        unsafe { 
+            let ptr = heap::allocate( h * w * mem::size_of::<T>(), 4096 );
+        
+            Matrix{ h: h, w: w, 
+                    off_y: 0, off_x: 0,
+                    row_stride: 1, column_stride: h,
+                    buffer: Unique::new(ptr as *mut _),
+                    capacity: h * w }
+        }
     }
 
     #[inline(always)] pub fn get_row_stride( &self ) -> usize { self.row_stride }
@@ -180,24 +192,39 @@ impl<T: Scalar> Matrix<T> {
     
     #[inline(always)]
     pub unsafe fn get_const_buffer( &self ) -> *const T { 
-        self.buffer.as_ptr().offset((self.off_y*self.row_stride + self.off_x*self.column_stride) 
-                                     as isize)
+        //self.buffer.as_ptr().offset((self.off_y*self.row_stride + self.off_x*self.column_stride) 
+        //                             as isize)
+        self.buffer.offset((self.off_y*self.row_stride + self.off_x*self.column_stride) as isize)
     }
 
     #[inline(always)]
     pub unsafe fn get_mut_buffer( &mut self ) -> *mut T {
-        self.buffer.as_mut_ptr().offset((self.off_y*self.row_stride + self.off_x*self.column_stride) 
-                                         as isize)
+        self.buffer.offset((self.off_y*self.row_stride + self.off_x*self.column_stride) as isize)
     }
 }
 impl<T: Scalar> Mat<T> for Matrix<T> {
     #[inline(always)]
     fn get( &self, y: usize, x: usize) -> T {
-        self.buffer[(y+self.off_y)*self.row_stride + (x+self.off_x)*self.column_stride]
+        if y >= self.h || x >= self.w { 
+            panic!("Cannot access element ({}, {}) of a {} by {} matrix!", y, x, self.h, self.w );
+        }
+        let y_coord = (y + self.off_y) * self.row_stride;
+        let x_coord = (x + self.off_x) * self.column_stride;
+        unsafe{
+            ptr::read( self.buffer.offset((y_coord + x_coord) as isize) )
+        }
+//        self.buffer[(y+self.off_y)*self.row_stride + (x+self.off_x)*self.column_stride]
     }
     #[inline(always)]
     fn set( &mut self, y: usize, x: usize, alpha: T) {
-        self.buffer[(y+self.off_y)*self.row_stride + (x+self.off_x)*self.column_stride] = alpha;
+        if y >= self.h || x >= self.w { 
+            panic!("Cannot access element ({}, {}) of a {} by {} matrix!", y, x, self.h, self.w );
+        }
+        let y_coord = (y + self.off_y) * self.row_stride;
+        let x_coord = (x + self.off_x) * self.column_stride;
+        unsafe{
+            ptr::write( self.buffer.offset((y_coord + x_coord) as isize), alpha );
+        }
     }
     #[inline(always)]
     fn width( &self ) -> usize { self.w }
@@ -227,21 +254,27 @@ pub struct ColumnPanelMatrix<T: Scalar> {
     //Panel_h is always h
     panel_w: usize,
     panel_stride: usize,
-    buffer:  Vec<T>,
+    
+    buffer: Unique<T>,
+    capacity: usize,
 }
 impl<T: Scalar> ColumnPanelMatrix<T> {
     pub fn new( h: usize, w: usize, panel_w: usize ) -> ColumnPanelMatrix<T> {
+        assert!(mem::size_of::<T>() != 0, "Matrix can't handle ZSTs");
+
         let mut n_panels = w / panel_w;
         if !(w % panel_w == 0) { 
             n_panels = w / panel_w + 1; 
         }
-
         let capacity = n_panels * panel_w * h;
-        let mut buf: Vec<T> = Vec::with_capacity( capacity );
-        unsafe{ buf.set_len( n_panels * panel_w * h );}
-        ColumnPanelMatrix{ h: h, w: w,
+        unsafe { 
+            let ptr = heap::allocate( capacity * mem::size_of::<T>(), 4096 );
+
+            ColumnPanelMatrix{ h: h, w: w,
                            off_y: 0, off_panel: 0,
-                           panel_w: panel_w, panel_stride: panel_w*h, buffer: buf }
+                           panel_w: panel_w, panel_stride: panel_w*h, 
+                           buffer: Unique::new(ptr as *mut _), capacity: capacity }
+        }
     }
 
     pub fn resize( &mut self, new_h: usize, new_w: usize ) {
@@ -250,12 +283,17 @@ impl<T: Scalar> ColumnPanelMatrix<T> {
         if !(new_w % self.panel_w == 0) { n_panels += 1; }
 
         let new_capacity = n_panels * self.panel_w * new_h;
-        let old_capacity = self.buffer.capacity();
+        let old_capacity = self.capacity; //self.buffer.capacity();
         if new_capacity > old_capacity {
-            self.buffer =  Vec::with_capacity( new_capacity );
-            //self.buffer.reserve( new_capacity - old_capacity );
+            unsafe {
+                heap::deallocate(*self.buffer as *mut _, old_capacity, 4096);
+                let newbuf = heap::allocate( new_capacity * mem::size_of::<T>(), 4096 );
+                self.buffer = Unique::new(newbuf as *mut _);
+                self.capacity = new_capacity;
+                //self.buffer =  Vec::with_capacity( new_capacity );
+                //self.buffer.reserve( new_capacity - old_capacity );
+            }
         }
-        unsafe{ self.buffer.set_len( n_panels * self.panel_w * new_h ) };
         self.h = new_h;
         self.w = new_w;
         self.panel_stride = self.panel_w*new_h;
@@ -263,28 +301,37 @@ impl<T: Scalar> ColumnPanelMatrix<T> {
 
     #[inline(always)]
     pub unsafe fn get_const_buffer( &self ) -> *const T { 
-        self.buffer.as_ptr().offset((self.off_panel*self.panel_stride + self.off_y*self.panel_w) as isize)
+        self.buffer.offset((self.off_panel*self.panel_stride + self.off_y*self.panel_w) as isize)
     }
     #[inline(always)]
     pub unsafe fn get_mut_buffer( &mut self ) -> *mut T {
-        self.buffer.as_mut_ptr().offset((self.off_panel*self.panel_stride + self.off_y*self.panel_w) as isize)
+        self.buffer.offset((self.off_panel*self.panel_stride + self.off_y*self.panel_w) as isize)
     }
 }
 impl<T: Scalar> Mat<T> for ColumnPanelMatrix<T> {
     #[inline(always)]
     fn get( &self, y: usize, x:usize ) -> T {
+        if y >= self.h || x >= self.w { 
+            panic!("Cannot access element ({}, {}) of a {} by {} matrix!", y, x, self.h, self.w );
+        }
         let panel_id = x / self.panel_w;
         let panel_index  = x % self.panel_w;
         let elem_index = (panel_id + self.off_panel) * self.panel_stride + (y + self.off_y) * self.panel_w + panel_index;
-        self.buffer[ elem_index ]
+        unsafe{
+            ptr::read( self.buffer.offset(elem_index as isize ) )
+        }
     }
     #[inline(always)]
     fn set( &mut self, y: usize, x:usize, alpha: T) {
+        if y >= self.h || x >= self.w { 
+            panic!("Cannot access element ({}, {}) of a {} by {} matrix!", y, x, self.h, self.w );
+        }
         let panel_id = x / self.panel_w;
         let panel_index  = x % self.panel_w;
         let elem_index = (panel_id + self.off_panel) * self.panel_stride + (y + self.off_y) * self.panel_w + panel_index;
-
-        self.buffer[ elem_index ] = alpha;
+        unsafe{
+            ptr::write( self.buffer.offset(elem_index as isize ), alpha );
+        }
     }
     #[inline(always)]
     fn height( &self ) -> usize{ self.h }
@@ -320,22 +367,27 @@ pub struct RowPanelMatrix<T: Scalar> {
     //Panel_h is always h
     panel_h: usize,
     panel_stride: usize,
-    buffer: Vec<T>,
+    buffer: Unique<T>,
+    capacity: usize,
 }
 impl<T: Scalar> RowPanelMatrix<T> {
     pub fn new( h: usize, w: usize, panel_h: usize ) -> RowPanelMatrix<T> {
+        assert!(mem::size_of::<T>() != 0, "Matrix can't handle ZSTs");
+
         let mut n_panels = h / panel_h;
         if !(h % panel_h == 0) { 
             n_panels = h / panel_h + 1; 
         }
-
-        let capacity = n_panels * panel_h * w;
         
-        let mut buf: Vec<T> = Vec::with_capacity( capacity );
-        unsafe{ buf.set_len( n_panels * panel_h * w );}
-        RowPanelMatrix{ h: h, w: w,
-                        off_x: 0, off_panel: 0,
-                        panel_h: panel_h, panel_stride: panel_h*w, buffer: buf }
+        let capacity = n_panels * panel_h * w;
+        unsafe { 
+            let ptr = heap::allocate( capacity * mem::size_of::<T>(), 4096 );
+
+            RowPanelMatrix{ h: h, w: w,
+                           off_x: 0, off_panel: 0,
+                           panel_h: panel_h, panel_stride: panel_h*w, 
+                           buffer: Unique::new(ptr as *mut _), capacity: capacity }
+        }
     }
 
     pub fn resize( &mut self, new_h: usize, new_w: usize ) {
@@ -344,12 +396,15 @@ impl<T: Scalar> RowPanelMatrix<T> {
         if !(new_h % self.panel_h == 0) { n_panels += 1; }
 
         let new_capacity = n_panels * self.panel_h * new_w;
-        let old_capacity = self.buffer.capacity();
+        let old_capacity = self.capacity;
         if new_capacity > old_capacity {
-            self.buffer =  Vec::with_capacity( new_capacity );
-            //self.buffer.reserve( new_capacity - old_capacity );
+            unsafe {
+                heap::deallocate(*self.buffer as *mut _, old_capacity, 4096);
+                let newbuf = heap::allocate( new_capacity * mem::size_of::<T>(), 4096 );
+                self.buffer = Unique::new(newbuf as *mut _);
+                self.capacity = new_capacity;
+            }
         }
-        unsafe{ self.buffer.set_len( n_panels * self.panel_h * new_w ) };
         self.h = new_h;
         self.w = new_w;
         self.panel_stride = self.panel_h*new_w;
@@ -357,29 +412,40 @@ impl<T: Scalar> RowPanelMatrix<T> {
 
     #[inline(always)]
     pub unsafe fn get_const_buffer( &self ) -> *const T { 
-        self.buffer.as_ptr().offset((self.off_panel*self.panel_stride + self.off_x*self.panel_h) as isize)
+        self.buffer.offset((self.off_panel*self.panel_stride + self.off_x*self.panel_h) as isize)
     }
     #[inline(always)]
     pub unsafe fn get_mut_buffer( &mut self ) -> *mut T {
-        self.buffer.as_mut_ptr().offset((self.off_panel*self.panel_stride + self.off_x*self.panel_h) as isize)
+        self.buffer.offset((self.off_panel*self.panel_stride + self.off_x*self.panel_h) as isize)
     }
 }
 impl<T: Scalar> Mat<T> for RowPanelMatrix<T> {
     #[inline(always)]
     fn get( &self, y: usize, x:usize ) -> T {
+        if y >= self.h || x >= self.w { 
+            panic!("Cannot access element ({}, {}) of a {} by {} matrix!", y, x, self.h, self.w );
+        }
+
         let panel_id = y / self.panel_h;
         let panel_index  = y % self.panel_h;
         let elem_index = (panel_id + self.off_panel) * self.panel_stride + (x + self.off_x) * self.panel_h + panel_index;
-
-        self.buffer[ elem_index ]
+        unsafe{
+            ptr::read( self.buffer.offset(elem_index as isize ) )
+        }
     }
     #[inline(always)]
     fn set( &mut self, y: usize, x:usize, alpha: T) {
+        if y >= self.h || x >= self.w { 
+            panic!("Cannot access element ({}, {}) of a {} by {} matrix!", y, x, self.h, self.w );
+        }
+
         let panel_id = y / self.panel_h;
         let panel_index  = y % self.panel_h;
         let elem_index = (panel_id + self.off_panel) * self.panel_stride + (x + self.off_x) * self.panel_h + panel_index;
 
-        self.buffer[ elem_index ] = alpha;
+        unsafe{
+            ptr::write( self.buffer.offset(elem_index as isize ), alpha )
+        }
     }
     #[inline(always)]
     fn height( &self ) -> usize{ self.h }
