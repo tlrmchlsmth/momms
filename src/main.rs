@@ -33,25 +33,29 @@ fn time_sweep_goto() -> ()
         = PartK::new( 256, 1, packb );
     let mut loop5: PartN<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
         = PartN::new( 4096, 4, loop4 );
-
+    
     for index in 0..64 {
+        let mut best_time = 9999999999.0 as f64;
         let size = (index + 1) * 64;
-        let mut a : Matrix<f64> = Matrix::new(size, size);
-        let mut b : Matrix<f64> = Matrix::new(size, size);
-        let mut c : Matrix<f64> = Matrix::new(size, size);
-        a.fill_rand();
-        b.fill_rand();
-        c.fill_zero();
-        
-        let start = Instant::now();
-        loop5.run( &mut a, &mut b, &mut c );
-        let time_secs = start.elapsed().as_secs() as f64;
-        let time_nanos = start.elapsed().subsec_nanos() as f64;
-        let time = time_nanos / 1E9 + time_secs;
 
+        for nrep in 0..3 {
+            let mut a : Matrix<f64> = Matrix::new(size, size);
+            let mut b : Matrix<f64> = Matrix::new(size, size);
+            let mut c : Matrix<f64> = Matrix::new(size, size);
+            a.fill_rand();
+            b.fill_rand();
+            c.fill_zero();
+            
+            let start = Instant::now();
+            loop5.run( &mut a, &mut b, &mut c );
+            let time_secs = start.elapsed().as_secs() as f64;
+            let time_nanos = start.elapsed().subsec_nanos() as f64;
+            let time = time_nanos / 1E9 + time_secs;
+            best_time = best_time.min(time);
+            
+        }
         let nflops = (size * size * size) as f64;
-        println!("{}\t{}", size, 2.0 * nflops / time / 1E9);
-        
+        println!("{}\t{}", size, 2.0 * nflops / best_time / 1E9);
     }
 }
 
@@ -92,7 +96,6 @@ fn main() {
     println!("");
     return;*/
 
-    //time_sweep_goto( );
 
 
 
@@ -167,5 +170,6 @@ fn main() {
     //Cw -= abw
     cw.axpy( -1.0, &abw );
     let norm = cw.frosqr();
-    println!("diff is {}", format!("{:e}",norm));
+    println!("diff is {}\n", format!("{:e}",norm));
+    time_sweep_goto( );
 }

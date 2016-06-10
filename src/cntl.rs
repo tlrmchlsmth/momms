@@ -8,15 +8,10 @@ pub trait GemmNode<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> {
 }
 
 
-//Control tree nodes related to packing
-pub struct PackData<T: Scalar> {
-    cached_buffer: Mat<T>,
-}
-
 pub struct PackAcp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, ColumnPanelMatrix<T>, Bt, Ct>> {
     child: S,
     panel_width: usize,
-//    pub data: PackData<T, ColumnPanelMatrix<T>>,
+    a_pack: ColumnPanelMatrix<T>,
     _t: PhantomData<T>,
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
@@ -25,26 +20,23 @@ pub struct PackAcp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T,
 impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, ColumnPanelMatrix<T>, Bt, Ct>> 
     PackAcp <T,At,Bt,Ct,S> {
     pub fn new( panel_width: usize, child: S ) -> PackAcp<T, At, Bt, Ct, S>{
-//      matrix = ColumnPanelMatrix::new(0,0,panel_width);
-//        PackAcp{ panel_width: panel_width, child: child, data: matrix,
-//                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
-        PackAcp{ panel_width: panel_width, child: child,
+        let matrix = ColumnPanelMatrix::new( 0, 0, panel_width );
+        PackAcp{ panel_width: panel_width, child: child, a_pack: matrix,
                  _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, ColumnPanelMatrix<T>, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PackAcp<T, At, Bt, Ct, S> {
     fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct ) -> () {
-        let mut a_pack : ColumnPanelMatrix<T> = ColumnPanelMatrix::new( a.height(), a.width(), self.panel_width );
-
-        a_pack.copy_from( a );
-
-        self.child.run(&mut a_pack, b, c);
+        self.a_pack.resize( a.height(), a.width() );
+        self.a_pack.copy_from( a );
+        self.child.run(&mut self.a_pack, b, c);
     }
 }
 pub struct PackBcp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPanelMatrix<T>, Ct>> {
     child: S,
     panel_width: usize,
+    b_pack: ColumnPanelMatrix<T>,
     _t: PhantomData<T>,
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
@@ -53,22 +45,22 @@ pub struct PackBcp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T,
 impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPanelMatrix<T>, Ct>> 
     PackBcp <T,At,Bt,Ct,S> {
     pub fn new( panel_width: usize, child: S ) -> PackBcp<T, At, Bt, Ct, S>{
-        PackBcp{ panel_width: panel_width, child: child, 
+        let matrix = ColumnPanelMatrix::new( 0, 0, panel_width );
+        PackBcp{ panel_width: panel_width, child: child, b_pack: matrix,
                  _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPanelMatrix<T>, Ct>>
     GemmNode<T, At, Bt, Ct> for PackBcp<T, At, Bt, Ct, S> {
     fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct ) -> () {
-        let mut b_pack : ColumnPanelMatrix<T> = ColumnPanelMatrix::new( b.height(), b.width(), self.panel_width );
-
-        b_pack.copy_from( b );
-
-        self.child.run( a, &mut b_pack, c);
+        self.b_pack.resize( b.height(), b.width() );
+        self.b_pack.copy_from( b );
+        self.child.run(a, &mut self.b_pack, c);
     }
 }
 pub struct PackArp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix<T>, Bt, Ct>> {
     child: S,
+    a_pack: RowPanelMatrix<T>,
     panel_height: usize,
     _t: PhantomData<T>,
     _at: PhantomData<At>,
@@ -78,18 +70,17 @@ pub struct PackArp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T,
 impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix<T>, Bt, Ct>> 
     PackArp <T,At,Bt,Ct,S> {
     pub fn new( panel_height: usize, child: S ) -> PackArp<T, At, Bt, Ct, S>{
-        PackArp{ panel_height: panel_height, child: child, 
+        let matrix = RowPanelMatrix::new( 0, 0, panel_height );
+        PackArp{ panel_height: panel_height, child: child, a_pack: matrix,
                  _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix<T>, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PackArp<T, At, Bt, Ct, S> {
     fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct ) -> () {
-        let mut a_pack : RowPanelMatrix<T> = RowPanelMatrix::new( a.height(), a.width(), self.panel_height );
-
-        a_pack.copy_from( a );
-
-        self.child.run(&mut a_pack, b, c);
+        self.a_pack.resize( a.height(), a.width() );
+        self.a_pack.copy_from( a );
+        self.child.run(&mut self.a_pack, b, c);
     }
 }
 

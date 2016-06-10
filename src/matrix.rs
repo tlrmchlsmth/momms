@@ -27,7 +27,7 @@ pub trait Mat<T: Scalar> {
     #[inline(always)]
     fn get( &self, y: usize, x: usize) -> T;
     #[inline(always)]
-    fn set( &mut self, y: usize, x: usize, alpha: T) -> ()
+    fn set( &mut self, y: usize, x: usize, alpha: T) 
             where T: Sized;
     
     #[inline(always)]
@@ -40,15 +40,15 @@ pub trait Mat<T: Scalar> {
     fn off_x( &self ) -> usize;
 
     #[inline(always)]
-    fn set_height( &mut self, h: usize ) -> ();
+    fn set_height( &mut self, h: usize );
     #[inline(always)]
-    fn set_width( &mut self, w: usize ) -> ();
+    fn set_width( &mut self, w: usize );
     #[inline(always)]
-    fn set_off_y( &mut self, off_y: usize ) -> ();
+    fn set_off_y( &mut self, off_y: usize );
     #[inline(always)]
-    fn set_off_x( &mut self, off_x: usize ) -> ();
+    fn set_off_x( &mut self, off_x: usize );
 
-    fn print_wolfram( &self ) -> () {
+    fn print_wolfram( &self ) {
         print!("{{");
         for y in 0..self.height() {
             print!("{{");
@@ -67,7 +67,7 @@ pub trait Mat<T: Scalar> {
         print!("}}");
     }
 
-    fn print( &self ) -> () {
+    fn print( &self ) {
         for y in 0..self.width() {
             for x in 0..self.height() {
                 let formatted_number = format!("{:.*}", 2, self.get(y,x));
@@ -77,7 +77,7 @@ pub trait Mat<T: Scalar> {
         }
     }
 
-    fn fill_rand( &mut self ) -> () {
+    fn fill_rand( &mut self ) {
         for x in 0..self.width() {
             for y in 0..self.height() {
                 self.set(y,x,rand::random::<T>());
@@ -85,7 +85,7 @@ pub trait Mat<T: Scalar> {
         }
     }
 
-    fn fill_zero( &mut self ) -> () {
+    fn fill_zero( &mut self ) {
         for x in 0..self.width() {
             for y in 0..self.height() {
                 self.set(y,x,T::zero());
@@ -102,24 +102,52 @@ pub trait Mat<T: Scalar> {
         }
         norm
     }
-   
+    
     fn copy_from( &mut self, other: &Mat<T>  ) {
         self.axpby( T::one(), other, T::zero() );
     }
     fn axpy( &mut self, alpha: T, other: &Mat<T> ) {
         self.axpby( alpha, other, T::one() );
     }
+
+    fn axpby_base( &mut self, alpha: T, other: &Mat<T>, beta: T, 
+                  off_y: usize, off_x: usize, h: usize, w: usize ) {
+        for x in off_x..off_x+w {
+            for y in off_y..off_y+h { 
+                let t = alpha * other.get(y,x) + beta * self.get(y,x);
+                self.set(y,x,t);
+            }
+        }
+    }
+
+    //Split into quarters recursivly for cache oblivious axpby
+    fn axpby_rec( &mut self, alpha: T, other: &Mat<T>, beta: T, 
+                  off_y: usize, off_x: usize, h: usize, w: usize ) {
+        if h < 32 || w < 32 { self.axpby_base( alpha, other, beta, off_y, off_x, h, w); }
+        else{
+            let half_h = h / 2;
+            let half_w = w / 2;
+            self.axpby_rec(alpha, other, beta, off_y, off_x, half_h, half_w );
+            self.axpby_rec(alpha, other, beta, off_y + half_h, off_x, h - half_h, half_w );
+            self.axpby_rec(alpha, other, beta, off_y, off_x + half_w, half_h, w - half_w );
+            self.axpby_rec(alpha, other, beta, off_y + half_h, off_x + half_w, h - half_h, w - half_w );
+        }
+    }
     
     fn axpby( &mut self, alpha: T, other: &Mat<T>, beta: T ) {
         if self.width() != other.width() || self.height() != other.height() {
             panic!("Cannot operate on nonconformal matrices!");
         }
-        for x in 0..self.width() {
+/*        for x in 0..self.width() {
             for y in 0..self.height() { 
                 let t = alpha * other.get(y,x) + beta * self.get(y,x);
                 self.set(y,x,t);
             }
         }
+*/
+        let h = self.height();
+        let w = self.width();
+        self.axpby_rec(alpha, other, beta, 0, 0, h, w); 
     }
 }
 
@@ -168,7 +196,7 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
         self.buffer[(y+self.off_y)*self.row_stride + (x+self.off_x)*self.column_stride]
     }
     #[inline(always)]
-    fn set( &mut self, y: usize, x: usize, alpha: T) -> () {
+    fn set( &mut self, y: usize, x: usize, alpha: T) {
         self.buffer[(y+self.off_y)*self.row_stride + (x+self.off_x)*self.column_stride] = alpha;
     }
     #[inline(always)]
@@ -216,6 +244,23 @@ impl<T: Scalar> ColumnPanelMatrix<T> {
                            panel_w: panel_w, panel_stride: panel_w*h, buffer: buf }
     }
 
+    pub fn resize( &mut self, new_h: usize, new_w: usize ) {
+        if self.off_y != 0 || self.off_panel != 0 { panic!("can't resize a submatrix!"); }
+        let mut n_panels = new_w / self.panel_w;
+        if !(new_w % self.panel_w == 0) { n_panels += 1; }
+
+        let new_capacity = n_panels * self.panel_w * new_h;
+        let old_capacity = self.buffer.capacity();
+        if new_capacity > old_capacity {
+            self.buffer =  Vec::with_capacity( new_capacity );
+            //self.buffer.reserve( new_capacity - old_capacity );
+        }
+        unsafe{ self.buffer.set_len( n_panels * self.panel_w * new_h ) };
+        self.h = new_h;
+        self.w = new_w;
+        self.panel_stride = self.panel_w*new_h;
+    }
+
     #[inline(always)]
     pub unsafe fn get_const_buffer( &self ) -> *const T { 
         self.buffer.as_ptr().offset((self.off_panel*self.panel_stride + self.off_y*self.panel_w) as isize)
@@ -234,7 +279,7 @@ impl<T: Scalar> Mat<T> for ColumnPanelMatrix<T> {
         self.buffer[ elem_index ]
     }
     #[inline(always)]
-    fn set( &mut self, y: usize, x:usize, alpha: T) -> () {
+    fn set( &mut self, y: usize, x:usize, alpha: T) {
         let panel_id = x / self.panel_w;
         let panel_index  = x % self.panel_w;
         let elem_index = (panel_id + self.off_panel) * self.panel_stride + (y + self.off_y) * self.panel_w + panel_index;
@@ -292,6 +337,24 @@ impl<T: Scalar> RowPanelMatrix<T> {
                         off_x: 0, off_panel: 0,
                         panel_h: panel_h, panel_stride: panel_h*w, buffer: buf }
     }
+
+    pub fn resize( &mut self, new_h: usize, new_w: usize ) {
+        if self.off_x != 0 || self.off_panel != 0 { panic!("can't resize a submatrix!"); }
+        let mut n_panels = new_h / self.panel_h;
+        if !(new_h % self.panel_h == 0) { n_panels += 1; }
+
+        let new_capacity = n_panels * self.panel_h * new_w;
+        let old_capacity = self.buffer.capacity();
+        if new_capacity > old_capacity {
+            self.buffer =  Vec::with_capacity( new_capacity );
+            //self.buffer.reserve( new_capacity - old_capacity );
+        }
+        unsafe{ self.buffer.set_len( n_panels * self.panel_h * new_w ) };
+        self.h = new_h;
+        self.w = new_w;
+        self.panel_stride = self.panel_h*new_w;
+    }
+
     #[inline(always)]
     pub unsafe fn get_const_buffer( &self ) -> *const T { 
         self.buffer.as_ptr().offset((self.off_panel*self.panel_stride + self.off_x*self.panel_h) as isize)
@@ -311,7 +374,7 @@ impl<T: Scalar> Mat<T> for RowPanelMatrix<T> {
         self.buffer[ elem_index ]
     }
     #[inline(always)]
-    fn set( &mut self, y: usize, x:usize, alpha: T) -> () {
+    fn set( &mut self, y: usize, x:usize, alpha: T) {
         let panel_id = y / self.panel_h;
         let panel_index  = y % self.panel_h;
         let elem_index = (panel_id + self.off_panel) * self.panel_stride + (x + self.off_x) * self.panel_h + panel_index;
