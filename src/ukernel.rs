@@ -16,15 +16,18 @@ extern{
 }
 
 pub struct Ukernel<T>{
-    pub mr: usize,
-    pub nr: usize,
-    pub _t: PhantomData<T>,
+    mr: usize,
+    nr: usize,
+    _t: PhantomData<T>,
     
+}
+impl<T: Scalar> Ukernel<T> {
+    pub fn new( mr: usize, nr: usize ) -> Ukernel<T> { Ukernel{ mr: mr, nr: nr, _t: PhantomData::<T> } }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> 
     GemmNode<T, At, Bt, Ct> for Ukernel<T> {
     #[inline(always)]
-    default fn run( &self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
+    default fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
         for z in 0..a.width() {
             for y in 0..self.mr {
                 for x in 0..self.nr {
@@ -38,7 +41,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
 impl<T: Scalar, Ct: Mat<T>> 
     GemmNode<T, RowPanelMatrix<T>, ColumnPanelMatrix<T>, Ct> for Ukernel<T> {
     #[inline(always)]
-    default fn run( &self, a: &mut RowPanelMatrix<T>, b: &mut ColumnPanelMatrix<T>, c: &mut Ct ) -> () {
+    default fn run( &mut self, a: &mut RowPanelMatrix<T>, b: &mut ColumnPanelMatrix<T>, c: &mut Ct ) -> () {
         unsafe{
         let ap = a.get_mut_buffer();
         let bp = b.get_mut_buffer();
@@ -62,13 +65,13 @@ impl<T: Scalar, Ct: Mat<T>>
 
 impl GemmNode<f64, RowPanelMatrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>> for Ukernel<f64> {
     #[inline(always)]
-    fn run( &self, a: &mut RowPanelMatrix<f64>, b: &mut ColumnPanelMatrix<f64>, c: &mut Matrix<f64> ) -> () {
+    fn run( &mut self, a: &mut RowPanelMatrix<f64>, b: &mut ColumnPanelMatrix<f64>, c: &mut Matrix<f64> ) -> () {
         unsafe{
             let ap = a.get_mut_buffer();
             let bp = b.get_mut_buffer();
             let cp = c.get_mut_buffer();
-            let rs_c: usize = c.row_stride;
-            let cs_c: usize = c.column_stride;
+            let rs_c: usize = c.get_row_stride();
+            let cs_c: usize = c.get_column_stride();
             let mut alpha: f64 = 1.0;
             let mut beta: f64 = 1.0;
 

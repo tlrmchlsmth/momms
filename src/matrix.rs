@@ -125,17 +125,17 @@ pub trait Mat<T: Scalar> {
 
 pub struct Matrix<T: Scalar> {
     //Height and width
-    pub h: usize,
-    pub w: usize,
+    h: usize,
+    w: usize,
     
     //This Matrix may be a submatrix within a larger one
-    pub off_y: usize,
-    pub off_x: usize,
+    off_y: usize,
+    off_x: usize,
     
     //Strides and buffer
-    pub row_stride: usize,
-    pub column_stride: usize,
-    pub buffer: Vec<T>,
+    row_stride: usize,
+    column_stride: usize,
+    buffer: Vec<T>,
 }
 impl<T: Scalar> Matrix<T> {
     pub fn new( h: usize, w: usize ) -> Matrix<T> {
@@ -145,6 +145,10 @@ impl<T: Scalar> Matrix<T> {
                 off_y: 0, off_x: 0,
                 row_stride: 1, column_stride: h, buffer: buf }
     }
+
+    #[inline(always)] pub fn get_row_stride( &self ) -> usize { self.row_stride }
+    #[inline(always)] pub fn get_column_stride( &self ) -> usize { self.column_stride }
+
     
     #[inline(always)]
     pub unsafe fn get_const_buffer( &self ) -> *const T { 
@@ -186,16 +190,16 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
 }
 
 pub struct ColumnPanelMatrix<T: Scalar> {
-    pub h: usize,
-    pub w: usize,
+    h: usize,
+    w: usize,
     
-    pub off_y: usize,
-    pub off_panel: usize,
+    off_y: usize,
+    off_panel: usize,
 
     //Panel_h is always h
-    pub panel_w: usize,
-    pub panel_stride: usize,
-    pub buffer:  Vec<T>,
+    panel_w: usize,
+    panel_stride: usize,
+    buffer:  Vec<T>,
 }
 impl<T: Scalar> ColumnPanelMatrix<T> {
     pub fn new( h: usize, w: usize, panel_w: usize ) -> ColumnPanelMatrix<T> {
@@ -262,16 +266,16 @@ impl<T: Scalar> Mat<T> for ColumnPanelMatrix<T> {
 }
 
 pub struct RowPanelMatrix<T: Scalar> {
-    pub h: usize,
-    pub w: usize,
+    h: usize,
+    w: usize,
 
-    pub off_x: usize,
-    pub off_panel: usize,
+    off_x: usize,
+    off_panel: usize,
 
     //Panel_h is always h
-    pub panel_h: usize,
-    pub panel_stride: usize,
-    pub buffer: Vec<T>,
+    panel_h: usize,
+    panel_stride: usize,
+    buffer: Vec<T>,
 }
 impl<T: Scalar> RowPanelMatrix<T> {
     pub fn new( h: usize, w: usize, panel_h: usize ) -> RowPanelMatrix<T> {
