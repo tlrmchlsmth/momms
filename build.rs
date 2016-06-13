@@ -4,8 +4,6 @@ use std::io::Write;
 use std::path::Path;
 
 fn main() -> () {
-    //println!("cargo:libdir={{$HOME}}/blis/lib");
     println!("cargo:rustc-link-search=native=/Users/tyler/blis/lib");
     println!("cargo:rustc-link-lib=static=blis");
-    //println!("cargo");
 }

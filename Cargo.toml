@@ -2,6 +2,8 @@
 name = "gemm_oxide"
 version = "0.1.0"
 authors = ["Tyler Smith <tms@cs.utexas.edu>"]
+build = "build.rs"
 
 [dependencies]
 rand = "0.3"
+libc = "0.2.0"

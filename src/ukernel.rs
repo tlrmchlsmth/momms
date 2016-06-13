@@ -1,6 +1,6 @@
 use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix};
 use core::marker::{PhantomData};
-use cntl::{GemmNode};
+use gemm::{GemmNode};
 
 extern crate libc;
 use self::libc::{ c_double, int64_t };
@@ -22,7 +22,7 @@ pub struct Ukernel<T>{
     
 }
 impl<T: Scalar> Ukernel<T> {
-    pub fn new( mr: usize, nr: usize ) -> Ukernel<T> { Ukernel{ mr: mr, nr: nr, _t: PhantomData::<T> } }
+    pub fn new( mr: usize, nr: usize ) -> Ukernel<T> { Ukernel{ mr: mr, nr: nr, _t: PhantomData } }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> 
     GemmNode<T, At, Bt, Ct> for Ukernel<T> {
@@ -38,8 +38,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
         }
     }
 }
-impl<T: Scalar, Ct: Mat<T>> 
-    GemmNode<T, RowPanelMatrix<T>, ColumnPanelMatrix<T>, Ct> for Ukernel<T> {
+impl<T: Scalar, Ct: Mat<T>> GemmNode<T, RowPanelMatrix<T>, ColumnPanelMatrix<T>, Ct> for Ukernel<T> {
     #[inline(always)]
     default fn run( &mut self, a: &mut RowPanelMatrix<T>, b: &mut ColumnPanelMatrix<T>, c: &mut Ct ) -> () {
         unsafe{
@@ -73,7 +72,7 @@ impl GemmNode<f64, RowPanelMatrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>> for
             let rs_c: usize = c.get_row_stride();
             let cs_c: usize = c.get_column_stride();
             let mut alpha: f64 = 1.0;
-            let mut beta: f64 = 1.0;
+            let mut beta: f64 = 0.0;
 
             //just call blis ukernel
             //bli_dgemm_asm_8x4 ( 

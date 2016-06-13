@@ -1,12 +1,12 @@
 extern crate rand;
 extern crate alloc;
 
-use std::ptr::{Unique, self};
-use std::mem;
+use core::ptr::{Unique, self};
+use core::mem;
 use self::alloc::heap;
 
-use std::ops::{Add, Mul, Sub, Div, AddAssign, MulAssign, SubAssign, DivAssign};
-use std::num::{Zero,One};
+use core::ops::{Add, Mul, Sub, Div, AddAssign, MulAssign, SubAssign, DivAssign};
+use core::num::{Zero,One};
 use core::fmt::{Display};
 
 pub trait Scalar where
@@ -74,8 +74,8 @@ pub trait Mat<T: Scalar> {
     }
 
     fn print( &self ) {
-        for y in 0..self.width() {
-            for x in 0..self.height() {
+        for y in 0..self.height() {
+            for x in 0..self.width() {
                 let formatted_number = format!("{:.*}", 2, self.get(y,x));
                 print!("{} ", formatted_number);
             }
@@ -112,6 +112,7 @@ pub trait Mat<T: Scalar> {
     fn copy_from( &mut self, other: &Mat<T>  ) {
         self.axpby( T::one(), other, T::zero() );
     }
+
     fn axpy( &mut self, alpha: T, other: &Mat<T> ) {
         self.axpby( alpha, other, T::one() );
     }
@@ -191,7 +192,7 @@ impl<T: Scalar> Matrix<T> {
 
     
     #[inline(always)]
-    pub unsafe fn get_const_buffer( &self ) -> *const T { 
+    pub unsafe fn get_buffer( &self ) -> *const T { 
         //self.buffer.as_ptr().offset((self.off_y*self.row_stride + self.off_x*self.column_stride) 
         //                             as isize)
         self.buffer.offset((self.off_y*self.row_stride + self.off_x*self.column_stride) as isize)
@@ -205,9 +206,6 @@ impl<T: Scalar> Matrix<T> {
 impl<T: Scalar> Mat<T> for Matrix<T> {
     #[inline(always)]
     fn get( &self, y: usize, x: usize) -> T {
-        if y >= self.h || x >= self.w { 
-            panic!("Cannot access element ({}, {}) of a {} by {} matrix!", y, x, self.h, self.w );
-        }
         let y_coord = (y + self.off_y) * self.row_stride;
         let x_coord = (x + self.off_x) * self.column_stride;
         unsafe{
@@ -217,9 +215,6 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
     }
     #[inline(always)]
     fn set( &mut self, y: usize, x: usize, alpha: T) {
-        if y >= self.h || x >= self.w { 
-            panic!("Cannot access element ({}, {}) of a {} by {} matrix!", y, x, self.h, self.w );
-        }
         let y_coord = (y + self.off_y) * self.row_stride;
         let x_coord = (x + self.off_x) * self.column_stride;
         unsafe{
@@ -253,6 +248,7 @@ pub struct ColumnPanelMatrix<T: Scalar> {
 
     //Panel_h is always h
     panel_w: usize,
+    n_panels: usize,
     panel_stride: usize,
     
     buffer: Unique<T>,
@@ -272,17 +268,17 @@ impl<T: Scalar> ColumnPanelMatrix<T> {
 
             ColumnPanelMatrix{ h: h, w: w,
                            off_y: 0, off_panel: 0,
-                           panel_w: panel_w, panel_stride: panel_w*h, 
+                           panel_w: panel_w, n_panels: n_panels, panel_stride: panel_w*h, 
                            buffer: Unique::new(ptr as *mut _), capacity: capacity }
         }
     }
 
     pub fn resize( &mut self, new_h: usize, new_w: usize ) {
         if self.off_y != 0 || self.off_panel != 0 { panic!("can't resize a submatrix!"); }
-        let mut n_panels = new_w / self.panel_w;
-        if !(new_w % self.panel_w == 0) { n_panels += 1; }
+        let mut new_n_panels = new_w / self.panel_w;
+        if !(new_w % self.panel_w == 0) { new_n_panels += 1; }
 
-        let new_capacity = n_panels * self.panel_w * new_h;
+        let new_capacity = new_n_panels * self.panel_w * new_h;
         let old_capacity = self.capacity; //self.buffer.capacity();
         if new_capacity > old_capacity {
             unsafe {
@@ -296,11 +292,21 @@ impl<T: Scalar> ColumnPanelMatrix<T> {
         }
         self.h = new_h;
         self.w = new_w;
+        self.n_panels = new_n_panels;
         self.panel_stride = self.panel_w*new_h;
     }
 
     #[inline(always)]
-    pub unsafe fn get_const_buffer( &self ) -> *const T { 
+    pub fn get_n_panels( &self ) -> usize { self.n_panels }
+
+    #[inline(always)]
+    pub fn get_panel_stride( &self ) -> usize { self.panel_stride }
+    
+    #[inline(always)]
+    pub fn get_panel_w( &self ) -> usize { self.panel_w }
+
+    #[inline(always)]
+    pub unsafe fn get_buffer( &self ) -> *const T { 
         self.buffer.offset((self.off_panel*self.panel_stride + self.off_y*self.panel_w) as isize)
     }
     #[inline(always)]
@@ -311,9 +317,6 @@ impl<T: Scalar> ColumnPanelMatrix<T> {
 impl<T: Scalar> Mat<T> for ColumnPanelMatrix<T> {
     #[inline(always)]
     fn get( &self, y: usize, x:usize ) -> T {
-        if y >= self.h || x >= self.w { 
-            panic!("Cannot access element ({}, {}) of a {} by {} matrix!", y, x, self.h, self.w );
-        }
         let panel_id = x / self.panel_w;
         let panel_index  = x % self.panel_w;
         let elem_index = (panel_id + self.off_panel) * self.panel_stride + (y + self.off_y) * self.panel_w + panel_index;
@@ -323,9 +326,6 @@ impl<T: Scalar> Mat<T> for ColumnPanelMatrix<T> {
     }
     #[inline(always)]
     fn set( &mut self, y: usize, x:usize, alpha: T) {
-        if y >= self.h || x >= self.w { 
-            panic!("Cannot access element ({}, {}) of a {} by {} matrix!", y, x, self.h, self.w );
-        }
         let panel_id = x / self.panel_w;
         let panel_index  = x % self.panel_w;
         let elem_index = (panel_id + self.off_panel) * self.panel_stride + (y + self.off_y) * self.panel_w + panel_index;
@@ -364,9 +364,10 @@ pub struct RowPanelMatrix<T: Scalar> {
     off_x: usize,
     off_panel: usize,
 
-    //Panel_h is always h
     panel_h: usize,
+    n_panels: usize,
     panel_stride: usize,
+
     buffer: Unique<T>,
     capacity: usize,
 }
@@ -385,17 +386,17 @@ impl<T: Scalar> RowPanelMatrix<T> {
 
             RowPanelMatrix{ h: h, w: w,
                            off_x: 0, off_panel: 0,
-                           panel_h: panel_h, panel_stride: panel_h*w, 
+                           panel_h: panel_h, n_panels : n_panels, panel_stride: panel_h*w, 
                            buffer: Unique::new(ptr as *mut _), capacity: capacity }
         }
     }
 
     pub fn resize( &mut self, new_h: usize, new_w: usize ) {
         if self.off_x != 0 || self.off_panel != 0 { panic!("can't resize a submatrix!"); }
-        let mut n_panels = new_h / self.panel_h;
-        if !(new_h % self.panel_h == 0) { n_panels += 1; }
+        let mut new_n_panels = new_h / self.panel_h;
+        if !(new_h % self.panel_h == 0) { new_n_panels += 1; }
 
-        let new_capacity = n_panels * self.panel_h * new_w;
+        let new_capacity = new_n_panels * self.panel_h * new_w;
         let old_capacity = self.capacity;
         if new_capacity > old_capacity {
             unsafe {
@@ -407,11 +408,21 @@ impl<T: Scalar> RowPanelMatrix<T> {
         }
         self.h = new_h;
         self.w = new_w;
+        self.n_panels = new_n_panels;
         self.panel_stride = self.panel_h*new_w;
     }
 
     #[inline(always)]
-    pub unsafe fn get_const_buffer( &self ) -> *const T { 
+    pub fn get_n_panels( &self ) -> usize { self.n_panels }
+
+    #[inline(always)]
+    pub fn get_panel_stride( &self ) -> usize { self.panel_stride }
+    
+    #[inline(always)]
+    pub fn get_panel_h( &self ) -> usize { self.panel_h }
+
+    #[inline(always)]
+    pub unsafe fn get_buffer( &self ) -> *const T { 
         self.buffer.offset((self.off_panel*self.panel_stride + self.off_x*self.panel_h) as isize)
     }
     #[inline(always)]
@@ -422,10 +433,6 @@ impl<T: Scalar> RowPanelMatrix<T> {
 impl<T: Scalar> Mat<T> for RowPanelMatrix<T> {
     #[inline(always)]
     fn get( &self, y: usize, x:usize ) -> T {
-        if y >= self.h || x >= self.w { 
-            panic!("Cannot access element ({}, {}) of a {} by {} matrix!", y, x, self.h, self.w );
-        }
-
         let panel_id = y / self.panel_h;
         let panel_index  = y % self.panel_h;
         let elem_index = (panel_id + self.off_panel) * self.panel_stride + (x + self.off_x) * self.panel_h + panel_index;
@@ -435,10 +442,6 @@ impl<T: Scalar> Mat<T> for RowPanelMatrix<T> {
     }
     #[inline(always)]
     fn set( &mut self, y: usize, x:usize, alpha: T) {
-        if y >= self.h || x >= self.w { 
-            panic!("Cannot access element ({}, {}) of a {} by {} matrix!", y, x, self.h, self.w );
-        }
-
         let panel_id = y / self.panel_h;
         let panel_index  = y % self.panel_h;
         let elem_index = (panel_id + self.off_panel) * self.panel_stride + (x + self.off_x) * self.panel_h + panel_index;
