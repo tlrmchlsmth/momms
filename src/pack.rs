@@ -31,7 +31,7 @@ impl<T: Scalar> Copier<T,Matrix<T>,ColumnPanelMatrix<T>> for Packer<T, Matrix<T>
 
                 for y in 0..h {
                     for i in 0..panel_w {
-                        ptr::write( p.offset((y*panel_w + i) as isize), a.get(y, panel+i));
+                        ptr::write( p.offset((y*panel_w + i) as isize), a.get(y, panel*panel_w+i));
                     }
                 }
             }
@@ -44,12 +44,12 @@ impl<T: Scalar> Copier<T,Matrix<T>,RowPanelMatrix<T>> for Packer<T, Matrix<T>, R
         unsafe {
             for panel in 0..a_pack.get_n_panels() {
                 let p = a_pack.get_panel(panel);
-                let h = a_pack.width();
+                let w = a_pack.width();
                 let panel_h = a_pack.get_panel_h();
 
-                for x in 0..h {
+                for x in 0..w {
                     for i in 0..panel_h {
-                        ptr::write( p.offset((x*panel_h + i) as isize), a.get(panel+i, x) )
+                        ptr::write( p.offset((x*panel_h + i) as isize), a.get(panel*panel_h+i, x) )
                     }
                 }
             }
