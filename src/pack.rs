@@ -1,5 +1,6 @@
 use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix};
 use core::marker::{PhantomData};
+use core::ptr::{self};
 
 pub trait Copier <T: Scalar, At: Mat<T>, Apt: Mat<T>> {
     fn pack( &self, a: &At, a_pack: &mut Apt );
@@ -22,10 +23,16 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Copier<T,At,Apt> for Packer<T, At, Apt>
 
 impl<T: Scalar> Copier<T,Matrix<T>,ColumnPanelMatrix<T>> for Packer<T, Matrix<T>, ColumnPanelMatrix<T>> {
     fn pack( &self, a: &Matrix<T>, a_pack: &mut ColumnPanelMatrix<T> ) {
-        for panel in 0..a_pack.get_n_panels() {
-            for y in 0..a_pack.height() {
-                for i in 0..a_pack.get_panel_w() {
-                    a_pack.set( y, panel+i, a.get(y, panel+i) );
+        unsafe {
+            for panel in 0..a_pack.get_n_panels() {
+                let p = a_pack.get_panel(panel);
+                let h = a_pack.height();
+                let panel_w = a_pack.get_panel_w();
+
+                for y in 0..h {
+                    for i in 0..panel_w {
+                        ptr::write( p.offset((y*panel_w + i) as isize), a.get(y, panel+i));
+                    }
                 }
             }
         }
@@ -34,10 +41,16 @@ impl<T: Scalar> Copier<T,Matrix<T>,ColumnPanelMatrix<T>> for Packer<T, Matrix<T>
 
 impl<T: Scalar> Copier<T,Matrix<T>,RowPanelMatrix<T>> for Packer<T, Matrix<T>, RowPanelMatrix<T>> {
     fn pack( &self, a: &Matrix<T>, a_pack: &mut RowPanelMatrix<T> ) {
-        for panel in 0..a_pack.get_n_panels() {
-            for x in 0..a_pack.width() {
-                for i in 0..a_pack.get_panel_h() {
-                    a_pack.set( panel+i, x, a.get(panel+i, x) );
+        unsafe {
+            for panel in 0..a_pack.get_n_panels() {
+                let p = a_pack.get_panel(panel);
+                let h = a_pack.width();
+                let panel_h = a_pack.get_panel_h();
+
+                for x in 0..h {
+                    for i in 0..panel_h {
+                        ptr::write( p.offset((x*panel_h + i) as isize), a.get(panel+i, x) )
+                    }
                 }
             }
         }
