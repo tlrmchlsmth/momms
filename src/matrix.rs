@@ -313,6 +313,11 @@ impl<T: Scalar> ColumnPanelMatrix<T> {
     pub unsafe fn get_mut_buffer( &mut self ) -> *mut T {
         self.buffer.offset((self.off_panel*self.panel_stride + self.off_y*self.panel_w) as isize)
     }
+
+    #[inline(always)]
+    pub unsafe fn get_panel( &mut self, id: usize ) -> *mut T {
+        self.buffer.offset(((self.off_panel + id)*self.panel_stride) as isize)
+    }
 }
 impl<T: Scalar> Mat<T> for ColumnPanelMatrix<T> {
     #[inline(always)]
@@ -425,9 +430,15 @@ impl<T: Scalar> RowPanelMatrix<T> {
     pub unsafe fn get_buffer( &self ) -> *const T { 
         self.buffer.offset((self.off_panel*self.panel_stride + self.off_x*self.panel_h) as isize)
     }
+    
     #[inline(always)]
     pub unsafe fn get_mut_buffer( &mut self ) -> *mut T {
         self.buffer.offset((self.off_panel*self.panel_stride + self.off_x*self.panel_h) as isize)
+    }
+
+    #[inline(always)]
+    pub unsafe fn get_panel( &mut self, id: usize ) -> *mut T {
+        self.buffer.offset(((self.off_panel + id)*self.panel_stride) as isize)
     }
 }
 impl<T: Scalar> Mat<T> for RowPanelMatrix<T> {
