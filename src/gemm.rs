@@ -132,7 +132,6 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, RowPanelM
 
 pub struct PartM<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {
     bsz: usize,
-    iota: usize,
     child: S,
     _t: PhantomData<T>,
     _at: PhantomData<At>,
@@ -140,8 +139,8 @@ pub struct PartM<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, A
     _ct: PhantomData<Ct>,
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> PartM<T,At,Bt,Ct,S> {
-    pub fn new( bsz: usize, iota: usize, child: S ) -> PartM<T, At, Bt, Ct,S>{
-            PartM{ bsz: bsz, iota: iota, child: child, 
+    pub fn new( bsz: usize, child: S ) -> PartM<T, At, Bt, Ct,S>{
+            PartM{ bsz: bsz, child: child, 
                    _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
@@ -173,7 +172,6 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
 
 pub struct PartN<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {
     bsz: usize,
-    iota: usize,
     child: S,
     _t: PhantomData<T>,
     _at: PhantomData<At>,
@@ -181,8 +179,8 @@ pub struct PartN<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, A
     _ct: PhantomData<Ct>,
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> PartN<T,At,Bt,Ct,S> {
-    pub fn new( bsz: usize, iota: usize, child: S ) -> PartN<T, At, Bt, Ct, S>{
-            PartN{ bsz: bsz, iota: iota, child: child, 
+    pub fn new( bsz: usize, child: S ) -> PartN<T, At, Bt, Ct, S>{
+            PartN{ bsz: bsz, child: child, 
                    _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
@@ -214,7 +212,6 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
 
 pub struct PartK<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {
     bsz: usize,
-    iota: usize,
     child: S,
     _t: PhantomData<T>,
     _at: PhantomData<At>,
@@ -222,8 +219,8 @@ pub struct PartK<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, A
     _ct: PhantomData<Ct>,
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> PartK<T,At,Bt,Ct,S> {
-    pub fn new( bsz: usize, iota: usize, child: S ) -> PartK<T, At, Bt, Ct, S>{
-        PartK{ bsz: bsz, iota: iota, child: child, 
+    pub fn new( bsz: usize, child: S ) -> PartK<T, At, Bt, Ct, S>{
+        PartK{ bsz: bsz, child: child, 
                _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }

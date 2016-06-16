@@ -102,19 +102,19 @@ fn time_sweep_goto() -> ()
     let ukernel = Ukernel::new( 8, 4 );
 //    let ukernel = TripleLoopKernel::new();
     let loop1: PartM<f64, RowPanelMatrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _> 
-        = PartM::new( 8, 8, ukernel);
+        = PartM::new( 8, ukernel);
     let loop2: PartN<f64, RowPanelMatrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _> 
-        = PartN::new( 4, 4, loop1 );
+        = PartN::new( 4, loop1 );
     let packa: PackArp<f64, Matrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _>
         = PackArp::new( 8, loop2 );
     let loop3: PartM<f64, Matrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _>
-        = PartM::new( 96, 8, packa );
+        = PartM::new( 96, packa );
     let packb: PackBcp<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
         = PackBcp::new( 4, loop3 );
     let loop4: PartK<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
-        = PartK::new( 256, 1, packb );
+        = PartK::new( 256, packb );
     let mut loop5: PartN<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
-        = PartN::new( 4096, 4, loop4 );
+        = PartN::new( 4096, loop4 );
 
     for index in 0..64 {
         let mut best_time: f64 = 9999999999.0;
@@ -171,19 +171,19 @@ fn goto( a : &mut Matrix<f64>, b : &mut Matrix<f64>, c : &mut Matrix<f64> )
 {
     let ukernel = Ukernel::new( 8, 4 );
     let loop1: PartM<f64, RowPanelMatrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _> 
-        = PartM::new( 8, 8, ukernel);
+        = PartM::new( 8, ukernel);
     let loop2: PartN<f64, RowPanelMatrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _> 
-        = PartN::new( 4, 4, loop1 );
+        = PartN::new( 4, loop1 );
     let packa: PackArp<f64, Matrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _>
         = PackArp::new( 8, loop2 );
     let loop3: PartM<f64, Matrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _>
-        = PartM::new( 96, 8, packa );
+        = PartM::new( 96, packa );
     let packb: PackBcp<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
         = PackBcp::new( 4, loop3 );
     let loop4: PartK<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
-        = PartK::new( 256, 1, packb );
+        = PartK::new( 256, packb );
     let mut loop5: PartN<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
-        = PartN::new( 4096, 4, loop4 );
+        = PartN::new( 4096, loop4 );
 
     unsafe{
         loop5.run( a, b, c );
