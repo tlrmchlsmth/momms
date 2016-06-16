@@ -3,10 +3,8 @@
 #![feature(asm)]
 #![feature(unique, alloc, heap_api)]
 
+use std::time::{Instant};
 extern crate core;
-use core::marker::{PhantomData};
-
-use std::time::{Duration,Instant};
 
 mod thread;
 use thread::{blah};
@@ -18,9 +16,10 @@ mod ukernel;
 pub use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix};
 pub use gemm::{GemmNode,PartM,PartN,PartK,PackArp,PackAcp,PackBrp,PackBcp,TripleLoopKernel};
 pub use ukernel::{Ukernel};
+pub use thread::{ThreadInfo};
 
 extern crate libc;
-use self::libc::{ c_double, int64_t, int32_t, c_char };
+use self::libc::{ c_double, int32_t, c_char };
 use std::ffi::{ CString };
 
 #[link(name = "blis", kind = "static")]
@@ -82,13 +81,13 @@ fn test_c_eq_a_b<T:Scalar, At:Mat<T>, Bt:Mat<T>, Ct:Mat<T>>( a: &mut At, b: &mut
 
     //Do bw = Bw, then abw = A*(Bw)   
     unsafe {
-        ref_gemm.run( b, &mut w, &mut bw );
-        ref_gemm.run( a, &mut bw, &mut abw );
+        ref_gemm.run( b, &mut w, &mut bw, &ThreadInfo::singleton() );
+        ref_gemm.run( a, &mut bw, &mut abw, &ThreadInfo::singleton() );
     }
 
     //Do cw = Cw
     unsafe {
-        ref_gemm.run( c, &mut w, &mut cw );
+        ref_gemm.run( c, &mut w, &mut cw, &ThreadInfo::singleton() );
     }
     
     //Cw -= abw
@@ -138,7 +137,7 @@ fn time_sweep_goto() -> ()
             
             let start = Instant::now();
             unsafe{
-                loop5.run( &mut a, &mut b, &mut c );
+                loop5.run( &mut a, &mut b, &mut c, &ThreadInfo::singleton() );
             }
             let mut dur = start.elapsed();
             let time_secs = dur.as_secs() as f64;
@@ -186,7 +185,7 @@ fn goto( a : &mut Matrix<f64>, b : &mut Matrix<f64>, c : &mut Matrix<f64> )
         = PartN::new( 4096, loop4 );
 
     unsafe{
-        loop5.run( a, b, c );
+        loop5.run( a, b, c, &ThreadInfo::singleton() );
     }
 }
 

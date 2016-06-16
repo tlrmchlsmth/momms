@@ -61,7 +61,7 @@ impl<T: Scalar> Copier<T,Matrix<T>,RowPanelMatrix<T>> for Packer<T, Matrix<T>, R
                 for x in 0..w {
                     for i in 0..panel_h {
                         let alpha = ptr::read( ap1.offset((x*cs_a + i*rs_a) as isize));
-                        ptr::write( p.offset((x*panel_h + i) as isize), a.get(panel*panel_h+i, x) )
+                        ptr::write( p.offset((x*panel_h + i) as isize), alpha );
                     }
                 }
             }

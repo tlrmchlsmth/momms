@@ -1,18 +1,18 @@
-#![feature(alloc)]
-#![feature(heap_api)]
-
 extern crate alloc;
-use std::thread;
 use std::ptr::{self};
 use std::mem;
 use self::alloc::heap;
 use std::sync::{Arc,Barrier};
 use std::sync::atomic::{AtomicPtr,AtomicUsize,Ordering};
 
+use matrix::{Mat,Scalar};
+use core::marker::{PhantomData};
+pub use gemm::{GemmNode};
+
 extern crate crossbeam;
 use self::crossbeam::{Scope};
 
-struct ThreadComm<T> {
+pub struct ThreadComm<T> {
     n_threads: usize,
 
     //Slot has a MatrixBuffer, to be broadcast
@@ -86,15 +86,21 @@ impl<T> ThreadComm<T> {
 //unsafe impl Sync for ThreadComm {}
 //unsafe impl Send for ThreadComm {}
 
-struct ThreadInfo<T> {
+pub struct ThreadInfo<T> {
     thread_id: usize,
     comm: Arc<ThreadComm<T>>,
 }
 impl<T> ThreadInfo<T> {
-    fn barrier( &self ) {
+    pub fn singleton( ) -> ThreadInfo<T>{
+        ThreadInfo{ thread_id : 0, comm : Arc::new(ThreadComm::new(1)) }
+    }
+    pub fn new( thread_id: usize, comm: Arc<ThreadComm<T>> ) -> ThreadInfo<T> {
+        ThreadInfo{ thread_id : thread_id, comm : comm.clone() }
+    }
+    pub fn barrier( &self ) {
         self.comm.barrier(&self);
     }
-    fn broadcast( &self, to_send: *mut T ) -> *mut T {
+    pub fn broadcast( &self, to_send: *mut T ) -> *mut T {
         self.comm.broadcast(&self, to_send)
     }
 }
@@ -173,4 +179,73 @@ pub fn blah() {
         print!("{} ", mat.get( id ) );
     }
     println!("");
+}
+
+pub struct SpawnThreads<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {
+    child: S,
+    n_threads: usize,
+    _t: PhantomData<T>,
+    _at: PhantomData<At>,
+    _bt: PhantomData<Bt>,
+    _ct: PhantomData<Ct>,
+}
+impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
+    SpawnThreads <T,At,Bt,Ct,S> {
+    pub fn new( child: S, n_threads: usize ) -> SpawnThreads<T, At, Bt, Ct, S>{
+        SpawnThreads{ child: child, n_threads : n_threads,
+                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
+    }
+    pub fn set_n_threads( &mut self, n_threads: usize ){ 
+        self.n_threads = n_threads;
+    }
+}
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
+    GemmNode<T, At, Bt, Ct> for SpawnThreads<T, At, Bt, Ct, S> {
+    #[inline(always)]
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T> ) -> () {
+        //What we do here:
+        //3. Spawn a bunch of threads. How many? 
+        //  For now store these in cntl tree.
+        //  This will be easy to change since this cntl tree will be the root (so the 'outside' has
+        //  easy ownership.
+        //4. Set cpu affinity for each thread.
+        //1. Each thread gets an alias (shallow copy) of a, b, and c.
+        //      Todo: make an unsafe function for matrices "get alias"
+        //2. Each thread gets its own (deep copy) of the control tree.
+        //      Todo: make an function for control tree "mirror"
+/*
+        self.a_pack.resize( a.height(), a.width() );
+        self.packer.pack( a, &mut self.a_pack );
+        self.child.run(a, b, c);
+
+    crossbeam::scope(|scope| {
+        for id in 0..2 {
+            let mut my_alias = mat.get_alias();
+            let mut my_comm  = globalComm.clone();
+            scope.spawn(move || {
+                //let mut my_alias = ref mat.get_alias();
+                let info = ThreadInfo{thread_id: id, comm: my_comm};
+
+                let mat_inside = MatrixBuffer::new(2);
+
+                println!("tid {} broadcasting!", info.thread_id);
+                let mut curr_matrix = MatrixBuffer::new(0);
+                let ptr = info.broadcast( mat_inside.buf );
+                curr_matrix.buf = ptr;
+                curr_matrix.set(info.thread_id, 4.0 );
+
+                println!("tid {} barriering!", info.thread_id);
+                info.barrier();
+                println!("tid {} setting!", info.thread_id );
+                if info.thread_id == 0 {
+                    print!("{} ", curr_matrix.get( 0 ) );
+                    print!("{} ", curr_matrix.get( 1 ) );
+                }
+
+                my_alias.set( info.thread_id, 5.0 );
+                println!("tid {} done!", info.thread_id );
+            });
+        }
+    });*/
+    }
 }

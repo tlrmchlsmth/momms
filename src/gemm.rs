@@ -1,20 +1,19 @@
-use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix};
+use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix};
 use core::marker::{PhantomData};
 use pack::{Copier,Packer};
-
-use std::time::{Duration,Instant};
+use thread::{ThreadInfo};
 
 extern crate core;
 
 pub trait GemmNode<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> ();
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> ();
 }
 
 
 pub struct PackAcp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, ColumnPanelMatrix<T>, Bt, Ct>> {
     child: S,
-    panel_width: usize,
+    _panel_width: usize,
     packer: Packer<T, At, ColumnPanelMatrix<T>>,
     a_pack: ColumnPanelMatrix<T>,
     _t: PhantomData<T>,
@@ -24,27 +23,26 @@ pub struct PackAcp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T,
 }
 impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, ColumnPanelMatrix<T>, Bt, Ct>> 
     PackAcp <T,At,Bt,Ct,S> {
-    #[inline(always)]
     pub fn new( panel_width: usize, child: S ) -> PackAcp<T, At, Bt, Ct, S>{
         let matrix = ColumnPanelMatrix::new( 0, 0, panel_width );
         let packer = Packer::new();
-        PackAcp{ panel_width: panel_width, child: child, a_pack: matrix, packer: packer,
+        PackAcp{ _panel_width: panel_width, child: child, a_pack: matrix, packer: packer,
                  _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, ColumnPanelMatrix<T>, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PackAcp<T, At, Bt, Ct, S> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T> ) -> () {
         self.a_pack.resize( a.height(), a.width() );
         self.packer.pack( a, &mut self.a_pack );
-        self.child.run(&mut self.a_pack, b, c);
+        self.child.run(&mut self.a_pack, b, c, thr);
     }
 }
 
 pub struct PackBcp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPanelMatrix<T>, Ct>> {
     child: S,
-    panel_width: usize,
+    _panel_width: usize,
     packer: Packer<T, Bt, ColumnPanelMatrix<T>>,
     b_pack: ColumnPanelMatrix<T>,
     _t: PhantomData<T>,
@@ -54,26 +52,25 @@ pub struct PackBcp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T,
 }
 impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPanelMatrix<T>, Ct>> 
     PackBcp <T,At,Bt,Ct,S> {
-    #[inline(always)]
     pub fn new( panel_width: usize, child: S ) -> PackBcp<T, At, Bt, Ct, S>{
         let matrix = ColumnPanelMatrix::new( 0, 0, panel_width );
         let packer = Packer::new();
-        PackBcp{ panel_width: panel_width, child: child, b_pack: matrix, packer: packer,
+        PackBcp{ _panel_width: panel_width, child: child, b_pack: matrix, packer: packer,
                  _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPanelMatrix<T>, Ct>>
     GemmNode<T, At, Bt, Ct> for PackBcp<T, At, Bt, Ct, S> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
         self.b_pack.resize( b.height(), b.width() );
         self.packer.pack( b, &mut self.b_pack );
-        self.child.run(a, &mut self.b_pack, c);
+        self.child.run(a, &mut self.b_pack, c, thr);
     }
 }
 pub struct PackArp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix<T>, Bt, Ct>> {
     child: S,
-    panel_height: usize,
+    _panel_height: usize,
     packer: Packer<T, At, RowPanelMatrix<T>>,
     a_pack: RowPanelMatrix<T>,
     _t: PhantomData<T>,
@@ -83,27 +80,26 @@ pub struct PackArp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T,
 }
 impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix<T>, Bt, Ct>> 
     PackArp <T,At,Bt,Ct,S> {
-    #[inline(always)]
     pub fn new( panel_height: usize, child: S ) -> PackArp<T, At, Bt, Ct, S>{
         let matrix = RowPanelMatrix::new( 0, 0, panel_height );
         let packer = Packer::new();
-        PackArp{ panel_height: panel_height, child: child, a_pack: matrix, packer: packer,
+        PackArp{ _panel_height: panel_height, child: child, a_pack: matrix, packer: packer,
                  _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix<T>, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PackArp<T, At, Bt, Ct, S> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
         self.a_pack.resize( a.height(), a.width() );
         self.packer.pack( a, &mut self.a_pack );
-        self.child.run(&mut self.a_pack, b, c);
+        self.child.run(&mut self.a_pack, b, c, thr);
     }
 }
 
 pub struct PackBrp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, RowPanelMatrix<T>, Ct>> {
     child: S,
-    panel_height: usize,
+    _panel_height: usize,
     packer: Packer<T, Bt, RowPanelMatrix<T>>,
     b_pack: RowPanelMatrix<T>,
     _t: PhantomData<T>,
@@ -116,17 +112,17 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, RowPanelMa
     pub fn new( panel_height: usize, child: S ) -> PackBrp<T, At, Bt, Ct, S>{
         let matrix = RowPanelMatrix::new( 0, 0, panel_height );
         let packer = Packer::new();
-        PackBrp{ panel_height: panel_height, child: child, b_pack: matrix, packer: packer,
+        PackBrp{ _panel_height: panel_height, child: child, b_pack: matrix, packer: packer,
                  _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, RowPanelMatrix<T>, Ct>>
     GemmNode<T, At, Bt, Ct> for PackBrp<T, At, Bt, Ct, S> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
         self.b_pack.resize( b.height(), b.width() );
         self.packer.pack( b, &mut self.b_pack );
-        self.child.run(a, &mut self.b_pack, c);
+        self.child.run(a, &mut self.b_pack, c, thr);
     }
 }
 
@@ -147,7 +143,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PartM<T,At,Bt,Ct,S> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
         let m_save = c.height();
         let ay_off_save = a.off_y();
         let cy_off_save = c.off_y();
@@ -160,7 +156,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
             c.set_height( bsz_step );
             c.set_off_y( cy_off_save + i );
 
-            self.child.run(a, b, c);
+            self.child.run(a, b, c, thr);
             i += bsz_step;
         }
         a.set_height( m_save );
@@ -187,7 +183,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PartN<T,At,Bt,Ct,S> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr:&ThreadInfo<T> ) -> () {
         let n_save = c.width();
         let bx_off_save = b.off_x();
         let cx_off_save = c.off_x();
@@ -200,7 +196,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
             c.set_width( bsz_step );
             c.set_off_x( cx_off_save + i );
 
-            self.child.run(a, b, c);
+            self.child.run(a, b, c, thr);
             i += bsz_step;
         }
         b.set_width( n_save );
@@ -227,7 +223,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PartK<T,At,Bt,Ct,S> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
         let k_save = a.width();
         let ax_off_save = a.off_x();
         let by_off_save = b.off_y();
@@ -240,7 +236,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
             b.set_height( bsz_step );
             b.set_off_y( by_off_save + i );
 
-            self.child.run(a, b, c);
+            self.child.run(a, b, c, thr);
             i += bsz_step;
         }
         a.set_width( k_save );
@@ -254,7 +250,7 @@ pub struct TripleLoopKernel{}
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> 
     GemmNode<T, At, Bt, Ct> for TripleLoopKernel {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
         //For now, let's do an axpy based gemm
         for x in 0..c.width() {
             for z in 0..a.width() {
