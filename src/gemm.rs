@@ -65,7 +65,7 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPane
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPanelMatrix<T>, Ct>>
     GemmNode<T, At, Bt, Ct> for PackBcp<T, At, Bt, Ct, S> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
         self.b_pack.resize( b.height(), b.width() );
         self.packer.pack( b, &mut self.b_pack );
         self.child.run(a, &mut self.b_pack, c);
@@ -94,7 +94,7 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix<T>, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PackArp<T, At, Bt, Ct, S> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
         self.a_pack.resize( a.height(), a.width() );
         self.packer.pack( a, &mut self.a_pack );
         self.child.run(&mut self.a_pack, b, c);
@@ -123,7 +123,7 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, RowPanelMa
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, RowPanelMatrix<T>, Ct>>
     GemmNode<T, At, Bt, Ct> for PackBrp<T, At, Bt, Ct, S> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
         self.b_pack.resize( b.height(), b.width() );
         self.packer.pack( b, &mut self.b_pack );
         self.child.run(a, &mut self.b_pack, c);
@@ -148,7 +148,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PartM<T,At,Bt,Ct,S> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
         let m_save = c.height();
         let ay_off_save = a.off_y();
         let cy_off_save = c.off_y();
@@ -189,7 +189,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PartN<T,At,Bt,Ct,S> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
         let n_save = c.width();
         let bx_off_save = b.off_x();
         let cx_off_save = c.off_x();
@@ -230,7 +230,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PartK<T,At,Bt,Ct,S> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct ) -> () {
         let k_save = a.width();
         let ax_off_save = a.off_x();
         let by_off_save = b.off_y();

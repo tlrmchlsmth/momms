@@ -193,7 +193,6 @@ impl<T: Scalar> Matrix<T> {
     
     #[inline(always)]
     pub unsafe fn get_buffer( &self ) -> *const T { 
-        //self.buffer.as_ptr().offset((self.off_y*self.row_stride + self.off_x*self.column_stride) 
         //                             as isize)
         self.buffer.offset((self.off_y*self.row_stride + self.off_x*self.column_stride) as isize)
     }
@@ -211,7 +210,6 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
         unsafe{
             ptr::read( self.buffer.offset((y_coord + x_coord) as isize) )
         }
-//        self.buffer[(y+self.off_y)*self.row_stride + (x+self.off_x)*self.column_stride]
     }
     #[inline(always)]
     fn set( &mut self, y: usize, x: usize, alpha: T) {
@@ -273,6 +271,7 @@ impl<T: Scalar> ColumnPanelMatrix<T> {
         }
     }
 
+    #[inline(always)]
     pub fn resize( &mut self, new_h: usize, new_w: usize ) {
         if self.off_y != 0 || self.off_panel != 0 { panic!("can't resize a submatrix!"); }
         let mut new_n_panels = new_w / self.panel_w;
@@ -309,6 +308,7 @@ impl<T: Scalar> ColumnPanelMatrix<T> {
     pub unsafe fn get_buffer( &self ) -> *const T { 
         self.buffer.offset((self.off_panel*self.panel_stride + self.off_y*self.panel_w) as isize)
     }
+
     #[inline(always)]
     pub unsafe fn get_mut_buffer( &mut self ) -> *mut T {
         self.buffer.offset((self.off_panel*self.panel_stride + self.off_y*self.panel_w) as isize)
@@ -396,6 +396,7 @@ impl<T: Scalar> RowPanelMatrix<T> {
         }
     }
 
+    #[inline(always)]
     pub fn resize( &mut self, new_h: usize, new_w: usize ) {
         if self.off_x != 0 || self.off_panel != 0 { panic!("can't resize a submatrix!"); }
         let mut new_n_panels = new_h / self.panel_h;
