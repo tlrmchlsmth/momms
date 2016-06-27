@@ -7,3 +7,7 @@ build = "build.rs"
 [dependencies]
 rand = "0.3"
 libc = "0.2.0"
+crossbeam = "0.2"
+
+[profile.release]
+lto = true

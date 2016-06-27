@@ -71,8 +71,8 @@ impl GemmNode<f64, RowPanelMatrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>> for
         let ap = a.get_mut_buffer();
         let bp = b.get_mut_buffer();
         let cp = c.get_mut_buffer();
-        let rs_c: usize = c.get_row_stride();
-        let cs_c: usize = c.get_column_stride();
+        let rs_c = c.get_row_stride();
+        let cs_c = c.get_column_stride();
         let mut alpha: f64 = 1.0;
         let mut beta: f64 = 1.0;
 
