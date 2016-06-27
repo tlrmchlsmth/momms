@@ -242,7 +242,7 @@ pub struct TripleLoopKernel{}
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> 
     GemmNode<T, At, Bt, Ct> for TripleLoopKernel {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T> ) -> () {
         //For now, let's do an axpy based gemm
         for x in 0..c.width() {
             for z in 0..a.width() {

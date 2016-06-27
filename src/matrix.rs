@@ -214,10 +214,6 @@ pub trait Mat<T: Scalar> {
 }
 
 pub struct Matrix<T: Scalar> {
-    //Height and width
-//    h: usize,
-//    w: usize,
-
     //Height and width for iteration space
     iter_h: usize,
     iter_w: usize,
@@ -282,10 +278,6 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
             ptr::write( self.buffer.offset((y_coord + x_coord) as isize), alpha );
         }
     }
-/*    #[inline(always)]
-    fn width( &self ) -> usize { self.w }
-    #[inline(always)]
-    fn height( &self ) -> usize { self.h }*/
     #[inline(always)]
     fn off_y( &self ) -> usize { self.off_y }
     #[inline(always)]
@@ -307,7 +299,6 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
     fn set_iter_height( &mut self, iter_h: usize ) { self.iter_h = iter_h; }
     #[inline(always)]
     fn set_iter_width( &mut self, iter_w: usize ) { self.iter_w = iter_w; }
-
 
     #[inline(always)]
     fn set_logical_h_padding( &mut self, h_pad: usize ) { self.h_padding = h_pad }
@@ -340,12 +331,15 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
                 capacity: self.capacity }
     }*/
 }
+impl<T:Scalar> Drop for Matrix<T> {
+    fn drop(&mut self) {
+        unsafe {
+            heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+        }
+    }
+}
 
 pub struct ColumnPanelMatrix<T: Scalar> {
-    //Height and width
-/*    h: usize,
-    w: usize,*/
-
     //Height and width for iteration space
     iter_h: usize,
     iter_w: usize,
@@ -386,8 +380,6 @@ impl<T: Scalar> ColumnPanelMatrix<T> {
         }
     }
     
-    //Do we distinguish between physical panels and logical panels???
-    //Physical!!!
     #[inline(always)]
     pub fn resize_to_fit( &mut self, other: &Mat<T> ) {
         if self.off_y != 0 || self.off_panel != 0 { panic!("can't resize a submatrix!"); }
@@ -519,12 +511,15 @@ impl<T: Scalar> Mat<T> for ColumnPanelMatrix<T> {
     }
 */
 }
+impl<T:Scalar> Drop for ColumnPanelMatrix<T> {
+    fn drop(&mut self) {
+        unsafe {
+            heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+        }
+    }
+}
 
 pub struct RowPanelMatrix<T: Scalar> {
-    //Height and width
-/*    h: usize,
-    w: usize,*/
-
     //Height and width padding for equal iteration spaces
     iter_h: usize,
     iter_w: usize,
@@ -699,4 +694,11 @@ impl<T: Scalar> Mat<T> for RowPanelMatrix<T> {
                        buffer: buf, 
                        capacity: self.capacity }
     }*/
+}
+impl<T:Scalar> Drop for RowPanelMatrix<T> {
+    fn drop(&mut self) {
+        unsafe{ 
+            heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+        }
+    }
 }

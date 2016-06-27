@@ -91,7 +91,7 @@ pub struct ThreadInfo<T> {
     comm: Arc<ThreadComm<T>>,
 }
 impl<T> ThreadInfo<T> {
-    pub fn singleton( ) -> ThreadInfo<T>{
+    pub fn single_thread( ) -> ThreadInfo<T>{
         ThreadInfo{ thread_id : 0, comm : Arc::new(ThreadComm::new(1)) }
     }
     pub fn new( thread_id: usize, comm: Arc<ThreadComm<T>> ) -> ThreadInfo<T> {
@@ -143,12 +143,12 @@ pub fn blah() {
     mat.set(0, 0.0);
     mat.set(1, 0.0);
 
-    let globalComm = Arc::new(ThreadComm::new( 2 ));
+    let global_comm = Arc::new(ThreadComm::new( 2 ));
 
     crossbeam::scope(|scope| {
         for id in 0..2 {
             let mut my_alias = mat.get_alias();
-            let mut my_comm  = globalComm.clone();
+            let mut my_comm  = global_comm.clone();
             scope.spawn(move || {
                 //let mut my_alias = ref mat.get_alias();
                 let info = ThreadInfo{thread_id: id, comm: my_comm};
@@ -221,7 +221,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     crossbeam::scope(|scope| {
         for id in 0..2 {
             let mut my_alias = mat.get_alias();
-            let mut my_comm  = globalComm.clone();
+            let mut my_comm  = global_comm.clone();
             scope.spawn(move || {
                 //let mut my_alias = ref mat.get_alias();
                 let info = ThreadInfo{thread_id: id, comm: my_comm};

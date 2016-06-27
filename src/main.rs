@@ -1,7 +1,7 @@
 #![feature(specialization)]
 #![feature(zero_one)]
 #![feature(asm)]
-#![feature(unique, alloc, heap_api)]
+#![feature(alloc, heap_api)]
 
 use std::time::{Instant};
 extern crate core;
@@ -81,13 +81,13 @@ fn test_c_eq_a_b<T:Scalar, At:Mat<T>, Bt:Mat<T>, Ct:Mat<T>>( a: &mut At, b: &mut
 
     //Do bw = Bw, then abw = A*(Bw)   
     unsafe {
-        ref_gemm.run( b, &mut w, &mut bw, &ThreadInfo::singleton() );
-        ref_gemm.run( a, &mut bw, &mut abw, &ThreadInfo::singleton() );
+        ref_gemm.run( b, &mut w, &mut bw, &ThreadInfo::single_thread() );
+        ref_gemm.run( a, &mut bw, &mut abw, &ThreadInfo::single_thread() );
     }
 
     //Do cw = Cw
     unsafe {
-        ref_gemm.run( c, &mut w, &mut cw, &ThreadInfo::singleton() );
+        ref_gemm.run( c, &mut w, &mut cw, &ThreadInfo::single_thread() );
     }
     
     //Cw -= abw
@@ -137,7 +137,7 @@ fn time_sweep_goto() -> ()
             
             let start = Instant::now();
             unsafe{
-                loop5.run( &mut a, &mut b, &mut c, &ThreadInfo::singleton() );
+                loop5.run( &mut a, &mut b, &mut c, &ThreadInfo::single_thread() );
             }
             let mut dur = start.elapsed();
             let time_secs = dur.as_secs() as f64;
@@ -161,7 +161,7 @@ fn time_sweep_goto() -> ()
         println!("{}\t{}\t{}\t{}", size, 
                  2.0 * nflops / best_time / 1E9, 
                  2.0 * nflops / best_time_blis / 1E9,
-                 format!("{:e}", worst_err));
+                 format!("{:e}", worst_err.sqrt()));
     }
 }
 
@@ -185,7 +185,7 @@ fn goto( a : &mut Matrix<f64>, b : &mut Matrix<f64>, c : &mut Matrix<f64> )
         = PartN::new( 4096, loop4 );
 
     unsafe{
-        loop5.run( a, b, c, &ThreadInfo::singleton() );
+        loop5.run( a, b, c, &ThreadInfo::single_thread() );
     }
 }
 
