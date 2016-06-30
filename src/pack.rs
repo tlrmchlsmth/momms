@@ -1,6 +1,7 @@
 use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix};
 use core::marker::{PhantomData};
 use core::ptr::{self};
+use core::cmp;
 
 pub trait Copier <T: Scalar, At: Mat<T>, Apt: Mat<T>> {
     fn pack( &self, a: &At, a_pack: &mut Apt );
@@ -31,7 +32,8 @@ impl<T: Scalar> Copier<T,Matrix<T>,ColumnPanelMatrix<T>> for Packer<T, Matrix<T>
             for panel in 0..a_pack.get_n_panels() {
                 let p = a_pack.get_panel(panel);
                 let h = a_pack.height();
-                let panel_w = a_pack.get_panel_w();
+                let panel_w = cmp::min(a_pack.get_panel_w(), 
+                                       a_pack.width() - panel*a_pack.get_panel_w());
                 let ap1 = ap.offset((panel * panel_w * cs_a) as isize);
 
                 for y in 0..h {

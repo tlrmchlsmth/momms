@@ -8,6 +8,7 @@ extern crate core;
 pub trait GemmNode<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> {
     #[inline(always)]
     unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> ();
+    unsafe fn shadow( &self ) -> Self where Self: Sized;
 }
 
 
@@ -35,6 +36,13 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, ColumnPanelMa
         self.a_pack.resize_to_fit( a );
         self.packer.pack( a, &mut self.a_pack );
         self.child.run(&mut self.a_pack, b, c, thr);
+    }
+    unsafe fn shadow( &self ) -> Self where Self: Sized {
+        PackAcp{ _panel_width: self._panel_width, 
+                 child: self.child.shadow(), 
+                 a_pack: ColumnPanelMatrix::new( 0, 0, self._panel_width), 
+                 packer: Packer::new(),
+                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
 
@@ -65,6 +73,13 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPan
         self.packer.pack( b, &mut self.b_pack );
         self.child.run(a, &mut self.b_pack, c, thr);
     }
+    unsafe fn shadow( &self ) -> Self where Self: Sized {
+        PackBcp{ _panel_width: self._panel_width, 
+                 child: self.child.shadow(), 
+                 b_pack: ColumnPanelMatrix::new( 0, 0, self._panel_width), 
+                 packer: Packer::new(),
+                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
+    }
 }
 pub struct PackArp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix<T>, Bt, Ct>> {
     child: S,
@@ -92,6 +107,13 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatri
         self.a_pack.resize_to_fit( a );
         self.packer.pack( a, &mut self.a_pack );
         self.child.run(&mut self.a_pack, b, c, thr);
+    }
+    unsafe fn shadow( &self ) -> Self where Self: Sized {
+        PackArp{ _panel_height: self._panel_height, 
+                 child: self.child.shadow(), 
+                 a_pack: RowPanelMatrix::new( 0, 0, self._panel_height), 
+                 packer: Packer::new(),
+                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
 
@@ -121,6 +143,13 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, RowPanelM
         self.b_pack.resize_to_fit( b );
         self.packer.pack( b, &mut self.b_pack );
         self.child.run(a, &mut self.b_pack, c, thr);
+    }
+    unsafe fn shadow( &self ) -> Self where Self: Sized {
+        PackBrp{ _panel_height: self._panel_height, 
+                 child: self.child.shadow(), 
+                 b_pack: RowPanelMatrix::new( 0, 0, self._panel_height), 
+                 packer: Packer::new(),
+                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
 
@@ -160,6 +189,10 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         c.set_iter_height( m_save );
         c.set_off_y( cy_off_save );
     }
+    unsafe fn shadow( &self ) -> Self where Self: Sized {
+        PartM{ bsz: self.bsz, child: self.child.shadow(), 
+               _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
+    }
 }
 
 pub struct PartN<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {
@@ -197,6 +230,10 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         b.set_off_x( bx_off_save );
         c.set_iter_width( n_save );
         c.set_off_x( cx_off_save );
+    }
+    unsafe fn shadow( &self ) -> Self where Self: Sized {
+        PartN{ bsz: self.bsz, child: self.child.shadow(), 
+               _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
 
@@ -236,9 +273,18 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         b.set_iter_height( k_save );
         b.set_off_y( by_off_save );
     }
+    unsafe fn shadow( &self ) -> Self where Self: Sized {
+        PartK{ bsz: self.bsz, child: self.child.shadow(), 
+               _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
+    }
 }
 
 pub struct TripleLoopKernel{}
+impl TripleLoopKernel {
+    pub fn new() -> TripleLoopKernel {
+        TripleLoopKernel{}
+    }
+}
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> 
     GemmNode<T, At, Bt, Ct> for TripleLoopKernel {
     #[inline(always)]
@@ -253,9 +299,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
             }
         }
     }
-}
-impl TripleLoopKernel {
-    pub fn new() -> TripleLoopKernel {
+    unsafe fn shadow( &self ) -> Self where Self: Sized {
         TripleLoopKernel{}
     }
 }

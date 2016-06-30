@@ -29,6 +29,9 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
     GemmNode<T, At, Bt, Ct> for Ukernel<T> {
     #[inline(always)]
     default unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
+        assert!(c.height() == self.mr);
+        assert!(c.width() == self.nr);
+
         for z in 0..a.width() {
             for y in 0..self.mr {
                 for x in 0..self.nr {
@@ -37,6 +40,9 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
                 }
             }
         }
+    }
+    unsafe fn shadow( &self ) -> Self where Self: Sized {
+        Ukernel{ mr: self.mr, nr: self.nr, _t: PhantomData }
     }
 }
 impl<T: Scalar, Ct: Mat<T>> GemmNode<T, RowPanelMatrix<T>, ColumnPanelMatrix<T>, Ct> for Ukernel<T> {
@@ -88,4 +94,3 @@ impl GemmNode<f64, RowPanelMatrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>> for
             rs_c as int64_t, cs_c as int64_t );
     }
 }
-

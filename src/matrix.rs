@@ -27,12 +27,13 @@ pub trait Scalar where
     Self: Copy,
     Self: Display,
     Self: rand::Rand,
+    Self: Send,
 {}
 impl Scalar for f64{}
 impl Scalar for f32{}
 
 /* Mat trait and its implementors */
-pub trait Mat<T: Scalar> {
+pub trait Mat<T: Scalar> where Self: Send {
     #[inline(always)]
     fn get( &self, y: usize, x: usize) -> T;
     #[inline(always)]
@@ -84,13 +85,12 @@ pub trait Mat<T: Scalar> {
     fn set_logical_w_padding( &mut self, iter_h: usize );
     #[inline(always)]
     fn get_logical_w_padding( &self ) -> usize;
-/*
+    
     #[inline(always)]
-    unsafe fn make_alias( &self ) -> Mat<T>;
+    unsafe fn make_alias( &self ) -> Self where Self: Sized;
     #[inline(always)]
-    unsafe fn send_alias( &self, thr: &ThreadInfo<T> ) -> Mat<T>;
-*/
-
+    unsafe fn send_alias( &self, thr: &ThreadInfo<T> ) -> Self where Self: Sized;
+    
     #[inline(always)]
     fn adjust_y_view( &mut self, parent_iter_h: usize, parent_off_y: usize,
                       target_h: usize, index: usize ) {
@@ -231,6 +231,7 @@ pub struct Matrix<T: Scalar> {
     column_stride: usize,
     buffer: *mut T,
     capacity: usize,
+    is_alias: bool,
 }
 impl<T: Scalar> Matrix<T> {
     pub fn new( h: usize, w: usize ) -> Matrix<T> {
@@ -243,7 +244,8 @@ impl<T: Scalar> Matrix<T> {
                     off_y: 0, off_x: 0,
                     row_stride: 1, column_stride: h,
                     buffer: buf as *mut _,
-                    capacity: h * w }
+                    capacity: h * w,
+                    is_alias: false }
         }
     }
 
@@ -308,36 +310,41 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
     fn set_logical_w_padding( &mut self, w_pad: usize ) { self.w_padding = w_pad }
     #[inline(always)]
     fn get_logical_w_padding( &self ) -> usize { self.w_padding }
-/*
+    
     #[inline(always)]
-    unsafe fn make_alias( &self ) -> Mat<T> {
-        Matrix{ h: self.h, w: self.w, 
+    unsafe fn make_alias( &self ) -> Self {
+        Matrix{ iter_h: self.iter_h, iter_w: self.iter_w, 
+                h_padding: self.h_padding, w_padding: self.w_padding,
                 off_y: self.off_y, off_x: self.off_x,
                 row_stride: self.row_stride, column_stride: self.column_stride,
-                iter_h: self.iter_h, iter_w: self.iter_w,
                 buffer: self.buffer,
-                capacity: self.capacity }
+                capacity: self.capacity,
+                is_alias: true }
     }
 
     #[inline(always)]
-    unsafe fn send_alias( &self, thr: &ThreadInfo<T> ) -> Mat<T> {
+    unsafe fn send_alias( &self, thr: &ThreadInfo<T> ) -> Self {
         let buf = thr.broadcast( self.buffer );
 
-        Matrix{ h: self.h, w: self.w, 
+        Matrix{ iter_h: self.iter_h, iter_w: self.iter_w, 
+                h_padding: self.h_padding, w_padding: self.w_padding,
                 off_y: self.off_y, off_x: self.off_x,
                 row_stride: self.row_stride, column_stride: self.column_stride,
-                iter_h: self.iter_h, iter_w: self.iter_w,
-                buffer: buf,
-                capacity: self.capacity }
-    }*/
+                buffer: buf as *mut _,
+                capacity: self.capacity,
+                is_alias: true }
+    }
 }
 impl<T:Scalar> Drop for Matrix<T> {
     fn drop(&mut self) {
         unsafe {
-            heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+            if !self.is_alias {
+                heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+            }
         }
     }
 }
+unsafe impl<T:Scalar> Send for Matrix<T> {}
 
 pub struct ColumnPanelMatrix<T: Scalar> {
     //Height and width for iteration space
@@ -383,6 +390,7 @@ impl<T: Scalar> ColumnPanelMatrix<T> {
     #[inline(always)]
     pub fn resize_to_fit( &mut self, other: &Mat<T> ) {
         if self.off_y != 0 || self.off_panel != 0 { panic!("can't resize a submatrix!"); }
+
         let mut new_n_panels = other.width() / self.panel_w;
         if other.width() % self.panel_w != 0 { new_n_panels += 1; }
 
@@ -483,33 +491,32 @@ impl<T: Scalar> Mat<T> for ColumnPanelMatrix<T> {
     fn set_logical_w_padding( &mut self, w_pad: usize ) { self.logical_w_padding = w_pad }
     #[inline(always)]
     fn get_logical_w_padding( &self ) -> usize { self.logical_w_padding }
-/*
+    
     #[inline(always)]
-    unsafe fn make_alias( &self ) -> Mat<T> {
+    unsafe fn make_alias( &self ) -> Self {
         ColumnPanelMatrix{ iter_h: self.iter_h, iter_w: self.iter_w,
-                       logical_h_padding: self.logical_h_padding, 
-                       logical_w_padding: self.logical_w_padding,
-                       off_y: self.off_y, off_panel: self.off_paensl,
-                       panel_w: self.panel_w, n_panels: self.n_panels,
-                       panel_stride: self.panel_strid
-                       buffer: self.buffer, 
-                       capacity: self.capacity }
+                           logical_h_padding: self.logical_h_padding, 
+                           logical_w_padding: self.logical_w_padding,
+                           off_y: self.off_y, off_panel: self.off_panel,
+                           panel_w: self.panel_w, n_panels: self.n_panels,
+                           panel_stride: self.panel_stride,
+                           buffer: self.buffer, 
+                           capacity: self.capacity }
     }
 
     #[inline(always)]
-    unsafe fn send_alias( &self, thr: &ThreadInfo<T> ) -> Mat<T> {
+    unsafe fn send_alias( &self, thr: &ThreadInfo<T> ) -> Self {
         let buf = thr.broadcast( self.buffer );
 
         ColumnPanelMatrix{ iter_h: self.iter_h, iter_w: self.iter_w,
-                       logical_h_padding: self.logical_h_padding, 
-                       logical_w_padding: self.logical_w_padding,
-                       off_y: self.off_y, off_panel: self.off_paensl,
-                       panel_w: self.panel_w, n_panels: self.n_panels,
-                       panel_stride: self.panel_strid
-                       buffer: buf, 
-                       capacity: self.capacity }
+                           logical_h_padding: self.logical_h_padding, 
+                           logical_w_padding: self.logical_w_padding,
+                           off_y: self.off_y, off_panel: self.off_panel,
+                           panel_w: self.panel_w, n_panels: self.n_panels,
+                           panel_stride: self.panel_stride,
+                           buffer: buf, 
+                           capacity: self.capacity }
     }
-*/
 }
 impl<T:Scalar> Drop for ColumnPanelMatrix<T> {
     fn drop(&mut self) {
@@ -518,6 +525,7 @@ impl<T:Scalar> Drop for ColumnPanelMatrix<T> {
         }
     }
 }
+unsafe impl<T:Scalar> Send for ColumnPanelMatrix<T> {}
 
 pub struct RowPanelMatrix<T: Scalar> {
     //Height and width padding for equal iteration spaces
@@ -674,26 +682,32 @@ impl<T: Scalar> Mat<T> for RowPanelMatrix<T> {
     fn set_logical_w_padding( &mut self, w_pad: usize ) { self.logical_w_padding = w_pad }
     #[inline(always)]
     fn get_logical_w_padding( &self ) -> usize { self.logical_w_padding }
-/*
+    
     #[inline(always)]
-    unsafe fn make_alias( &self ) -> Mat<T> {
-        RowPanelMatrix{ h: self.h, w: self.w,
-                       off_x: self.off_x, off_panel: self.off_panel,
-                       panel_h: self.panel_h, n_panels: self.n_panels, panel_stride: self.panel_h*self.w, 
-                       buffer: self.buffer, 
-                       capacity: self.capacity }
+    unsafe fn make_alias( &self ) -> Self {
+        RowPanelMatrix{ iter_h: self.iter_h, iter_w: self.iter_w,
+                        logical_h_padding: self.logical_h_padding,
+                        logical_w_padding: self.logical_w_padding,
+                        off_x: self.off_x, off_panel: self.off_panel,
+                        panel_h: self.panel_h, n_panels: self.n_panels,
+                        panel_stride: self.panel_stride, 
+                        buffer: self.buffer, 
+                        capacity: self.capacity }
     }
 
     #[inline(always)]
-    unsafe fn send_alias( &self, thr: &ThreadInfo<T> ) -> Mat<T> {
+    unsafe fn send_alias( &self, thr: &ThreadInfo<T> ) -> Self {
         let buf = thr.broadcast( self.buffer );
 
-        RowPanelMatrix{ h: self.h, w: self.w,
-                       off_x: self.off_x, off_panel: self.off_panel,
-                       panel_h: self.panel_h, n_panels: self.n_panels, panel_stride: self.panel_h*self.w, 
-                       buffer: buf, 
-                       capacity: self.capacity }
-    }*/
+        RowPanelMatrix{ iter_h: self.iter_h, iter_w: self.iter_w,
+                        logical_h_padding: self.logical_h_padding,
+                        logical_w_padding: self.logical_w_padding,
+                        off_x: self.off_x, off_panel: self.off_panel,
+                        panel_h: self.panel_h, n_panels: self.n_panels,
+                        panel_stride: self.panel_stride, 
+                        buffer: buf, 
+                        capacity: self.capacity }
+    }
 }
 impl<T:Scalar> Drop for RowPanelMatrix<T> {
     fn drop(&mut self) {
@@ -702,3 +716,4 @@ impl<T:Scalar> Drop for RowPanelMatrix<T> {
         }
     }
 }
+unsafe impl<T:Scalar> Send for RowPanelMatrix<T> {}

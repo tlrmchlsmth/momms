@@ -6,17 +6,16 @@
 use std::time::{Instant};
 extern crate core;
 
-mod thread;
-use thread::{blah};
 
 mod matrix;
 mod gemm;
 mod pack;
 mod ukernel;
+mod thread;
 pub use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix};
 pub use gemm::{GemmNode,PartM,PartN,PartK,PackArp,PackAcp,PackBrp,PackBcp,TripleLoopKernel};
 pub use ukernel::{Ukernel};
-pub use thread::{ThreadInfo};
+pub use thread::{ThreadInfo,SpawnThreads,ParallelM,ThreadsTarget};
 
 extern crate libc;
 use self::libc::{ c_double, int32_t, c_char };
@@ -97,7 +96,6 @@ fn test_c_eq_a_b<T:Scalar, At:Mat<T>, Bt:Mat<T>, Ct:Mat<T>>( a: &mut At, b: &mut
 
 fn time_sweep_goto() -> ()
 {
-
     let ukernel = Ukernel::new( 8, 4 );
 //    let ukernel = TripleLoopKernel::new();
     let loop1: PartM<f64, RowPanelMatrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _> 
@@ -112,8 +110,25 @@ fn time_sweep_goto() -> ()
         = PackBcp::new( 4, loop3 );
     let loop4: PartK<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
         = PartK::new( 256, packb );
-    let mut loop5: PartN<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
+    let loop5: PartN<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
         = PartN::new( 4096, loop4 );
+
+//    let ukernel = TripleLoopKernel::new();
+   /* let loop3: PartM<f64, Matrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _>
+        = PartM::new( 96, ukernel );
+    let packb: PackBcp<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
+        = PackBcp::new( 4, loop3 );
+    let loop4: PartK<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
+        = PartK::new( 256, packb );
+    let loop5: PartN<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
+        = PartN::new( 4096, loop4 );*/
+
+//    let packb: PackBcp<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
+//        = PackBcp::new( 4, ukernel );
+    let par_m : ParallelM<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _> 
+        = ParallelM::new(ThreadsTarget::TheRest,4, loop5);
+    let mut algo : SpawnThreads<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _> 
+        = SpawnThreads::new(2,par_m);
 
     for index in 0..64 {
         let mut best_time: f64 = 9999999999.0;
@@ -126,7 +141,7 @@ fn time_sweep_goto() -> ()
         let k = size;
 
 
-        for _nrep in 0..5 {
+        for _nrep in 0..10 {
 
             let mut a : Matrix<f64> = Matrix::new(m, k);
             let mut b : Matrix<f64> = Matrix::new(k, n);
@@ -137,7 +152,7 @@ fn time_sweep_goto() -> ()
             
             let start = Instant::now();
             unsafe{
-                loop5.run( &mut a, &mut b, &mut c, &ThreadInfo::single_thread() );
+                algo.run( &mut a, &mut b, &mut c, &ThreadInfo::single_thread() );
             }
             let mut dur = start.elapsed();
             let time_secs = dur.as_secs() as f64;
@@ -165,31 +180,6 @@ fn time_sweep_goto() -> ()
     }
 }
 
-
-fn goto( a : &mut Matrix<f64>, b : &mut Matrix<f64>, c : &mut Matrix<f64> )
-{
-    let ukernel = Ukernel::new( 8, 4 );
-    let loop1: PartM<f64, RowPanelMatrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _> 
-        = PartM::new( 8, ukernel);
-    let loop2: PartN<f64, RowPanelMatrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _> 
-        = PartN::new( 4, loop1 );
-    let packa: PackArp<f64, Matrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _>
-        = PackArp::new( 8, loop2 );
-    let loop3: PartM<f64, Matrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _>
-        = PartM::new( 96, packa );
-    let packb: PackBcp<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
-        = PackBcp::new( 4, loop3 );
-    let loop4: PartK<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
-        = PartK::new( 256, packb );
-    let mut loop5: PartN<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
-        = PartN::new( 4096, loop4 );
-
-    unsafe{
-        loop5.run( a, b, c, &ThreadInfo::single_thread() );
-    }
-}
-
 fn main() {
     time_sweep_goto( );
-    blah();
 }
