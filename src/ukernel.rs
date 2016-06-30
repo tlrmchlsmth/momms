@@ -2,6 +2,7 @@ use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix};
 use core::marker::{PhantomData};
 use gemm::{GemmNode};
 use thread::{ThreadInfo};
+use typenum::{U4,U8};
 
 extern crate libc;
 use self::libc::{ c_double, int64_t };
@@ -45,6 +46,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
         Ukernel{ mr: self.mr, nr: self.nr, _t: PhantomData }
     }
 }
+/*
 impl<T: Scalar, Ct: Mat<T>> GemmNode<T, RowPanelMatrix<T>, ColumnPanelMatrix<T>, Ct> for Ukernel<T> {
     #[inline(always)]
     default unsafe fn run( &mut self, 
@@ -63,15 +65,15 @@ impl<T: Scalar, Ct: Mat<T>> GemmNode<T, RowPanelMatrix<T>, ColumnPanelMatrix<T>,
         }
     }
     }
-}
+}*/
 
 //Todo:
 //finish this function, call some inline assembly ukernel.
-impl GemmNode<f64, RowPanelMatrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>> for Ukernel<f64> {
+impl GemmNode<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f64>> for Ukernel<f64> {
     #[inline(always)]
     unsafe fn run( &mut self, 
-                   a: &mut RowPanelMatrix<f64>, 
-                   b: &mut ColumnPanelMatrix<f64>, 
+                   a: &mut RowPanelMatrix<f64, U8>, 
+                   b: &mut ColumnPanelMatrix<f64, U4>, 
                    c: &mut Matrix<f64>, 
                    thr: &ThreadInfo<f64> ) -> () {
         let ap = a.get_mut_buffer();

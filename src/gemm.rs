@@ -1,4 +1,4 @@
-use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix};
+use matrix::{Scalar,Mat,ResizeableBuffer,ColumnPanelMatrix,RowPanelMatrix};
 use core::marker::{PhantomData};
 use pack::{Copier,Packer};
 use thread::{ThreadInfo};
@@ -11,26 +11,28 @@ pub trait GemmNode<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> {
     unsafe fn shadow( &self ) -> Self where Self: Sized;
 }
 
-
-pub struct PackAcp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, ColumnPanelMatrix<T>, Bt, Ct>> {
+pub struct PackA<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, 
+    S: GemmNode<T, APt, Bt, Ct>> {
     child: S,
-    _panel_width: usize,
-    packer: Packer<T, At, ColumnPanelMatrix<T>>,
-    a_pack: ColumnPanelMatrix<T>,
+    packer: Packer<T, At, APt>,
+    a_pack: APt,
     _t: PhantomData<T>,
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
-} impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, ColumnPanelMatrix<T>, Bt, Ct>> PackAcp <T,At,Bt,Ct,S> {
-    pub fn new( panel_width: usize, child: S ) -> PackAcp<T, At, Bt, Ct, S>{
-        let matrix = ColumnPanelMatrix::new( 0, 0, panel_width );
-        let packer = Packer::new();
-        PackAcp{ _panel_width: panel_width, child: child, a_pack: matrix, packer: packer,
-                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
+    _apt: PhantomData<APt>,
+} 
+impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, APt, Bt, Ct>> PackA <T,At,Bt,Ct,APt,S> 
+    where APt: ResizeableBuffer<T> {
+    pub fn new( child: S ) -> PackA<T, At, Bt, Ct, APt, S>{
+        PackA{ child: child, 
+               a_pack: APt::empty(), packer: Packer::new(),
+               _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData, _apt: PhantomData }
     }
 }
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, ColumnPanelMatrix<T>, Bt, Ct>>
-    GemmNode<T, At, Bt, Ct> for PackAcp<T, At, Bt, Ct, S> {
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, APt, Bt, Ct>>
+    GemmNode<T, At, Bt, Ct> for PackA<T, At, Bt, Ct, APt, S>
+    where APt: ResizeableBuffer<T> {
     #[inline(always)]
     unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T> ) -> () {
         self.a_pack.resize_to_fit( a );
@@ -38,121 +40,50 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, ColumnPanelMa
         self.child.run(&mut self.a_pack, b, c, thr);
     }
     unsafe fn shadow( &self ) -> Self where Self: Sized {
-        PackAcp{ _panel_width: self._panel_width, 
-                 child: self.child.shadow(), 
-                 a_pack: ColumnPanelMatrix::new( 0, 0, self._panel_width), 
-                 packer: Packer::new(),
-                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
+        PackA{ child: self.child.shadow(), 
+               a_pack: APt::empty(), 
+               packer: Packer::new(),
+               _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData,
+               _apt: PhantomData }
     }
 }
 
-pub struct PackBcp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPanelMatrix<T>, Ct>> {
+pub struct PackB<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, 
+    S: GemmNode<T, At, BPt, Ct>> {
     child: S,
-    _panel_width: usize,
-    packer: Packer<T, Bt, ColumnPanelMatrix<T>>,
-    b_pack: ColumnPanelMatrix<T>,
+    packer: Packer<T, Bt, BPt>,
+    b_pack: BPt,
     _t: PhantomData<T>,
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
-}
-impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPanelMatrix<T>, Ct>> 
-    PackBcp <T,At,Bt,Ct,S> {
-    pub fn new( panel_width: usize, child: S ) -> PackBcp<T, At, Bt, Ct, S>{
-        let matrix = ColumnPanelMatrix::new( 0, 0, panel_width );
-        let packer = Packer::new();
-        PackBcp{ _panel_width: panel_width, child: child, b_pack: matrix, packer: packer,
-                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
+    _bpt: PhantomData<BPt>,
+} 
+impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, At, BPt, Ct>> PackB <T,At,Bt,Ct,BPt,S> 
+    where BPt: ResizeableBuffer<T> {
+    pub fn new( child: S ) -> PackB<T, At, Bt, Ct, BPt, S>{
+        PackB{ child: child, 
+               b_pack: BPt::empty(), packer: Packer::new(),
+               _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData, _bpt: PhantomData }
     }
 }
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, ColumnPanelMatrix<T>, Ct>>
-    GemmNode<T, At, Bt, Ct> for PackBcp<T, At, Bt, Ct, S> {
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, At, BPt, Ct>>
+    GemmNode<T, At, Bt, Ct> for PackB<T, At, Bt, Ct, BPt, S>
+    where BPt: ResizeableBuffer<T> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T> ) -> () {
         self.b_pack.resize_to_fit( b );
         self.packer.pack( b, &mut self.b_pack );
         self.child.run(a, &mut self.b_pack, c, thr);
     }
     unsafe fn shadow( &self ) -> Self where Self: Sized {
-        PackBcp{ _panel_width: self._panel_width, 
-                 child: self.child.shadow(), 
-                 b_pack: ColumnPanelMatrix::new( 0, 0, self._panel_width), 
-                 packer: Packer::new(),
-                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
+        PackB{ child: self.child.shadow(), 
+               b_pack: BPt::empty(), 
+               packer: Packer::new(),
+               _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData,
+               _bpt: PhantomData }
     }
 }
-pub struct PackArp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix<T>, Bt, Ct>> {
-    child: S,
-    _panel_height: usize,
-    packer: Packer<T, At, RowPanelMatrix<T>>,
-    a_pack: RowPanelMatrix<T>,
-    _t: PhantomData<T>,
-    _at: PhantomData<At>,
-    _bt: PhantomData<Bt>,
-    _ct: PhantomData<Ct>,
-}
-impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix<T>, Bt, Ct>> 
-    PackArp <T,At,Bt,Ct,S> {
-    pub fn new( panel_height: usize, child: S ) -> PackArp<T, At, Bt, Ct, S>{
-        let matrix = RowPanelMatrix::new( 0, 0, panel_height );
-        let packer = Packer::new();
-        PackArp{ _panel_height: panel_height, child: child, a_pack: matrix, packer: packer,
-                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
-    }
-}
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, RowPanelMatrix<T>, Bt, Ct>>
-    GemmNode<T, At, Bt, Ct> for PackArp<T, At, Bt, Ct, S> {
-    #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
-        self.a_pack.resize_to_fit( a );
-        self.packer.pack( a, &mut self.a_pack );
-        self.child.run(&mut self.a_pack, b, c, thr);
-    }
-    unsafe fn shadow( &self ) -> Self where Self: Sized {
-        PackArp{ _panel_height: self._panel_height, 
-                 child: self.child.shadow(), 
-                 a_pack: RowPanelMatrix::new( 0, 0, self._panel_height), 
-                 packer: Packer::new(),
-                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
-    }
-}
-
-pub struct PackBrp<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, RowPanelMatrix<T>, Ct>> {
-    child: S,
-    _panel_height: usize,
-    packer: Packer<T, Bt, RowPanelMatrix<T>>,
-    b_pack: RowPanelMatrix<T>,
-    _t: PhantomData<T>,
-    _at: PhantomData<At>,
-    _bt: PhantomData<Bt>,
-    _ct: PhantomData<Ct>,
-}
-impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, RowPanelMatrix<T>, Ct>> 
-    PackBrp <T,At,Bt,Ct,S> {
-    pub fn new( panel_height: usize, child: S ) -> PackBrp<T, At, Bt, Ct, S>{
-        let matrix = RowPanelMatrix::new( 0, 0, panel_height );
-        let packer = Packer::new();
-        PackBrp{ _panel_height: panel_height, child: child, b_pack: matrix, packer: packer,
-                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
-    }
-}
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, RowPanelMatrix<T>, Ct>>
-    GemmNode<T, At, Bt, Ct> for PackBrp<T, At, Bt, Ct, S> {
-    #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
-        self.b_pack.resize_to_fit( b );
-        self.packer.pack( b, &mut self.b_pack );
-        self.child.run(a, &mut self.b_pack, c, thr);
-    }
-    unsafe fn shadow( &self ) -> Self where Self: Sized {
-        PackBrp{ _panel_height: self._panel_height, 
-                 child: self.child.shadow(), 
-                 b_pack: RowPanelMatrix::new( 0, 0, self._panel_height), 
-                 packer: Packer::new(),
-                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
-    }
-}
-
 pub struct PartM<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {
     bsz: usize,
     child: S,

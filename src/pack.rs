@@ -2,6 +2,7 @@ use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix};
 use core::marker::{PhantomData};
 use core::ptr::{self};
 use core::cmp;
+use typenum::{Unsigned};
 
 pub trait Copier <T: Scalar, At: Mat<T>, Apt: Mat<T>> {
     fn pack( &self, a: &At, a_pack: &mut Apt );
@@ -22,8 +23,9 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Copier<T,At,Apt> for Packer<T, At, Apt>
     }
 }
 
-impl<T: Scalar> Copier<T,Matrix<T>,ColumnPanelMatrix<T>> for Packer<T, Matrix<T>, ColumnPanelMatrix<T>> {
-    fn pack( &self, a: &Matrix<T>, a_pack: &mut ColumnPanelMatrix<T> ) {
+impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>> 
+    for Packer<T, Matrix<T>, ColumnPanelMatrix<T, PW>> {
+    fn pack( &self, a: &Matrix<T>, a_pack: &mut ColumnPanelMatrix<T, PW> ) {
         unsafe {
             let ap = a.get_buffer();
             let cs_a = a.get_column_stride();
@@ -47,8 +49,9 @@ impl<T: Scalar> Copier<T,Matrix<T>,ColumnPanelMatrix<T>> for Packer<T, Matrix<T>
     }
 }
 
-impl<T: Scalar> Copier<T,Matrix<T>,RowPanelMatrix<T>> for Packer<T, Matrix<T>, RowPanelMatrix<T>> {
-    fn pack( &self, a: &Matrix<T>, a_pack: &mut RowPanelMatrix<T> ) {
+impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>> 
+    for Packer<T, Matrix<T>, RowPanelMatrix<T, PH>> {
+    fn pack( &self, a: &Matrix<T>, a_pack: &mut RowPanelMatrix<T, PH> ) {
         unsafe {
             let ap = a.get_buffer();
             let cs_a = a.get_column_stride();

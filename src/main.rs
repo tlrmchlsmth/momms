@@ -5,7 +5,7 @@
 
 use std::time::{Instant};
 extern crate core;
-
+extern crate typenum;
 
 mod matrix;
 mod gemm;
@@ -13,9 +13,12 @@ mod pack;
 mod ukernel;
 mod thread;
 pub use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix};
-pub use gemm::{GemmNode,PartM,PartN,PartK,PackArp,PackAcp,PackBrp,PackBcp,TripleLoopKernel};
+//pub use gemm::{GemmNode,PartM,PartN,PartK,PackArp,PackAcp,PackBrp,PackBcp,TripleLoopKernel};
+pub use gemm::{GemmNode,PartM,PartN,PartK,PackA,PackB,TripleLoopKernel};
 pub use ukernel::{Ukernel};
 pub use thread::{ThreadInfo,SpawnThreads,ParallelM,ThreadsTarget};
+
+use typenum::{U4, U8};
 
 extern crate libc;
 use self::libc::{ c_double, int32_t, c_char };
@@ -98,16 +101,16 @@ fn time_sweep_goto() -> ()
 {
     let ukernel = Ukernel::new( 8, 4 );
 //    let ukernel = TripleLoopKernel::new();
-    let loop1: PartM<f64, RowPanelMatrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _> 
+    let loop1: PartM<f64, RowPanelMatrix<f64,U8>, ColumnPanelMatrix<f64,U4>, Matrix<f64>, _> 
         = PartM::new( 8, ukernel);
-    let loop2: PartN<f64, RowPanelMatrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _> 
+    let loop2: PartN<f64, RowPanelMatrix<f64,U8>, ColumnPanelMatrix<f64,U4>, Matrix<f64>, _> 
         = PartN::new( 4, loop1 );
-    let packa: PackArp<f64, Matrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _>
-        = PackArp::new( 8, loop2 );
-    let loop3: PartM<f64, Matrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _>
+    let packa: PackA<f64, Matrix<f64>, ColumnPanelMatrix<f64,U4>, Matrix<f64>, RowPanelMatrix<f64,U8>, _>
+        = PackA::new( loop2 );
+    let loop3: PartM<f64, Matrix<f64>, ColumnPanelMatrix<f64,U4>, Matrix<f64>, _>
         = PartM::new( 96, packa );
-    let packb: PackBcp<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
-        = PackBcp::new( 4, loop3 );
+    let packb: PackB<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, ColumnPanelMatrix<f64,U4>, _>
+        = PackB::new( loop3 );
     let loop4: PartK<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
         = PartK::new( 256, packb );
     let loop5: PartN<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>

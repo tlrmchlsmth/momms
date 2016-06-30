@@ -102,8 +102,8 @@ impl<T> ThreadComm<T> {
 
         let comm = self.sub_comms[sub_comm_number].read().unwrap().clone();
         match comm {
-                Option::None => panic!("Expected Initialized thread comm!"),
-                Option::Some(a) => a
+                Option::Some(a) => a,
+                _ => unreachable!(),
         }
     }
 }
@@ -250,7 +250,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
                       self.par_inf = Option::Some( blah );
                       match self.par_inf {
                         Some(ref x) => { x },
-                        None => panic!("unreachable"),
+                        _ => unreachable!(),
                       }
             }, 
         };
