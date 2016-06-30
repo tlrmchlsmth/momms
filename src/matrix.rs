@@ -405,9 +405,6 @@ impl<T: Scalar, PW: Unsigned> ColumnPanelMatrix<T,PW> {
 
     #[inline(always)]
     pub fn get_panel_stride( &self ) -> usize { self.panel_stride }
-    
-    #[inline(always)]
-    pub fn get_panel_w( &self ) -> usize { PW::to_usize() }
 
     #[inline(always)]
     pub unsafe fn get_buffer( &self ) -> *const T { 

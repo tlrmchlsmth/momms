@@ -34,8 +34,7 @@ impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>>
             for panel in 0..a_pack.get_n_panels() {
                 let p = a_pack.get_panel(panel);
                 let h = a_pack.height();
-                let panel_w = cmp::min(a_pack.get_panel_w(), 
-                                       a_pack.width() - panel*a_pack.get_panel_w());
+                let panel_w = PW::to_usize();
                 let ap1 = ap.offset((panel * panel_w * cs_a) as isize);
 
                 for y in 0..h {
@@ -60,7 +59,7 @@ impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>>
             for panel in 0..a_pack.get_n_panels() {
                 let p = a_pack.get_panel(panel); 
                 let w = a_pack.width();
-                let panel_h = a_pack.get_panel_h();
+                let panel_h = PH::to_usize();
                 let ap1 = ap.offset((panel * panel_h * rs_a) as isize); 
 
                 for x in 0..w {
