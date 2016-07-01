@@ -42,6 +42,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
             }
         }
     }
+    #[inline(always)]
     unsafe fn shadow( &self ) -> Self where Self: Sized {
         Ukernel{ mr: self.mr, nr: self.nr, _t: PhantomData }
     }

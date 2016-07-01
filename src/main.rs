@@ -15,7 +15,7 @@ mod thread;
 pub use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix};
 pub use gemm::{GemmNode,PartM,PartN,PartK,PackA,PackB,TripleLoop};
 pub use ukernel::{Ukernel};
-pub use thread::{ThreadInfo,SpawnThreads,ParallelM,ThreadsTarget};
+pub use thread::{ThreadInfo,SpawnThreads,ParallelM,ParallelN,ThreadsTarget};
 
 use typenum::{U4, U8};
 
@@ -104,17 +104,21 @@ fn time_sweep_goto() -> ()
         = PartM::new( 8, ukernel);
     let loop2: PartN<f64, RowPanelMatrix<f64,U8>, ColumnPanelMatrix<f64,U4>, Matrix<f64>, _> 
         = PartN::new( 4, loop1 );
+
+    let par_n : ParallelN<f64, RowPanelMatrix<f64,U8>, ColumnPanelMatrix<f64,U4>, Matrix<f64>, _> 
+        = ParallelN::new(ThreadsTarget::TheRest, 1, loop2);
+
     let packa: PackA<f64, Matrix<f64>, ColumnPanelMatrix<f64,U4>, Matrix<f64>, RowPanelMatrix<f64,U8>, _>
-        = PackA::new( loop2 );
+        = PackA::new( par_n );
     let loop3: PartM<f64, Matrix<f64>, ColumnPanelMatrix<f64,U4>, Matrix<f64>, _>
         = PartM::new( 96, packa );
 
-    let par_m : ParallelM<f64, Matrix<f64>, ColumnPanelMatrix<f64,U4>, Matrix<f64>, _> 
-        = ParallelM::new(ThreadsTarget::TheRest, 1, loop3);
+//    let par_m : ParallelM<f64, Matrix<f64>, ColumnPanelMatrix<f64,U4>, Matrix<f64>, _> 
+//        = ParallelM::new(ThreadsTarget::TheRest, 1, loop3);
 
 
     let packb: PackB<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, ColumnPanelMatrix<f64,U4>, _>
-        = PackB::new( par_m );
+        = PackB::new( loop3 );
     let loop4: PartK<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
         = PartK::new( 256, packb );
     let loop5: PartN<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>

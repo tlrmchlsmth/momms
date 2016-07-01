@@ -8,6 +8,7 @@ extern crate core;
 pub trait GemmNode<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> {
     #[inline(always)]
     unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> ();
+    #[inline(always)]
     unsafe fn shadow( &self ) -> Self where Self: Sized;
 }
 
@@ -40,6 +41,9 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, 
             if thr.thread_id() == 0 {
                 self.a_pack.aquire_buffer_for(APt::capacity_for(a));
             }
+            else {
+                self.a_pack.set_capacity( APt::capacity_for(a) );
+            }
             self.a_pack.send_alias( thr );
         }
         self.a_pack.resize_to( a );
@@ -47,6 +51,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, 
         thr.barrier();
         self.child.run(&mut self.a_pack, b, c, thr);
     }
+    #[inline(always)]
     unsafe fn shadow( &self ) -> Self where Self: Sized {
         PackA{ child: self.child.shadow(), 
                a_pack: APt::empty(), 
@@ -95,6 +100,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, 
         thr.barrier();
         self.child.run(a, &mut self.b_pack, c, thr);
     }
+    #[inline(always)]
     unsafe fn shadow( &self ) -> Self where Self: Sized {
         PackB{ child: self.child.shadow(), 
                b_pack: BPt::empty(), 
@@ -139,6 +145,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         c.set_iter_height( m_save );
         c.set_off_y( cy_off_save );
     }
+    #[inline(always)]
     unsafe fn shadow( &self ) -> Self where Self: Sized {
         PartM{ bsz: self.bsz, child: self.child.shadow(), 
                _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
@@ -181,6 +188,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         c.set_iter_width( n_save );
         c.set_off_x( cx_off_save );
     }
+    #[inline(always)]
     unsafe fn shadow( &self ) -> Self where Self: Sized {
         PartN{ bsz: self.bsz, child: self.child.shadow(), 
                _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
@@ -223,6 +231,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         b.set_iter_height( k_save );
         b.set_off_y( by_off_save );
     }
+    #[inline(always)]
     unsafe fn shadow( &self ) -> Self where Self: Sized {
         PartK{ bsz: self.bsz, child: self.child.shadow(), 
                _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
@@ -249,6 +258,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
             }
         }
     }
+    #[inline(always)]
     unsafe fn shadow( &self ) -> Self where Self: Sized {
         TripleLoop{}
     }
