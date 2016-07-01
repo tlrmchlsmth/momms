@@ -13,8 +13,7 @@ mod pack;
 mod ukernel;
 mod thread;
 pub use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix};
-//pub use gemm::{GemmNode,PartM,PartN,PartK,PackArp,PackAcp,PackBrp,PackBcp,TripleLoopKernel};
-pub use gemm::{GemmNode,PartM,PartN,PartK,PackA,PackB,TripleLoopKernel};
+pub use gemm::{GemmNode,PartM,PartN,PartK,PackA,PackB,TripleLoop};
 pub use ukernel::{Ukernel};
 pub use thread::{ThreadInfo,SpawnThreads,ParallelM,ThreadsTarget};
 
@@ -66,7 +65,7 @@ fn blas_dgemm( a: &mut Matrix<f64>, b: &mut Matrix<f64>, c: &mut Matrix<f64> )
 }
 
 fn test_c_eq_a_b<T:Scalar, At:Mat<T>, Bt:Mat<T>, Ct:Mat<T>>( a: &mut At, b: &mut Bt, c: &mut Ct ) -> T {
-    let mut ref_gemm : TripleLoopKernel = TripleLoopKernel{};
+    let mut ref_gemm : TripleLoop = TripleLoop{};
 
     let m = c.height();
     let n = b.width();
@@ -100,7 +99,7 @@ fn test_c_eq_a_b<T:Scalar, At:Mat<T>, Bt:Mat<T>, Ct:Mat<T>>( a: &mut At, b: &mut
 fn time_sweep_goto() -> ()
 {
     let ukernel = Ukernel::new( 8, 4 );
-//    let ukernel = TripleLoopKernel::new();
+//    let ukernel = TripleLoop::new();
     let loop1: PartM<f64, RowPanelMatrix<f64,U8>, ColumnPanelMatrix<f64,U4>, Matrix<f64>, _> 
         = PartM::new( 8, ukernel);
     let loop2: PartN<f64, RowPanelMatrix<f64,U8>, ColumnPanelMatrix<f64,U4>, Matrix<f64>, _> 
@@ -116,7 +115,7 @@ fn time_sweep_goto() -> ()
     let loop5: PartN<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
         = PartN::new( 4096, loop4 );
 
-//    let ukernel = TripleLoopKernel::new();
+//    let ukernel = TripleLoop::new();
    /* let loop3: PartM<f64, Matrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _>
         = PartM::new( 96, ukernel );
     let packb: PackBcp<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
@@ -128,10 +127,10 @@ fn time_sweep_goto() -> ()
 
 //    let packb: PackBcp<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
 //        = PackBcp::new( 4, ukernel );
-    let par_m : ParallelM<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _> 
-        = ParallelM::new(ThreadsTarget::TheRest,4, loop5);
-    let mut algo : SpawnThreads<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _> 
-        = SpawnThreads::new(2,par_m);
+    let mut algo : ParallelM<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _> 
+        = ParallelM::new(ThreadsTarget::TheRest, 1, loop5);
+/*    let mut algo : SpawnThreads<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _> 
+        = SpawnThreads::new(1,par_m);*/
 
     for index in 0..64 {
         let mut best_time: f64 = 9999999999.0;

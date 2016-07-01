@@ -210,14 +210,14 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     }
 }
 
-pub struct TripleLoopKernel{}
-impl TripleLoopKernel {
-    pub fn new() -> TripleLoopKernel {
-        TripleLoopKernel{}
+pub struct TripleLoop{}
+impl TripleLoop {
+    pub fn new() -> TripleLoop {
+        TripleLoop{}
     }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> 
-    GemmNode<T, At, Bt, Ct> for TripleLoopKernel {
+    GemmNode<T, At, Bt, Ct> for TripleLoop {
     #[inline(always)]
     unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T> ) -> () {
         //For now, let's do an axpy based gemm
@@ -231,6 +231,6 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
         }
     }
     unsafe fn shadow( &self ) -> Self where Self: Sized {
-        TripleLoopKernel{}
+        TripleLoop{}
     }
 }
