@@ -59,7 +59,7 @@ impl<T> ThreadComm<T> {
         if self.n_threads == 1 {
              return;
         }
-
+        
         let my_sense = self.barrier_sense.load(Ordering::Relaxed);
         let my_threads_arrived = self.barrier_threads_arrived.fetch_add(1,Ordering::Relaxed);
 
@@ -67,22 +67,32 @@ impl<T> ThreadComm<T> {
             self.barrier_threads_arrived.store(0,Ordering::Relaxed);
             self.barrier_sense.fetch_xor(true, Ordering::Relaxed);
         } else {   
-            while self.barrier_sense.load(Ordering::Relaxed) == my_sense {}
-        }   
+            while self.barrier_sense.load(Ordering::Relaxed) == my_sense { }
+        } 
 
         //self.barrier.wait();
     }
 
     fn broadcast(&self, info: &ThreadInfo<T>, to_send: *mut T) -> *mut T {
+        /*
         if info.thread_id == 0 {
             //Spin while waiting for the thread communicator to be ready to broadcast
-            while self.slot_reads.load(Ordering::Relaxed) != self.n_threads {}
+            while self.slot_reads.load(Ordering::Relaxed) != self.n_threads {
+            }
             self.slot.store(to_send, Ordering::Relaxed);
             self.slot_reads.store(0, Ordering::Relaxed); 
         }
         //Spin while waiting for the thread communicator chief to broadcast
-        while self.slot_reads.load(Ordering::Relaxed) == self.n_threads {}
+        while self.slot_reads.load(Ordering::Relaxed) == self.n_threads {
+        }
         self.slot_reads.fetch_add(1, Ordering::Relaxed);
+        self.slot.load(Ordering::Relaxed)
+        */
+        self.barrier(info.thread_id);
+        if info.thread_id == 0 { 
+            self.slot.store(to_send, Ordering::Relaxed);
+        }
+        self.barrier(info.thread_id);
         self.slot.load(Ordering::Relaxed)
     }
     //Pretty sure with this implementation, split can only be called one time.
@@ -128,7 +138,8 @@ impl<T> ThreadInfo<T> {
     pub fn thread_id(&self) -> usize { self.thread_id }
     pub fn split(&self, n_way: usize) -> ThreadInfo<T> {
         let subcomm = self.comm.split(self.thread_id, n_way);
-        ThreadInfo{ thread_id: self.thread_id % n_way, comm: subcomm }
+        let subcomm_id = self.thread_id % (self.comm.n_threads / n_way);
+        ThreadInfo{ thread_id: subcomm_id, comm: subcomm }
     }
 }
 
@@ -248,6 +259,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
                       self.par_inf.as_ref().unwrap()
             }, 
         };
+
         
         //Now figure out the range of this thread
         let range = a.iter_height();                     // Global range
@@ -268,6 +280,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         c.set_logical_h_padding(new_padding);
         c.set_iter_height(end-start);
         c.set_off_y(cy_off_save+start);
+
 
         //Run subproblem
         self.child.run(a, b, c, &parallel_info.thr);

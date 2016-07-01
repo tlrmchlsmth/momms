@@ -108,29 +108,20 @@ fn time_sweep_goto() -> ()
         = PackA::new( loop2 );
     let loop3: PartM<f64, Matrix<f64>, ColumnPanelMatrix<f64,U4>, Matrix<f64>, _>
         = PartM::new( 96, packa );
+
+    let par_m : ParallelM<f64, Matrix<f64>, ColumnPanelMatrix<f64,U4>, Matrix<f64>, _> 
+        = ParallelM::new(ThreadsTarget::TheRest, 1, loop3);
+
+
     let packb: PackB<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, ColumnPanelMatrix<f64,U4>, _>
-        = PackB::new( loop3 );
+        = PackB::new( par_m );
     let loop4: PartK<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
         = PartK::new( 256, packb );
     let loop5: PartN<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
         = PartN::new( 4096, loop4 );
 
-//    let ukernel = TripleLoop::new();
-   /* let loop3: PartM<f64, Matrix<f64>, ColumnPanelMatrix<f64>, Matrix<f64>, _>
-        = PartM::new( 96, ukernel );
-    let packb: PackBcp<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
-        = PackBcp::new( 4, loop3 );
-    let loop4: PartK<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
-        = PartK::new( 256, packb );
-    let loop5: PartN<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
-        = PartN::new( 4096, loop4 );*/
-
-//    let packb: PackBcp<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _>
-//        = PackBcp::new( 4, ukernel );
-    let mut algo : ParallelM<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _> 
-        = ParallelM::new(ThreadsTarget::TheRest, 1, loop5);
-/*    let mut algo : SpawnThreads<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _> 
-        = SpawnThreads::new(1,par_m);*/
+    let mut algo : SpawnThreads<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>, _> 
+        = SpawnThreads::new(2,loop5);
 
     for index in 0..64 {
         let mut best_time: f64 = 9999999999.0;

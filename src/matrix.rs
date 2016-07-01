@@ -92,7 +92,7 @@ pub trait Mat<T: Scalar> where Self: Send {
     #[inline(always)]
     unsafe fn make_alias( &self ) -> Self where Self: Sized;
     #[inline(always)]
-    unsafe fn send_alias( &self, thr: &ThreadInfo<T> ) -> Self where Self: Sized;
+    unsafe fn send_alias( &mut self, thr: &ThreadInfo<T> ); 
     
     #[inline(always)]
     fn adjust_y_view( &mut self, parent_iter_h: usize, parent_off_y: usize,
@@ -218,7 +218,11 @@ pub trait Mat<T: Scalar> where Self: Send {
 
 pub trait ResizeableBuffer<T: Scalar> {
     fn empty() -> Self;
-    fn resize_to_fit(&mut self, other: &Mat<T>);
+    fn capacity(&self) -> usize;
+    fn set_capacity(&mut self, capacity: usize); 
+    fn capacity_for(other: &Mat<T>) -> usize;
+    fn aquire_buffer_for(&mut self, capacity: usize );
+    fn resize_to( &mut self, other: &Mat<T> ); 
 }
 
 pub struct Matrix<T: Scalar> {
@@ -331,16 +335,10 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
     }
 
     #[inline(always)]
-    unsafe fn send_alias( &self, thr: &ThreadInfo<T> ) -> Self {
+    unsafe fn send_alias( &mut self, thr: &ThreadInfo<T> ) {
         let buf = thr.broadcast( self.buffer );
-
-        Matrix{ iter_h: self.iter_h, iter_w: self.iter_w, 
-                h_padding: self.h_padding, w_padding: self.w_padding,
-                off_y: self.off_y, off_x: self.off_x,
-                row_stride: self.row_stride, column_stride: self.column_stride,
-                buffer: buf as *mut _,
-                capacity: self.capacity,
-                is_alias: true }
+        self.is_alias = true;
+        self.buffer = buf;
     }
 }
 impl<T:Scalar> Drop for Matrix<T> {
@@ -375,6 +373,8 @@ pub struct ColumnPanelMatrix<T: Scalar, PW: Unsigned> {
     buffer: *mut T,
     capacity: usize,
 
+    is_alias: bool,
+
     _pwt: PhantomData<PW>,
 }
 impl<T: Scalar, PW: Unsigned> ColumnPanelMatrix<T,PW> {
@@ -395,6 +395,7 @@ impl<T: Scalar, PW: Unsigned> ColumnPanelMatrix<T,PW> {
                            off_y: 0, off_panel: 0,
                            n_panels: n_panels, panel_stride: panel_w*h, 
                            buffer: ptr as *mut _, capacity: capacity,
+                           is_alias: false,
                            _pwt: PhantomData }
         }
     }
@@ -493,28 +494,23 @@ impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
                            panel_stride: self.panel_stride,
                            buffer: self.buffer, 
                            capacity: self.capacity,
+                           is_alias: true,
                            _pwt: PhantomData }
     }
 
     #[inline(always)]
-    unsafe fn send_alias( &self, thr: &ThreadInfo<T> ) -> Self {
+    unsafe fn send_alias( &mut self, thr: &ThreadInfo<T> ) {
         let buf = thr.broadcast( self.buffer );
-
-        ColumnPanelMatrix{ iter_h: self.iter_h, iter_w: self.iter_w,
-                           logical_h_padding: self.logical_h_padding, 
-                           logical_w_padding: self.logical_w_padding,
-                           off_y: self.off_y, off_panel: self.off_panel,
-                           n_panels: self.n_panels,
-                           panel_stride: self.panel_stride,
-                           buffer: buf, 
-                           capacity: self.capacity,
-                           _pwt: PhantomData }
+        self.is_alias = true;
+        self.buffer = buf;
     }
 }
 impl<T:Scalar, PW: Unsigned> Drop for ColumnPanelMatrix<T, PW> {
     fn drop(&mut self) {
-        unsafe {
-            heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+        if !self.is_alias {
+            unsafe {
+                heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+            }
         }
     }
 }
@@ -527,34 +523,36 @@ impl<T:Scalar, PW: Unsigned> ResizeableBuffer<T> for ColumnPanelMatrix<T, PW> {
         ColumnPanelMatrix::new(0,0)
     }
     #[inline(always)]
-    fn resize_to_fit( &mut self, other: &Mat<T> ) {
-        let panel_w = PW::to_usize();
-
-        if self.off_y != 0 || self.off_panel != 0 { panic!("can't resize a submatrix!"); }
-
-        let mut new_n_panels = other.width() / panel_w;
-        if other.width() % panel_w != 0 { new_n_panels += 1; }
-
-        let mut req_capacity = new_n_panels * panel_w * other.height();
-        let old_capacity = self.capacity;
-        if req_capacity > old_capacity {
+    fn capacity(&self) -> usize { self.capacity }
+    #[inline(always)]
+    fn set_capacity(&mut self, capacity: usize) { self.capacity = capacity; }
+    #[inline(always)]
+    fn capacity_for(other: &Mat<T>) -> usize {
+        let new_n_panels = (other.width()-1) / PW::to_usize() + 1;
+        new_n_panels * PW::to_usize() * other.height()
+    }
+    #[inline(always)]
+    fn aquire_buffer_for(&mut self, req_capacity: usize) {
+        if req_capacity > self.capacity {
             unsafe {
-                heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * old_capacity, 4096);
-                let newbuf = heap::allocate( req_capacity * mem::size_of::<T>(), 4096 );
-                self.buffer = newbuf as *mut _;
+                heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+                self.buffer = heap::allocate( req_capacity * mem::size_of::<T>(), 4096 ) as *mut _;
                 self.capacity = req_capacity;
             }
         }
+    }
+    #[inline(always)]
+    fn resize_to( &mut self, other: &Mat<T> ) {
+        if self.off_y != 0 || self.off_panel != 0 { panic!("can't resize a submatrix!"); }
 
         self.iter_h = other.iter_height();
         self.iter_w = other.iter_width();
         self.logical_h_padding = other.get_logical_h_padding();
         self.logical_w_padding = other.get_logical_w_padding();
 
-        self.n_panels = new_n_panels;
-        self.panel_stride = panel_w*other.height();
+        self.n_panels = (other.width()-1) / PW::to_usize() + 1;
+        self.panel_stride = PW::to_usize()*other.height();
     }
-    
 }
 
 pub struct RowPanelMatrix<T: Scalar, PH: Unsigned> {
@@ -577,6 +575,8 @@ pub struct RowPanelMatrix<T: Scalar, PH: Unsigned> {
     buffer: *mut T,
     capacity: usize,
 
+    is_alias: bool,
+
     _pht: PhantomData<PH>,
 }
 impl<T: Scalar, PH: Unsigned> RowPanelMatrix<T, PH> {
@@ -598,6 +598,7 @@ impl<T: Scalar, PH: Unsigned> RowPanelMatrix<T, PH> {
                             off_x: 0, off_panel: 0,
                             n_panels : n_panels, panel_stride: panel_h*w, 
                             buffer: ptr as *mut _, capacity: capacity,
+                            is_alias: false,
                             _pht: PhantomData }
         }
     }
@@ -710,28 +711,23 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
                         panel_stride: self.panel_stride, 
                         buffer: self.buffer, 
                         capacity: self.capacity,
+                        is_alias: true,
                         _pht: PhantomData }
     }
 
     #[inline(always)]
-    unsafe fn send_alias( &self, thr: &ThreadInfo<T> ) -> Self {
+    unsafe fn send_alias( &mut self, thr: &ThreadInfo<T> ) {
         let buf = thr.broadcast( self.buffer );
-
-        RowPanelMatrix{ iter_h: self.iter_h, iter_w: self.iter_w,
-                        logical_h_padding: self.logical_h_padding,
-                        logical_w_padding: self.logical_w_padding,
-                        off_x: self.off_x, off_panel: self.off_panel,
-                        n_panels: self.n_panels,
-                        panel_stride: self.panel_stride, 
-                        buffer: buf, 
-                        capacity: self.capacity,
-                        _pht: PhantomData }
+        self.is_alias = true;
+        self.buffer = buf;
     }
 }
 impl<T:Scalar, PH: Unsigned> Drop for RowPanelMatrix<T, PH> {
     fn drop(&mut self) {
-        unsafe{ 
-            heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+        if !self.is_alias {
+            unsafe { 
+                heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+            }
         }
     }
 }
@@ -743,30 +739,34 @@ impl<T:Scalar, PH: Unsigned> ResizeableBuffer<T> for RowPanelMatrix<T, PH> {
         RowPanelMatrix::new(0,0)
     }
     #[inline(always)]
-    fn resize_to_fit( &mut self, other: &Mat<T> ) {
-        if self.off_x != 0 || self.off_panel != 0 { panic!("can't resize a submatrix!"); }
-        let panel_h = PH::to_usize();
-
-        let mut new_n_panels = other.height() / panel_h;
-        if other.height() % panel_h != 0 { new_n_panels += 1; }
-
-        let mut req_capacity = new_n_panels * panel_h * other.width();
-        let old_capacity = self.capacity;
-        if req_capacity > old_capacity {
+    fn capacity(&self) -> usize { self.capacity }
+    #[inline(always)]
+    fn set_capacity(&mut self, capacity: usize) { self.capacity = capacity; }
+    #[inline(always)]
+    fn capacity_for(other: &Mat<T>) -> usize {
+        let new_n_panels = (other.height()-1) / PH::to_usize() + 1;
+        new_n_panels * PH::to_usize() * other.width()
+    }
+    #[inline(always)]
+    fn aquire_buffer_for(&mut self, req_capacity: usize) {
+        if req_capacity > self.capacity {
             unsafe {
-                heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * old_capacity, 4096);
-                let newbuf = heap::allocate( req_capacity * mem::size_of::<T>(), 4096 );
-                self.buffer = newbuf as *mut _;
+                heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+                self.buffer = heap::allocate( req_capacity * mem::size_of::<T>(), 4096 ) as *mut _;
                 self.capacity = req_capacity;
             }
         }
+    }
+    #[inline(always)]
+    fn resize_to( &mut self, other: &Mat<T> ) {
+        if self.off_x != 0 || self.off_panel != 0 { panic!("can't resize a submatrix!"); }
 
         self.iter_h = other.iter_height();
         self.iter_w = other.iter_width();
         self.logical_h_padding = other.get_logical_h_padding();
         self.logical_w_padding = other.get_logical_w_padding();
 
-        self.n_panels = new_n_panels;
-        self.panel_stride = panel_h*other.width();
+        self.n_panels = (other.height()-1) / PH::to_usize() + 1;
+        self.panel_stride = PH::to_usize()*other.width();
     }
 }

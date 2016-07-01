@@ -35,8 +35,16 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, 
     where APt: ResizeableBuffer<T> {
     #[inline(always)]
     unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T> ) -> () {
-        self.a_pack.resize_to_fit( a );
-        self.packer.pack( a, &mut self.a_pack );
+        thr.barrier();
+        if self.a_pack.capacity() < APt::capacity_for(a) {
+            if thr.thread_id() == 0 {
+                self.a_pack.aquire_buffer_for(APt::capacity_for(a));
+            }
+            self.a_pack.send_alias( thr );
+        }
+        self.a_pack.resize_to( a );
+        self.packer.pack( a, &mut self.a_pack, thr );
+        thr.barrier();
         self.child.run(&mut self.a_pack, b, c, thr);
     }
     unsafe fn shadow( &self ) -> Self where Self: Sized {
@@ -72,8 +80,19 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, 
     where BPt: ResizeableBuffer<T> {
     #[inline(always)]
     unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T> ) -> () {
-        self.b_pack.resize_to_fit( b );
-        self.packer.pack( b, &mut self.b_pack );
+        thr.barrier();
+        if self.b_pack.capacity() < BPt::capacity_for(b) {
+            if thr.thread_id() == 0 {
+                self.b_pack.aquire_buffer_for(BPt::capacity_for(b));
+            }
+            else {
+                self.b_pack.set_capacity( BPt::capacity_for(b) );
+            }
+            self.b_pack.send_alias( thr );
+        }
+        self.b_pack.resize_to( b );
+        self.packer.pack( b, &mut self.b_pack, thr );
+        thr.barrier();
         self.child.run(a, &mut self.b_pack, c, thr);
     }
     unsafe fn shadow( &self ) -> Self where Self: Sized {
