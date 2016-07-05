@@ -42,7 +42,7 @@ impl<T> ThreadComm<T> {
         let init_ptr: *const T = ptr::null();
 
         let mut sub_comms = Vec::with_capacity(n_threads);
-        for i in 0..n_threads {
+        for _ in 0..n_threads {
             sub_comms.push(RwLock::new(Option::None));
         }
         

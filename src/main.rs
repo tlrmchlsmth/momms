@@ -137,8 +137,8 @@ fn time_sweep_goto() -> ()
         let n = size;
         let k = size;
 
-
-        for _nrep in 0..10 {
+        let n_reps = 10;
+        for _ in 0..n_reps {
 
             let mut a : Matrix<f64> = Matrix::new(m, k);
             let mut b : Matrix<f64> = Matrix::new(k, n);
