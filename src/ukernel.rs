@@ -29,7 +29,7 @@ impl<T: Scalar> Ukernel<T> {
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> 
     GemmNode<T, At, Bt, Ct> for Ukernel<T> {
     #[inline(always)]
-    default unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
+    default unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T> ) -> () {
         assert!(c.height() == self.mr);
         assert!(c.width() == self.nr);
 
@@ -76,7 +76,7 @@ impl GemmNode<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f
                    a: &mut RowPanelMatrix<f64, U8>, 
                    b: &mut ColumnPanelMatrix<f64, U4>, 
                    c: &mut Matrix<f64>, 
-                   thr: &ThreadInfo<f64> ) -> () {
+                   _thr: &ThreadInfo<f64> ) -> () {
         let ap = a.get_mut_buffer();
         let bp = b.get_mut_buffer();
         let cp = c.get_mut_buffer();

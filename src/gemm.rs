@@ -1,4 +1,4 @@
-use matrix::{Scalar,Mat,ResizeableBuffer,ColumnPanelMatrix,RowPanelMatrix};
+use matrix::{Scalar,Mat,ResizeableBuffer};
 use core::marker::{PhantomData};
 use pack::{Copier,Packer};
 use thread::{ThreadInfo};
@@ -17,18 +17,15 @@ pub struct PackA<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>,
     child: S,
     packer: Packer<T, At, APt>,
     a_pack: APt,
-    _t: PhantomData<T>,
-    _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
-    _apt: PhantomData<APt>,
 } 
 impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, APt, Bt, Ct>> PackA <T,At,Bt,Ct,APt,S> 
     where APt: ResizeableBuffer<T> {
     pub fn new( child: S ) -> PackA<T, At, Bt, Ct, APt, S>{
         PackA{ child: child, 
                a_pack: APt::empty(), packer: Packer::new(),
-               _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData, _apt: PhantomData }
+               _bt: PhantomData, _ct: PhantomData }
     }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, APt, Bt, Ct>>
@@ -56,8 +53,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, 
         PackA{ child: self.child.shadow(), 
                a_pack: APt::empty(), 
                packer: Packer::new(),
-               _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData,
-               _apt: PhantomData }
+               _bt:PhantomData, _ct: PhantomData }
     }
 }
 
@@ -66,18 +62,15 @@ pub struct PackB<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>,
     child: S,
     packer: Packer<T, Bt, BPt>,
     b_pack: BPt,
-    _t: PhantomData<T>,
     _at: PhantomData<At>,
-    _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
-    _bpt: PhantomData<BPt>,
 } 
 impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, At, BPt, Ct>> PackB <T,At,Bt,Ct,BPt,S> 
     where BPt: ResizeableBuffer<T> {
     pub fn new( child: S ) -> PackB<T, At, Bt, Ct, BPt, S>{
         PackB{ child: child, 
                b_pack: BPt::empty(), packer: Packer::new(),
-               _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData, _bpt: PhantomData }
+               _at:PhantomData, _ct: PhantomData }
     }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, At, BPt, Ct>>
@@ -105,8 +98,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, 
         PackB{ child: self.child.shadow(), 
                b_pack: BPt::empty(), 
                packer: Packer::new(),
-               _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData,
-               _bpt: PhantomData }
+               _at:PhantomData, _ct: PhantomData }
     }
 }
 pub struct PartM<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {

@@ -1,6 +1,7 @@
 extern crate alloc;
 use std::ptr::{self};
-use std::sync::{Arc,Barrier,RwLock};
+use std::sync::{Arc,RwLock};
+//use std::sync::{Barrier};
 use std::sync::atomic::{AtomicPtr,AtomicUsize,AtomicBool,Ordering};
 
 use matrix::{Mat,Scalar};
@@ -74,7 +75,7 @@ impl<T> ThreadComm<T> {
     }
 
     fn broadcast(&self, info: &ThreadInfo<T>, to_send: *mut T) -> *mut T {
-       /* 
+        
         if info.thread_id == 0 {
             //Spin while waiting for the thread communicator to be ready to broadcast
             while self.slot_reads.load(Ordering::Relaxed) != self.n_threads {
@@ -87,13 +88,13 @@ impl<T> ThreadComm<T> {
         }
         self.slot_reads.fetch_add(1, Ordering::Relaxed);
         self.slot.load(Ordering::Relaxed)
-        */
+        /*
         self.barrier(info.thread_id);
         if info.thread_id == 0 { 
             self.slot.store(to_send, Ordering::Relaxed);
         }
         self.barrier(info.thread_id);
-        self.slot.load(Ordering::Relaxed)
+        self.slot.load(Ordering::Relaxed)*/
     }
     //Pretty sure with this implementation, split can only be called one time.
     fn split(&self, thread_id: usize, n_way: usize) -> Arc<ThreadComm<T>> {
