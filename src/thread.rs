@@ -149,7 +149,7 @@ impl<T> ThreadInfo<T> {
 
 pub struct SpawnThreads<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
     where S: Send {
-    child: S,
+    child: Arc<S>,
     n_threads: usize,
     pool: Pool,
 
@@ -164,7 +164,7 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     SpawnThreads <T,At,Bt,Ct,S> 
     where S: Send {
     pub fn new(n_threads: usize, child: S) -> SpawnThreads<T, At, Bt, Ct, S>{
-        SpawnThreads{ child: child, n_threads : n_threads, pool: Pool::new(n_threads as u32),
+        SpawnThreads{ child: Arc::new(child), n_threads : n_threads, pool: Pool::new(n_threads as u32),
                  cntl_cache: Arc::new(ThreadLocal::new()),
                  _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
@@ -197,27 +197,27 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
 
         let global_comm : Arc<ThreadComm<T>> = Arc::new(ThreadComm::new(self.n_threads));
         let nthr = self.n_threads;
-        let shadow = self.child.shadow();
+        let tree_clone = self.child.clone();
         let cache = self.cntl_cache.clone();
         self.pool.scoped(|scope| {
             for id in 0..nthr {
                 let mut my_a = a.make_alias();
                 let mut my_b = b.make_alias();
                 let mut my_c = c.make_alias();
-                let mut my_tree = shadow.shadow();
+                let my_tree = tree_clone.shadow();
                 let my_comm  = global_comm.clone();
                 let my_cache = cache.clone();
                 scope.execute( move || {
                     let thr = ThreadInfo{thread_id: id, comm: my_comm};
-                    let mut cell = my_cache.get_or(|| Box::new(RefCell::new(my_tree.shadow())));
-                    cell.borrow_mut().run(&mut my_a, &mut my_b, &mut my_c, &thr);
+                    let cntl_tree_cell = my_cache.get_or(|| Box::new(RefCell::new(my_tree.shadow())));
+                    cntl_tree_cell.borrow_mut().run(&mut my_a, &mut my_b, &mut my_c, &thr);
                 });
             }
         });
     }
     #[inline(always)]
     unsafe fn shadow(&self) -> Self where Self: Sized {
-        SpawnThreads{ child: self.child.shadow(), 
+        SpawnThreads{ child: Arc::new(self.child.shadow()), 
                       n_threads : self.n_threads,
                       pool : Pool::new(self.n_threads as u32),
                       cntl_cache: Arc::new(ThreadLocal::new()),
