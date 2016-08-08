@@ -187,14 +187,9 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         //  This will be easy to change since this cntl tree will be the root (so the 'outside' has
         //  ownership.
         //4. Set cpu affinity for each thread.
-        //1. Each thread gets an alias (shallow copy) of a, b, and c.
-        //      Todo: make an unsafe function for matrices "get alias"
-        //2. Each thread gets its own (deep copy) of the control tree.
-        //      Todo: make an function for control tree "mirror"
 
-
-        //TODO: Put self.child in an arc so we can pass it in to scope
-
+        //Should the thread communicator be cached???
+        //Probably this is cheap so don't worry about it
         let global_comm : Arc<ThreadComm<T>> = Arc::new(ThreadComm::new(self.n_threads));
         let nthr = self.n_threads;
         let tree_clone = self.child.clone();
