@@ -3,6 +3,7 @@ use std::ptr::{self};
 use std::sync::{Arc,RwLock};
 //use std::sync::{Barrier};
 use std::sync::atomic::{AtomicPtr,AtomicUsize,AtomicBool,Ordering};
+use core::cell::{RefCell};
 
 use matrix::{Mat,Scalar};
 use core::marker::{PhantomData};
@@ -12,6 +13,8 @@ pub use gemm::{GemmNode};
 //use self::crossbeam::{Scope};
 extern crate scoped_threadpool;
 use self::scoped_threadpool::Pool;
+extern crate thread_local;
+use self::thread_local::ThreadLocal;
 
 pub struct ThreadComm<T> {
     n_threads: usize,
@@ -144,24 +147,33 @@ impl<T> ThreadInfo<T> {
     }
 }
 
-pub struct SpawnThreads<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {
+pub struct SpawnThreads<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
+    where S: Send {
     child: S,
     n_threads: usize,
-    pool: Pool, 
+    pool: Pool,
+
+    cntl_cache: Arc<ThreadLocal<RefCell<S>>>,
+
     _t: PhantomData<T>,
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
 }
 impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
-    SpawnThreads <T,At,Bt,Ct,S> {
+    SpawnThreads <T,At,Bt,Ct,S> 
+    where S: Send {
     pub fn new(n_threads: usize, child: S) -> SpawnThreads<T, At, Bt, Ct, S>{
         SpawnThreads{ child: child, n_threads : n_threads, pool: Pool::new(n_threads as u32),
+                 cntl_cache: Arc::new(ThreadLocal::new()),
                  _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
     pub fn set_n_threads(&mut self, n_threads: usize){ 
         self.n_threads = n_threads;
         self.pool = Pool::new(n_threads as u32);
+
+        //TODO: Clear control cache more robustly
+        Arc::get_mut(&mut self.cntl_cache).expect("").clear();
     }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
@@ -180,9 +192,13 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         //2. Each thread gets its own (deep copy) of the control tree.
         //      Todo: make an function for control tree "mirror"
 
+
+        //TODO: Put self.child in an arc so we can pass it in to scope
+
         let global_comm : Arc<ThreadComm<T>> = Arc::new(ThreadComm::new(self.n_threads));
         let nthr = self.n_threads;
         let shadow = self.child.shadow();
+        let cache = self.cntl_cache.clone();
         self.pool.scoped(|scope| {
             for id in 0..nthr {
                 let mut my_a = a.make_alias();
@@ -190,9 +206,11 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
                 let mut my_c = c.make_alias();
                 let mut my_tree = shadow.shadow();
                 let my_comm  = global_comm.clone();
+                let my_cache = cache.clone();
                 scope.execute( move || {
                     let thr = ThreadInfo{thread_id: id, comm: my_comm};
-                    my_tree.run(&mut my_a, &mut my_b, &mut my_c, &thr);
+                    let mut cell = my_cache.get_or(|| Box::new(RefCell::new(my_tree.shadow())));
+                    cell.borrow_mut().run(&mut my_a, &mut my_b, &mut my_c, &thr);
                 });
             }
         });
@@ -202,6 +220,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         SpawnThreads{ child: self.child.shadow(), 
                       n_threads : self.n_threads,
                       pool : Pool::new(self.n_threads as u32),
+                      cntl_cache: Arc::new(ThreadLocal::new()),
                       _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
