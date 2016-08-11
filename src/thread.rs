@@ -175,9 +175,11 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     SpawnThreads <T,At,Bt,Ct,S> 
     where S: Send {
     pub fn new(n_threads: usize, child: S) -> SpawnThreads<T, At, Bt, Ct, S>{
-        SpawnThreads{ child: Arc::new(child), n_threads : n_threads, pool: Pool::new(n_threads as u32),
+        let mut to_ret = SpawnThreads{ child: Arc::new(child), n_threads : n_threads, pool: Pool::new(n_threads as u32),
                  cntl_cache: Arc::new(ThreadLocal::new()),
-                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
+                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData };
+        to_ret.bind_threads();
+        to_ret
     }
     pub fn set_n_threads(&mut self, n_threads: usize){ 
         self.n_threads = n_threads;
@@ -185,6 +187,33 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
 
         //TODO: Clear control cache more robustly
         Arc::get_mut(&mut self.cntl_cache).expect("").clear();
+        self.bind_threads();
+    }
+    fn bind_threads(&mut self) {
+        //Get topology
+        let topo = Arc::new(Mutex::new(Topology::new()));
+        let num_cores = {
+            let topo_rc = topo.clone();
+            let topo_locked = topo_rc.lock().unwrap();
+            (*topo_locked).objects_with_type(&ObjectType::Core).unwrap().len()
+        };
+        let nthr = self.n_threads;
+        self.pool.scoped(|scope| {
+            for id in 0..nthr {
+                let child_topo = topo.clone();
+                scope.execute( move || {
+                    let tid = unsafe { libc::pthread_self() };
+                    {
+                    let mut locked_topo = child_topo.lock().unwrap();
+                    let before = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
+                    let bind_to = cpuset_for_core(&*locked_topo, id);
+                    let result = locked_topo.set_cpubind_for_thread(tid, bind_to, CPUBIND_THREAD);
+                    let after = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
+    //                    println!("Thread {}: Before {:?}, After {:?}", id, before, after);
+                    }
+                });
+            }
+        });
     }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
@@ -210,13 +239,6 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         let cache = self.cntl_cache.clone();
     
   
-        //Get topology
-        let topo = Arc::new(Mutex::new(Topology::new()));
-        let num_cores = {
-            let topo_rc = topo.clone();
-            let topo_locked = topo_rc.lock().unwrap();
-            (*topo_locked).objects_with_type(&ObjectType::Core).unwrap().len()
-        };
 //        println!("Found {} cores.", num_cores);
 
         self.pool.scoped(|scope| {
@@ -228,11 +250,11 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
                 let my_tree = tree_clone.shadow();
                 let my_comm  = global_comm.clone();
                 let my_cache = cache.clone();
-                let child_topo = topo.clone();
+                //let child_topo = topo.clone();
 
                 scope.execute( move || {
                     //Set CPU affinity 
-                    let tid = unsafe { libc::pthread_self() };
+/*                    let tid = unsafe { libc::pthread_self() };
                     {
                     let mut locked_topo = child_topo.lock().unwrap();
                     let before = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
@@ -240,7 +262,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
                     let result = locked_topo.set_cpubind_for_thread(tid, bind_to, CPUBIND_THREAD);
                     let after = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
 //                    println!("Thread {}: Before {:?}, After {:?}", id, before, after);
-                    }
+                    }*/
 
                     //Get this thread's control tree
                     let thr = ThreadInfo{thread_id: id, comm: my_comm};
