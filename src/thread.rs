@@ -1,6 +1,6 @@
 extern crate alloc;
 use std::ptr::{self};
-use std::sync::{Arc,RwLock};
+use std::sync::{Arc,RwLock,Mutex};
 //use std::sync::{Barrier};
 use std::sync::atomic::{AtomicPtr,AtomicUsize,AtomicBool,Ordering};
 use core::cell::{RefCell};
@@ -15,6 +15,9 @@ extern crate scoped_threadpool;
 use self::scoped_threadpool::Pool;
 extern crate thread_local;
 use self::thread_local::ThreadLocal;
+extern crate hwloc;
+use self::hwloc::{Topology, ObjectType, CPUBIND_THREAD, CpuSet};
+use libc;
 
 pub struct ThreadComm<T> {
     n_threads: usize,
@@ -147,6 +150,14 @@ impl<T> ThreadInfo<T> {
     }
 }
 
+fn cpuset_for_core(topology: &Topology, idx: usize) -> CpuSet {
+    let cores = (*topology).objects_with_type(&ObjectType::Core).unwrap();
+    match cores.get(idx) {
+        Some(val) => val.cpuset().unwrap(),
+        None => panic!("No Core found with id {}", idx)
+    }
+}
+
 pub struct SpawnThreads<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
     where S: Send {
     child: Arc<S>,
@@ -191,20 +202,51 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         //Should the thread communicator be cached???
         //Probably this is cheap so don't worry about it
         let global_comm : Arc<ThreadComm<T>> = Arc::new(ThreadComm::new(self.n_threads));
+
+        //Make some shallow copies here to pass into the scoped,
+        //because self.pool borrows self as mutable
         let nthr = self.n_threads;
         let tree_clone = self.child.clone();
         let cache = self.cntl_cache.clone();
+    
+  
+        //Get topology
+        let topo = Arc::new(Mutex::new(Topology::new()));
+        let num_cores = {
+            let topo_rc = topo.clone();
+            let topo_locked = topo_rc.lock().unwrap();
+            (*topo_locked).objects_with_type(&ObjectType::Core).unwrap().len()
+        };
+//        println!("Found {} cores.", num_cores);
+
         self.pool.scoped(|scope| {
             for id in 0..nthr {
+                //Make some shallow copies because of borrow rules
                 let mut my_a = a.make_alias();
                 let mut my_b = b.make_alias();
                 let mut my_c = c.make_alias();
                 let my_tree = tree_clone.shadow();
                 let my_comm  = global_comm.clone();
                 let my_cache = cache.clone();
+                let child_topo = topo.clone();
+
                 scope.execute( move || {
+                    //Set CPU affinity 
+                    let tid = unsafe { libc::pthread_self() };
+                    {
+                    let mut locked_topo = child_topo.lock().unwrap();
+                    let before = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
+                    let bind_to = cpuset_for_core(&*locked_topo, id);
+                    let result = locked_topo.set_cpubind_for_thread(tid, bind_to, CPUBIND_THREAD);
+                    let after = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
+//                    println!("Thread {}: Before {:?}, After {:?}", id, before, after);
+                    }
+
+                    //Get this thread's control tree
                     let thr = ThreadInfo{thread_id: id, comm: my_comm};
                     let cntl_tree_cell = my_cache.get_or(|| Box::new(RefCell::new(my_tree.shadow())));
+
+                    //Run subproblem
                     cntl_tree_cell.borrow_mut().run(&mut my_a, &mut my_b, &mut my_c, &thr);
                 });
             }
