@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use thread::ThreadInfo;
+use thread_comm::ThreadInfo;
 use self::alloc::heap;
 use matrix::{Scalar,Mat};
 

@@ -1,7 +1,7 @@
 use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix};
 use core::marker::{PhantomData};
-use gemm::{GemmNode};
-use thread::{ThreadInfo};
+use composables::{GemmNode};
+use thread_comm::{ThreadInfo};
 use typenum::{U4,U8};
 
 extern crate libc;

@@ -1,106 +1,8 @@
-use matrix::{Scalar,Mat,ResizeableBuffer};
-use core::marker::{PhantomData};
-use pack::{Copier,Packer};
-use thread::{ThreadInfo};
+use matrix::{Scalar,Mat};
+use thread_comm::ThreadInfo;
+use composables::GemmNode;
+use core::marker::PhantomData;
 
-extern crate core;
-
-pub trait GemmNode<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> {
-    #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> ();
-    #[inline(always)]
-    unsafe fn shadow( &self ) -> Self where Self: Sized;
-}
-
-pub struct PackA<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, 
-    S: GemmNode<T, APt, Bt, Ct>> {
-    child: S,
-    packer: Packer<T, At, APt>,
-    a_pack: APt,
-    _bt: PhantomData<Bt>,
-    _ct: PhantomData<Ct>,
-} 
-impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, APt, Bt, Ct>> PackA <T,At,Bt,Ct,APt,S> 
-    where APt: ResizeableBuffer<T> {
-    pub fn new( child: S ) -> PackA<T, At, Bt, Ct, APt, S>{
-        PackA{ child: child, 
-               a_pack: APt::empty(), packer: Packer::new(),
-               _bt: PhantomData, _ct: PhantomData }
-    }
-}
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, APt, Bt, Ct>>
-    GemmNode<T, At, Bt, Ct> for PackA<T, At, Bt, Ct, APt, S>
-    where APt: ResizeableBuffer<T> {
-    #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T> ) -> () {
-        thr.barrier();
-        if self.a_pack.capacity() < APt::capacity_for(a) {
-            if thr.thread_id() == 0 {
-                self.a_pack.aquire_buffer_for(APt::capacity_for(a));
-            }
-            else {
-                self.a_pack.set_capacity( APt::capacity_for(a) );
-            }
-            self.a_pack.send_alias( thr );
-        }
-        self.a_pack.resize_to( a );
-        self.packer.pack( a, &mut self.a_pack, thr );
-        thr.barrier();
-        self.child.run(&mut self.a_pack, b, c, thr);
-    }
-    #[inline(always)]
-    unsafe fn shadow( &self ) -> Self where Self: Sized {
-        PackA{ child: self.child.shadow(), 
-               a_pack: APt::empty(), 
-               packer: Packer::new(),
-               _bt:PhantomData, _ct: PhantomData }
-    }
-}
-
-pub struct PackB<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, 
-    S: GemmNode<T, At, BPt, Ct>> {
-    child: S,
-    packer: Packer<T, Bt, BPt>,
-    b_pack: BPt,
-    _at: PhantomData<At>,
-    _ct: PhantomData<Ct>,
-} 
-impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, At, BPt, Ct>> PackB <T,At,Bt,Ct,BPt,S> 
-    where BPt: ResizeableBuffer<T> {
-    pub fn new( child: S ) -> PackB<T, At, Bt, Ct, BPt, S>{
-        PackB{ child: child, 
-               b_pack: BPt::empty(), packer: Packer::new(),
-               _at:PhantomData, _ct: PhantomData }
-    }
-}
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, At, BPt, Ct>>
-    GemmNode<T, At, Bt, Ct> for PackB<T, At, Bt, Ct, BPt, S>
-    where BPt: ResizeableBuffer<T> {
-    #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T> ) -> () {
-        thr.barrier();
-        if self.b_pack.capacity() < BPt::capacity_for(b) {
-            if thr.thread_id() == 0 {
-                self.b_pack.aquire_buffer_for(BPt::capacity_for(b));
-            }
-            else {
-                self.b_pack.set_capacity( BPt::capacity_for(b) );
-            }
-            self.b_pack.send_alias( thr );
-        }
-        self.b_pack.resize_to( b );
-        self.packer.pack( b, &mut self.b_pack, thr );
-        thr.barrier();
-        self.child.run(a, &mut self.b_pack, c, thr);
-    }
-    #[inline(always)]
-    unsafe fn shadow( &self ) -> Self where Self: Sized {
-        PackB{ child: self.child.shadow(), 
-               b_pack: BPt::empty(), 
-               packer: Packer::new(),
-               _at:PhantomData, _ct: PhantomData }
-    }
-}
 pub struct PartM<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {
     bsz: usize,
     child: S,
@@ -227,31 +129,5 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     unsafe fn shadow( &self ) -> Self where Self: Sized {
         PartK{ bsz: self.bsz, child: self.child.shadow(), 
                _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
-    }
-}
-
-pub struct TripleLoop{}
-impl TripleLoop {
-    pub fn new() -> TripleLoop {
-        TripleLoop{}
-    }
-}
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> 
-    GemmNode<T, At, Bt, Ct> for TripleLoop {
-    #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T> ) -> () {
-        //For now, let's do an axpy based gemm
-        for x in 0..c.width() {
-            for z in 0..a.width() {
-                for y in 0..c.height() {
-                    let t = a.get(y,z) * b.get(z,x) + c.get(y,x);
-                    c.set( y, x, t );
-                }
-            }
-        }
-    }
-    #[inline(always)]
-    unsafe fn shadow( &self ) -> Self where Self: Sized {
-        TripleLoop{}
     }
 }
