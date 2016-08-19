@@ -7,7 +7,6 @@ use typenum::{U4,U8};
 extern crate libc;
 use self::libc::{ c_double, int64_t };
 
-#[link(name = "blis", kind = "static")]
 extern{
 /*    fn bli_dgemm_asm_8x4 ( k: int64_t,
         alpha: *mut c_double, a: *mut c_double, b: *mut c_double, beta: *mut c_double, 

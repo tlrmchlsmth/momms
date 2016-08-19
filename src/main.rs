@@ -25,7 +25,6 @@ extern crate libc;
 use self::libc::{ c_double, int32_t, c_char };
 use std::ffi::{ CString };
 
-#[link(name = "blis", kind = "static")]
 extern{
     fn dgemm_( transa: *const c_char, transb: *const c_char,
                m: *const int32_t, n: *const int32_t, k: *const int32_t,
