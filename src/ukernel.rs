@@ -76,6 +76,10 @@ impl GemmNode<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f
                    b: &mut ColumnPanelMatrix<f64, U4>, 
                    c: &mut Matrix<f64>, 
                    _thr: &ThreadInfo<f64> ) -> () {
+//        assert!(c.height() == self.mr);
+//        assert!(c.width() == self.nr);
+
+
         let ap = a.get_mut_buffer();
         let bp = b.get_mut_buffer();
         let cp = c.get_mut_buffer();
@@ -83,16 +87,41 @@ impl GemmNode<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f
         let cs_c = c.get_column_stride();
         let mut alpha: f64 = 1.0;
         let mut beta: f64 = 1.0;
+        
+        if c.height() == self.mr && c.width() == self.nr {
+            //bli_dgemm_asm_8x4 ( 
+            bli_dgemm_int_8x4 (
+                a.width() as int64_t,
+                &mut alpha as *mut c_double,
+                ap as *mut c_double,
+                bp as *mut c_double,
+                &mut beta as *mut c_double,
+                cp as *mut c_double,
+                rs_c as int64_t, cs_c as int64_t );
+        }
+        else {
+            //TODO: cache c_tmp somewhere!
+            let mut t : Matrix<f64> = Matrix::new( self.mr, self.nr );
+            let tp = t.get_mut_buffer();
+            let rs_t = t.get_row_stride();
+            let cs_t = t.get_column_stride();
+            beta = 0.0;
 
-        //just call blis ukernel
-        //bli_dgemm_asm_8x4 ( 
-        bli_dgemm_int_8x4 (
-            a.width() as int64_t,
-            &mut alpha as *mut c_double,
-            ap as *mut c_double,
-            bp as *mut c_double,
-            &mut beta as *mut c_double,
-            cp as *mut c_double,
-            rs_c as int64_t, cs_c as int64_t );
+            bli_dgemm_int_8x4 (
+                a.width() as int64_t,
+                &mut alpha as *mut c_double,
+                ap as *mut c_double,
+                bp as *mut c_double,
+                &mut beta as *mut c_double,
+                tp as *mut c_double,
+                rs_t as int64_t, cs_t as int64_t );
+    
+
+            let t_h = t.iter_height();
+            let t_w = t.iter_width();
+            t.adjust_y_view( t_h, 0, c.height(), 0 );
+            t.adjust_x_view( t_w, 0, c.width(), 0 );
+            c.copy_from( &t );
+        }
     }
 }
