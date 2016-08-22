@@ -29,12 +29,12 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
     GemmNode<T, At, Bt, Ct> for Ukernel<T> {
     #[inline(always)]
     default unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T> ) -> () {
-        assert!(c.height() == self.mr);
-        assert!(c.width() == self.nr);
+//        assert!(c.height() == self.mr);
+//        assert!(c.width() == self.nr);
 
         for z in 0..a.width() {
-            for y in 0..self.mr {
-                for x in 0..self.nr {
+            for y in 0..c.height() {
+                for x in 0..c.width() {
                     let t = a.get(y,z) * b.get(z,x) + c.get(y,x);
                     c.set( y, x, t );
                 }
@@ -121,7 +121,7 @@ impl GemmNode<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f
             let t_w = t.iter_width();
             t.adjust_y_view( t_h, 0, c.height(), 0 );
             t.adjust_x_view( t_w, 0, c.width(), 0 );
-            c.copy_from( &t );
+            c.axpby_small( 1.0, &t, 1.0 );
         }
     }
 }

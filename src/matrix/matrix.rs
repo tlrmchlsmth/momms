@@ -229,16 +229,21 @@ pub trait Mat<T: Scalar> where Self: Send {
         if self.width() != other.width() || self.height() != other.height() {
             panic!("Cannot operate on nonconformal matrices!");
         }
-/*        for x in 0..self.width() {
+        let h = self.height();
+        let w = self.width();
+        self.axpby_rec(alpha, other, beta, 0, 0, h, w); 
+    }
+
+    fn axpby_small( &mut self, alpha: T, other: &Mat<T>, beta: T ) {
+        if self.width() != other.width() || self.height() != other.height() {
+            panic!("Cannot operate on nonconformal matrices!");
+        }
+        for x in 0..self.width() {
             for y in 0..self.height() { 
                 let t = alpha * other.get(y,x) + beta * self.get(y,x);
                 self.set(y,x,t);
             }
         }
-*/
-        let h = self.height();
-        let w = self.width();
-        self.axpby_rec(alpha, other, beta, 0, 0, h, w); 
     }
 }
 
