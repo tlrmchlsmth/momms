@@ -31,7 +31,7 @@ impl<T: Scalar> Matrix<T> {
     pub fn new( h: usize, w: usize ) -> Matrix<T> {
         assert!(mem::size_of::<T>() != 0, "Matrix can't handle ZSTs");
         unsafe { 
-            let buf = heap::allocate( h * w * mem::size_of::<T>(), 4096 );
+            let buf = heap::allocate( (h * w + 256) * mem::size_of::<T>(), 4096 );
         
             Matrix{ iter_h: h, iter_w: w, 
                     h_padding: 0, w_padding: 0,

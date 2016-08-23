@@ -43,7 +43,7 @@ impl<T: Scalar, PW: Unsigned> ColumnPanelMatrix<T,PW> {
         if !(w % panel_w == 0) { 
             n_panels = w / panel_w + 1; 
         }
-        let capacity = n_panels * panel_w * h;
+        let capacity = (n_panels+1) * panel_w * h;
         unsafe { 
             let ptr = heap::allocate( capacity * mem::size_of::<T>(), 4096 );
 
@@ -190,11 +190,12 @@ impl<T:Scalar, PW: Unsigned> ResizableBuffer<T> for ColumnPanelMatrix<T, PW> {
     }
     #[inline(always)]
     fn aquire_buffer_for(&mut self, req_capacity: usize) {
-        if req_capacity > self.capacity {
+        let req_padded_capacity = req_capacity + self.panel_stride;
+        if req_padded_capacity > self.capacity {
             unsafe {
                 heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
-                self.buffer = heap::allocate( req_capacity * mem::size_of::<T>(), 4096 ) as *mut _;
-                self.capacity = req_capacity;
+                self.buffer = heap::allocate( req_padded_capacity * mem::size_of::<T>(), 4096 ) as *mut _;
+                self.capacity = req_padded_capacity;
             }
         }
     }
