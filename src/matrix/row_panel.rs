@@ -198,8 +198,12 @@ impl<T:Scalar, PH: Unsigned> ResizableBuffer<T> for RowPanelMatrix<T, PH> {
     fn set_capacity(&mut self, capacity: usize) { self.capacity = capacity; }
     #[inline(always)]
     fn capacity_for(other: &Mat<T>) -> usize {
-        let new_n_panels = (other.height()-1) / PH::to_usize() + 1;
-        new_n_panels * PH::to_usize() * other.width()
+        if other.height() <= 0 || other.width() <= 0 {
+            0
+        } else {
+            let new_n_panels = (other.height()-1) / PH::to_usize() + 1;
+            new_n_panels * PH::to_usize() * other.width()
+        }
     }
     #[inline(always)]
     fn aquire_buffer_for(&mut self, req_capacity: usize) {
@@ -220,8 +224,12 @@ impl<T:Scalar, PH: Unsigned> ResizableBuffer<T> for RowPanelMatrix<T, PH> {
         self.iter_w = other.iter_width();
         self.logical_h_padding = other.get_logical_h_padding();
         self.logical_w_padding = other.get_logical_w_padding();
-
-        self.n_panels = (other.height()-1) / PH::to_usize() + 1;
+        
+        if other.height() <= 0 {
+            self.n_panels = 0;
+        } else {
+            self.n_panels = (other.height()-1) / PH::to_usize() + 1;
+        }
         self.panel_stride = PH::to_usize()*other.width();
     }
 }

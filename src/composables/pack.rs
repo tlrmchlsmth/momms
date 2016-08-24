@@ -28,6 +28,9 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Packer<T, At, Apt> {
 impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Copier<T, At, Apt> 
     for Packer<T, At, Apt> {
     default fn pack( &self, a: &At, a_pack: &mut Apt, thr: &ThreadInfo<T> ) {
+        if a_pack.width() <= 0 || a_pack.height() <= 0 {
+            return;
+        }
         let cols_per_thread = (a.width()-1) / thr.num_threads() + 1;
         let start = cols_per_thread * thr.thread_id();
         let end = cmp::min(a.width(), start+cols_per_thread);
@@ -43,6 +46,9 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Copier<T, At, Apt>
 impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>> 
     for Packer<T, Matrix<T>, ColumnPanelMatrix<T, PW>> {
     fn pack( &self, a: &Matrix<T>, a_pack: &mut ColumnPanelMatrix<T, PW>, thr: &ThreadInfo<T> ) {
+        if a_pack.width() <= 0 || a_pack.height() <= 0 {
+            return;
+        }
         unsafe {
             let ap = a.get_buffer();
             let cs_a = a.get_column_stride();
@@ -72,6 +78,9 @@ impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>>
 impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>> 
     for Packer<T, Matrix<T>, RowPanelMatrix<T, PH>> {
     fn pack( &self, a: &Matrix<T>, a_pack: &mut RowPanelMatrix<T, PH>, thr: &ThreadInfo<T> ) {
+        if a_pack.width() <= 0 || a_pack.height() <= 0 {
+            return;
+        }
         unsafe {
             let ap = a.get_buffer();
             let cs_a = a.get_column_stride();
