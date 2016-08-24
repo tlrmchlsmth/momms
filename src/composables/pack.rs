@@ -58,17 +58,30 @@ impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>>
             let start = panels_per_thread * thr.thread_id();
             let end = cmp::min(a_pack.get_n_panels(),
                 start+panels_per_thread);
-            
-            for panel in start..end {
+
+            for panel in start..end-1 {
                 let p = a_pack.get_panel(panel);
-                let h = a_pack.height();
                 let ap1 = ap.offset((panel * PW::to_usize() * cs_a) as isize);
 
-                for y in 0..h {
+                for y in 0..a_pack.height() {
                     for i in 0..PW::to_usize() {
-                        let alpha = ptr::read(ap1.offset((y*rs_a + i*cs_a)as isize));
+                        let alpha = ptr::read(ap1.offset((y*rs_a + i*cs_a) as isize));
                         ptr::write( p.offset((y*PW::to_usize() + i) as isize), alpha );
                     }
+                }
+            }
+            //Handle the last panel separately, since it might have fewer than panel width number of columns
+            let last_panel_w = if end * PW::to_usize() > a_pack.width() {
+                a_pack.width() - (end-1)*PW::to_usize()
+            } else {
+                PW::to_usize()
+            };
+            let p = a_pack.get_panel(end-1); 
+            let ap1 = ap.offset(((end-1) * PW::to_usize() * cs_a) as isize);
+            for y in 0..a_pack.height() {
+                for i in 0..last_panel_w {
+                    let alpha = ptr::read(ap1.offset((y*rs_a + i*cs_a)as isize));
+                    ptr::write( p.offset((y*PW::to_usize() + i) as isize), alpha );
                 }
             }
         }
@@ -93,14 +106,27 @@ impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>>
 
             for panel in start..end {
                 let p = a_pack.get_panel(panel); 
-                let w = a_pack.width();
                 let ap1 = ap.offset((panel * PH::to_usize() * rs_a) as isize); 
 
-                for x in 0..w {
+                for x in 0..a_pack.width() {
                     for i in 0..PH::to_usize() {
                         let alpha = ptr::read(ap1.offset((x*cs_a + i*rs_a) as isize));
                         ptr::write( p.offset((x*PH::to_usize() + i) as isize), alpha );
                     }
+                }
+            }
+            //Handle the last panel separately, since it might have fewer than panel width number of columns
+            let last_panel_h = if end * PH::to_usize() > a_pack.height() {
+                a_pack.height() - (end-1)*PH::to_usize()
+            } else {
+                PH::to_usize()
+            };
+            let p = a_pack.get_panel(end-1); 
+            let ap1 = ap.offset(((end-1) * PH::to_usize() * rs_a) as isize); 
+            for x in 0..a_pack.width() {
+                for i in 0..last_panel_h {
+                    let alpha = ptr::read(ap1.offset((x*cs_a + i*rs_a)as isize));
+                    ptr::write( p.offset((x*PH::to_usize() + i) as isize), alpha );
                 }
             }
         }
