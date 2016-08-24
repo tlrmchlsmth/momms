@@ -87,7 +87,7 @@ impl GemmNode<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f
         let cs_c = c.get_column_stride();
         let mut alpha: f64 = 1.0;
         let mut beta: f64 = 1.0;
-        
+
         if c.height() == self.mr && c.width() == self.nr {
             //bli_dgemm_asm_8x4 ( 
             bli_dgemm_int_8x4 (
@@ -119,8 +119,8 @@ impl GemmNode<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f
 
             let t_h = t.iter_height();
             let t_w = t.iter_width();
-            t.adjust_y_view( t_h, 0, c.height(), 0 );
-            t.adjust_x_view( t_w, 0, c.width(), 0 );
+            t.adjust_y_view( t_h, 0, 0, c.height(), 0 );
+            t.adjust_x_view( t_w, 0, 0, c.width(), 0 );
             c.axpby_small( 1.0, &t, 1.0 );
         }
     }

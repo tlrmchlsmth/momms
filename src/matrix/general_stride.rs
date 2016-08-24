@@ -99,11 +99,11 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
     #[inline(always)]
     fn set_logical_h_padding( &mut self, h_pad: usize ) { self.h_padding = h_pad }
     #[inline(always)]
-    fn get_logical_h_padding( &self ) -> usize { self.h_padding }
+    fn logical_h_padding( &self ) -> usize { self.h_padding }
     #[inline(always)]
     fn set_logical_w_padding( &mut self, w_pad: usize ) { self.w_padding = w_pad }
     #[inline(always)]
-    fn get_logical_w_padding( &self ) -> usize { self.w_padding }
+    fn logical_w_padding( &self ) -> usize { self.w_padding }
     
     #[inline(always)]
     unsafe fn make_alias( &self ) -> Self {

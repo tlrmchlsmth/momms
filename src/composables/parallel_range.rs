@@ -73,7 +73,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
 
         //Partition matrices and adjust logical padding
         let h_iter_save = a.iter_height();
-        let h_padding_save = a.get_logical_h_padding();
+        let h_padding_save = a.logical_h_padding();
         let ay_off_save = a.off_y();
         let cy_off_save = c.off_y();
         let new_padding = if end <= a.height() { 0 } else { end - a.height() };
@@ -83,8 +83,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         c.set_logical_h_padding(new_padding);
         c.set_iter_height(end-start);
         c.set_off_y(cy_off_save+start);
-
-
+        
         //Run subproblem
         self.child.run(a, b, c, &parallel_info.thr);
 
@@ -163,7 +162,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
 
         //Partition matrices and adjust logical padding
         let w_iter_save = b.iter_width();
-        let w_padding_save = a.get_logical_w_padding();
+        let w_padding_save = a.logical_w_padding();
         let bx_off_save = a.off_x();
         let cx_off_save = c.off_x();
         let new_padding = if end <= b.width() { 0 } else { end - b.width() };

@@ -149,11 +149,11 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
     #[inline(always)]
     fn set_logical_h_padding( &mut self, h_pad: usize ) { self.logical_h_padding = h_pad }
     #[inline(always)]
-    fn get_logical_h_padding( &self ) -> usize { self.logical_h_padding }
+    fn logical_h_padding( &self ) -> usize { self.logical_h_padding }
     #[inline(always)]
     fn set_logical_w_padding( &mut self, w_pad: usize ) { self.logical_w_padding = w_pad }
     #[inline(always)]
-    fn get_logical_w_padding( &self ) -> usize { self.logical_w_padding }
+    fn logical_w_padding( &self ) -> usize { self.logical_w_padding }
     
     #[inline(always)]
     unsafe fn make_alias( &self ) -> Self {
@@ -222,8 +222,8 @@ impl<T:Scalar, PH: Unsigned> ResizableBuffer<T> for RowPanelMatrix<T, PH> {
 
         self.iter_h = other.iter_height();
         self.iter_w = other.iter_width();
-        self.logical_h_padding = other.get_logical_h_padding();
-        self.logical_w_padding = other.get_logical_w_padding();
+        self.logical_h_padding = other.logical_h_padding();
+        self.logical_w_padding = other.logical_w_padding();
         
         if other.height() <= 0 {
             self.n_panels = 0;

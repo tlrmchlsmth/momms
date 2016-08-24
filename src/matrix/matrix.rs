@@ -71,18 +71,18 @@ pub trait Mat<T: Scalar> where Self: Send {
     
     #[inline(always)]
     fn height( &self ) -> usize {
-        if self.iter_height() < self.get_logical_h_padding() {
+        if self.iter_height() < self.logical_h_padding() {
             0
         } else {
-            self.iter_height() - self.get_logical_h_padding()
+            self.iter_height() - self.logical_h_padding()
         }
     }
     #[inline(always)]
     fn width( &self ) -> usize {
-        if self.iter_width() < self.get_logical_w_padding() {
+        if self.iter_width() < self.logical_w_padding() {
             0
         } else {
-            self.iter_width() - self.get_logical_w_padding()
+            self.iter_width() - self.logical_w_padding()
         }
     }
 
@@ -109,11 +109,11 @@ pub trait Mat<T: Scalar> where Self: Send {
     #[inline(always)]
     fn set_logical_h_padding( &mut self, iter_h: usize );
     #[inline(always)]
-    fn get_logical_h_padding( &self ) -> usize;
+    fn logical_h_padding( &self ) -> usize;
     #[inline(always)]
     fn set_logical_w_padding( &mut self, iter_h: usize );
     #[inline(always)]
-    fn get_logical_w_padding( &self ) -> usize;
+    fn logical_w_padding( &self ) -> usize;
     
     #[inline(always)]
     unsafe fn make_alias( &self ) -> Self where Self: Sized;
@@ -121,20 +121,46 @@ pub trait Mat<T: Scalar> where Self: Send {
     unsafe fn send_alias( &mut self, thr: &ThreadInfo<T> ); 
     
     #[inline(always)]
-    fn adjust_y_view( &mut self, parent_iter_h: usize, parent_off_y: usize,
+    fn adjust_y_view( &mut self, parent_iter_h: usize, parent_padding: usize, parent_off_y: usize,
                       target_h: usize, index: usize ) {
         debug_assert!( index < parent_iter_h, "Error adjusting y view!" );
         let new_iter_h = cmp::min( target_h, parent_iter_h - index );
-        self.set_iter_height( new_iter_h );
-        self.set_off_y( parent_off_y + index );
+
+        let parent_h = if parent_padding < parent_iter_h {
+            parent_iter_h - parent_padding
+        } else {
+            0
+        };
+        let new_h_padding = if index + new_iter_h < parent_h {
+            0
+        } else {
+            index + new_iter_h - cmp::max(index, parent_h)
+        };
+
+        self.set_iter_height(new_iter_h);
+        self.set_logical_h_padding(new_h_padding);
+        self.set_off_y(parent_off_y + index);
     }
 
     #[inline(always)]
-    fn adjust_x_view( &mut self, parent_iter_w: usize, parent_off_x: usize,
+    fn adjust_x_view( &mut self, parent_iter_w: usize, parent_padding: usize, parent_off_x: usize,
                       target_w: usize, index: usize ) {
-        debug_assert!( index < parent_iter_w, "Error adjusting y view!" );
+        debug_assert!( index < parent_iter_w, "Error adjusting x view!" );
         let new_iter_w = cmp::min( target_w, parent_iter_w - index );
+
+        let parent_w = if parent_padding < parent_iter_w {
+            parent_iter_w - parent_padding
+        } else {
+            0
+        };
+        let new_w_padding = if index + new_iter_w < parent_w {
+            0
+        } else {
+            index + new_iter_w - cmp::max(index, parent_w)
+        };
+
         self.set_iter_width( new_iter_w );
+        self.set_logical_w_padding(new_w_padding);
         self.set_off_x( parent_off_x + index );
     }
 
