@@ -7,18 +7,16 @@ use matrix::{Scalar,Mat};
 use core::mem;
 use core::ptr::{self};
 
-pub struct Matrix<T: Scalar> {
-    //Height and width for iteration space
-    iter_h: usize,
-    iter_w: usize,
+pub struct MatrixView {
+    offset: usize,
+    padding: usize,
+    iter_size: usize,
+}
 
-    //Padding to iteration h and w
-    h_padding: usize,
-    w_padding: usize,
-    
-    //This Matrix may be a submatrix within a larger one
-    off_y: usize,
-    off_x: usize,
+pub struct Matrix<T: Scalar> {
+    //Stack of views of the matrix
+    y_views: Vec<MatrixView>,
+    x_views: Vec<MatrixView>,
     
     //Strides and buffer
     row_stride: usize,
@@ -32,10 +30,14 @@ impl<T: Scalar> Matrix<T> {
         assert!(mem::size_of::<T>() != 0, "Matrix can't handle ZSTs");
         unsafe { 
             let buf = heap::allocate( (h * w + 256) * mem::size_of::<T>(), 4096 );
+
+            let mut y_views : Vec<MatrixView> = Vec::with_capacity( 16 );
+            let mut x_views : Vec<MatrixView> = Vec::with_capacity( 16 );
+            y_views.push(MatrixView{ offset: 0, padding: 0, iter_size: h });
+            x_views.push(MatrixView{ offset: 0, padding: 0, iter_size: w });
         
-            Matrix{ iter_h: h, iter_w: w, 
-                    h_padding: 0, w_padding: 0,
-                    off_y: 0, off_x: 0,
+            Matrix{ y_views: y_views,
+                    x_views: x_views, 
                     row_stride: 1, column_stride: h,
                     buffer: buf as *mut _,
                     capacity: h * w,
@@ -49,67 +51,122 @@ impl<T: Scalar> Matrix<T> {
     
     #[inline(always)]
     pub unsafe fn get_buffer( &self ) -> *const T { 
-        self.buffer.offset((self.off_y*self.row_stride + self.off_x*self.column_stride) as isize)
+        let y_view = self.y_views.last().unwrap();
+        let x_view = self.x_views.last().unwrap();
+
+        self.buffer.offset((y_view.offset*self.row_stride + x_view.offset*self.column_stride) as isize)
     }
 
     #[inline(always)]
     pub unsafe fn get_mut_buffer( &mut self ) -> *mut T {
-        self.buffer.offset((self.off_y*self.row_stride + self.off_x*self.column_stride) as isize)
+        let y_view = self.y_views.last().unwrap();
+        let x_view = self.x_views.last().unwrap();
+
+        self.buffer.offset((y_view.offset*self.row_stride + x_view.offset*self.column_stride) as isize)
     }
 }
 impl<T: Scalar> Mat<T> for Matrix<T> {
     #[inline(always)]
     fn get( &self, y: usize, x: usize) -> T {
-        let y_coord = (y + self.off_y) * self.row_stride;
-        let x_coord = (x + self.off_x) * self.column_stride;
+        let y_view = self.y_views.last().unwrap();
+        let x_view = self.x_views.last().unwrap();
+
+        let y_coord = (y + y_view.offset) * self.row_stride;
+        let x_coord = (x + x_view.offset) * self.column_stride;
         unsafe{
             ptr::read( self.buffer.offset((y_coord + x_coord) as isize) )
         }
     }
     #[inline(always)]
     fn set( &mut self, y: usize, x: usize, alpha: T) {
-        let y_coord = (y + self.off_y) * self.row_stride;
-        let x_coord = (x + self.off_x) * self.column_stride;
+        let y_view = self.y_views.last().unwrap();
+        let x_view = self.x_views.last().unwrap();
+
+        let y_coord = (y + y_view.offset) * self.row_stride;
+        let x_coord = (x + x_view.offset) * self.column_stride;
         unsafe{
             ptr::write( self.buffer.offset((y_coord + x_coord) as isize), alpha );
         }
     }
     #[inline(always)]
-    fn off_y( &self ) -> usize { self.off_y }
+    fn off_y( &self ) -> usize { 
+        self.y_views.last().unwrap().offset 
+    }
     #[inline(always)]
-    fn off_x( &self ) -> usize { self.off_x }
-/*    #[inline(always)]
-    fn set_height( &mut self, h: usize ) { self.h = h; }
+    fn off_x( &self ) -> usize {
+        self.x_views.last().unwrap().offset 
+    }
+
+    //Still need these for parallel range but it should go away
     #[inline(always)]
-    fn set_width( &mut self, w: usize ) { self.w = w; }*/
+    fn set_off_y( &mut self, off_y: usize ) { 
+        let mut y_view = self.y_views.last_mut().unwrap();
+        y_view.offset = off_y; 
+    }
     #[inline(always)]
-    fn set_off_y( &mut self, off_y: usize ) { self.off_y = off_y }
-    #[inline(always)]
-    fn set_off_x( &mut self, off_x: usize ) { self.off_x = off_x }
+    fn set_off_x( &mut self, off_x: usize ) {
+        let mut x_view = self.x_views.last_mut().unwrap();
+        x_view.offset = off_x; 
+    }
 
     #[inline(always)]
-    fn iter_height( &self ) -> usize { self.iter_h }
+    fn iter_height( &self ) -> usize {
+        self.y_views.last().unwrap().iter_size 
+    }
     #[inline(always)]
-    fn iter_width( &self ) -> usize { self.iter_w }
+    fn iter_width( &self ) -> usize { 
+        self.x_views.last().unwrap().iter_size 
+    }
     #[inline(always)]
-    fn set_iter_height( &mut self, iter_h: usize ) { self.iter_h = iter_h; }
+    fn set_iter_height( &mut self, iter_h: usize ) {
+        let mut y_view = self.y_views.last_mut().unwrap();
+        y_view.iter_size = iter_h; 
+    }
     #[inline(always)]
-    fn set_iter_width( &mut self, iter_w: usize ) { self.iter_w = iter_w; }
+    fn set_iter_width( &mut self, iter_w: usize ) {
+        let mut x_view = self.x_views.last_mut().unwrap();
+        x_view.iter_size = iter_w; 
+    }
 
     #[inline(always)]
-    fn set_logical_h_padding( &mut self, h_pad: usize ) { self.h_padding = h_pad }
+    fn logical_h_padding( &self ) -> usize { 
+        self.y_views.last().unwrap().padding 
+    }
     #[inline(always)]
-    fn logical_h_padding( &self ) -> usize { self.h_padding }
+    fn logical_w_padding( &self ) -> usize { 
+        self.x_views.last().unwrap().padding 
+    }
     #[inline(always)]
-    fn set_logical_w_padding( &mut self, w_pad: usize ) { self.w_padding = w_pad }
+    fn set_logical_h_padding( &mut self, h_pad: usize ) { 
+        let mut y_view = self.y_views.last_mut().unwrap();
+        y_view.padding = h_pad 
+    }
     #[inline(always)]
-    fn logical_w_padding( &self ) -> usize { self.w_padding }
-    
+    fn set_logical_w_padding( &mut self, w_pad: usize ) {
+        let mut x_view = self.x_views.last_mut().unwrap();
+        x_view.padding = w_pad 
+    }
+/*
+    #[inline(always)]
+    fn push_x_view( &mut self );
+    #[inline(always)]
+    fn push_y_view( &mut self );
+    #[inline(always)]
+    fn pop_x_view( &mut self );
+    #[inline(always)]
+    fn pop_y_view( &mut self );
+ */   
     #[inline(always)]
     unsafe fn make_alias( &self ) -> Self {
-        Matrix{ iter_h: self.iter_h, iter_w: self.iter_w, 
-                h_padding: self.h_padding, w_padding: self.w_padding,
-                off_y: self.off_y, off_x: self.off_x,
+       let x_view = self.x_views.last().unwrap();
+       let y_view = self.y_views.last().unwrap();
+
+       let mut x_views_alias : Vec<MatrixView> = Vec::with_capacity( 16 );
+       let mut y_views_alias : Vec<MatrixView> = Vec::with_capacity( 16 );
+       x_views_alias.push(MatrixView{ offset: x_view.offset, padding: x_view.offset, iter_size: x_view.iter_size });
+       y_views_alias.push(MatrixView{ offset: y_view.offset, padding: y_view.offset, iter_size: y_view.iter_size });
+
+        Matrix{ x_views: x_views_alias, y_views: y_views_alias,
                 row_stride: self.row_stride, column_stride: self.column_stride,
                 buffer: self.buffer,
                 capacity: self.capacity,
