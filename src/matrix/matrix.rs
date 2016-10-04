@@ -113,15 +113,20 @@ pub trait Mat<T: Scalar> where Self: Send {
     #[inline(always)]
     unsafe fn send_alias( &mut self, thr: &ThreadInfo<T> ); 
 
-/*    #[inline(always)]
-    fn push_x_view( &mut self );
     #[inline(always)]
-    fn push_y_view( &mut self );
+    fn push_x_view( &mut self, blksz: usize ) -> usize;
+    #[inline(always)]
+    fn push_y_view( &mut self, blksz: usize ) -> usize;
     #[inline(always)]
     fn pop_x_view( &mut self );
     #[inline(always)]
-    fn pop_y_view( &mut self );*/
-    
+    fn pop_y_view( &mut self );
+    #[inline(always)]
+    fn slide_x_view_to( &mut self, x: usize, blksz: usize );
+    #[inline(always)]
+    fn slide_y_view_to( &mut self, y: usize, blksz: usize );
+
+   
     #[inline(always)]
     fn adjust_y_view( &mut self, parent_iter_h: usize, parent_padding: usize, parent_off_y: usize,
                       target_h: usize, index: usize ) {

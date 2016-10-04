@@ -21,26 +21,20 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PartM<T,At,Bt,Ct,S> {
     #[inline(always)]
     unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
-        let m_save = c.iter_height();
-        let padding_save = c.logical_h_padding();
-        let ay_off_save = a.off_y();
-        let cy_off_save = c.off_y();
+        let m_save = a.push_y_view(self.bsz);
+        c.push_y_view(self.bsz);
         
         let mut i = 0;
         while i < m_save  {
-            a.adjust_y_view( m_save, padding_save, ay_off_save, self.bsz, i);
-            c.adjust_y_view( m_save, padding_save, cy_off_save, self.bsz, i);
+            a.slide_y_view_to(i, self.bsz);
+            c.slide_y_view_to(i, self.bsz);
             
             self.child.run(a, b, c, thr);
             i += self.bsz;
         }
 
-        a.set_iter_height( m_save );
-        a.set_logical_h_padding( padding_save );
-        a.set_off_y( ay_off_save );
-        c.set_iter_height( m_save );
-        c.set_logical_h_padding( padding_save );
-        c.set_off_y( cy_off_save );
+        a.pop_y_view();
+        c.pop_y_view();
     }
     #[inline(always)]
     unsafe fn shadow( &self ) -> Self where Self: Sized {
@@ -67,26 +61,20 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PartN<T,At,Bt,Ct,S> {
     #[inline(always)]
     unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr:&ThreadInfo<T> ) -> () {
-        let n_save = c.iter_width();
-        let padding_save = c.logical_w_padding();
-        let bx_off_save = b.off_x();
-        let cx_off_save = c.off_x();
+        let n_save = b.push_x_view(self.bsz);
+        c.push_x_view(self.bsz);
         
         let mut i = 0;
         while i < n_save {
-            b.adjust_x_view( n_save, padding_save, bx_off_save, self.bsz, i);
-            c.adjust_x_view( n_save, padding_save, cx_off_save, self.bsz, i);
+            b.slide_x_view_to(i, self.bsz);
+            c.slide_x_view_to(i, self.bsz);
 
             self.child.run(a, b, c, thr);
             i += self.bsz;
         }
-
-        b.set_iter_width( n_save );
-        b.set_logical_w_padding( padding_save );
-        b.set_off_x( bx_off_save );
-        c.set_iter_width( n_save );
-        c.set_logical_w_padding( padding_save );
-        c.set_off_x( cx_off_save );
+        
+        b.pop_x_view();
+        c.pop_x_view();
     }
     #[inline(always)]
     unsafe fn shadow( &self ) -> Self where Self: Sized {
@@ -113,26 +101,20 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PartK<T,At,Bt,Ct,S> {
     #[inline(always)]
     unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
-        let k_save = a.iter_width();
-        let padding_save = a.logical_w_padding();
-        let ax_off_save = a.off_x();
-        let by_off_save = b.off_y();
+        let k_save = a.push_x_view(self.bsz);
+        b.push_y_view(self.bsz);
         
         let mut i = 0;
         while i < k_save  {
-            a.adjust_x_view( k_save, padding_save, ax_off_save, self.bsz, i);
-            b.adjust_y_view( k_save, padding_save, by_off_save, self.bsz, i);
+            a.slide_x_view_to(i, self.bsz);
+            b.slide_y_view_to(i, self.bsz);
 
             self.child.run(a, b, c, thr);
             i += self.bsz;
         }
 
-        a.set_iter_width( k_save );
-        a.set_logical_w_padding( padding_save );
-        a.set_off_x( ax_off_save );
-        b.set_iter_height( k_save );
-        b.set_logical_h_padding( padding_save );
-        b.set_off_y( by_off_save );
+        a.pop_x_view();
+        b.pop_y_view();
     }
     #[inline(always)]
     unsafe fn shadow( &self ) -> Self where Self: Sized {
