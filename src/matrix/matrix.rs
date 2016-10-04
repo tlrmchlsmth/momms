@@ -2,7 +2,6 @@ extern crate rand;
 
 use core::fmt::Display;
 use core::ops::{Add, Mul, Sub, Div, AddAssign, MulAssign, SubAssign, DivAssign};
-use core::cmp;
 use thread_comm::ThreadInfo;
 
 //Trait Definitions

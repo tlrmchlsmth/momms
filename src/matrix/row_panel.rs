@@ -4,27 +4,11 @@ use thread_comm::ThreadInfo;
 use typenum::Unsigned;
 use self::alloc::heap;
 use matrix::{Scalar,Mat,ResizableBuffer};
+use super::view::{MatrixView};
 
 use core::marker::PhantomData;
-use core::{mem,cmp};
+use core::{mem};
 use core::ptr::{self};
-
-#[derive(Copy,Clone)]
-struct MatrixView {
-    offset: usize,
-    padding: usize,
-    iter_size: usize,
-}
-impl MatrixView {
-    #[inline(always)]
-    fn physical_size( &self ) -> usize {
-        if self.padding < self.iter_size {
-            self.iter_size - self.padding
-        } else {
-            0
-        }
-    }
-}
 
 pub struct RowPanelMatrix<T: Scalar, PH: Unsigned> {
     y_views: Vec<MatrixView>, //offset is in # of panels
@@ -191,40 +175,25 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
 
     #[inline(always)]
     fn push_x_view( &mut self, blksz: usize ) -> usize {
-        let (zoomed_view, uz_iter_size) = { 
-            let view = self.x_views.last().unwrap();
-            let zoomed_iter_size = cmp::min(blksz, view.iter_size);
-
-            //Need to figure out new padding
-            let physical_size = view.physical_size();
-            let zoomed_padding = if zoomed_iter_size < physical_size {
-                0   
-            } else {
-                zoomed_iter_size - physical_size
-            };  
-            (MatrixView{ offset: view.offset, padding: zoomed_padding, iter_size: zoomed_iter_size }, view.iter_size)
-        };  
+        let (zoomed_view, uz_iter_size) = {
+            let uz_view = self.x_views.last().unwrap();
+            let (z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(0, blksz);
+            (MatrixView{ offset: uz_view.offset, padding: z_padding, iter_size: z_iter_size }, uz_view.iter_size)
+        };
         self.x_views.push(zoomed_view);
         uz_iter_size
     }
     #[inline(always)]
     fn push_y_view( &mut self, blksz: usize ) -> usize{
-        let (zoomed_view, uz_iter_size) = { 
-            let view = self.y_views.last().unwrap();
-            let zoomed_iter_size = cmp::min(blksz, view.iter_size);
-
-            //Need to figure out new padding
-            let physical_size = view.physical_size();
-            let zoomed_padding = if zoomed_iter_size < physical_size {
-                0   
-            } else {
-                zoomed_iter_size - physical_size
-            };  
-            (MatrixView{ offset: view.offset, padding: zoomed_padding, iter_size: zoomed_iter_size }, view.iter_size)
-        };  
+        let (zoomed_view, uz_iter_size) = {
+            let uz_view = self.y_views.last().unwrap();
+            let (z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(0, blksz);
+            (MatrixView{ offset: uz_view.offset, padding: z_padding, iter_size: z_iter_size }, uz_view.iter_size)
+        };
         self.y_views.push(zoomed_view);
         uz_iter_size
     }
+
     fn pop_x_view( &mut self ) {
         debug_assert!( self.x_views.len() >= 2 );
         self.x_views.pop();
@@ -234,47 +203,32 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
         debug_assert!( self.y_views.len() >= 2 );
         self.y_views.pop();
     }
+
     #[inline(always)]
     fn slide_x_view_to( &mut self, x: usize, blksz: usize ) {
         let view_len = self.x_views.len();
         debug_assert!( view_len >= 2 );
 
-        let unzoomed_view = self.x_views[view_len-2];
-        let mut view = self.x_views.last_mut().unwrap();
+        let uz_view = self.x_views[view_len-2];
+        let(z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(x, blksz);
 
-        let new_iter_size = cmp::min(blksz, unzoomed_view.iter_size - x);
-        let unzoomed_physical_size = unzoomed_view.physical_size();
-
-        let new_padding = if x + new_iter_size < unzoomed_physical_size {
-            0
-        } else {
-            x + new_iter_size - cmp::max(x, unzoomed_physical_size)
-        };
-
-        view.iter_size = new_iter_size;
-        view.padding = new_padding;
-        view.offset = unzoomed_view.offset + x;
+        let mut z_view = self.x_views.last_mut().unwrap();
+        z_view.iter_size = z_iter_size;
+        z_view.padding = z_padding;
+        z_view.offset = uz_view.offset + x;
     }
     #[inline(always)]
     fn slide_y_view_to( &mut self, y: usize, blksz: usize ) {
         let view_len = self.y_views.len();
         debug_assert!( view_len >= 2 );
 
-        let unzoomed_view = self.y_views[view_len-2];
-        let mut view = self.y_views.last_mut().unwrap();
+        let uz_view = self.y_views[view_len-2];
+        let(z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(y, blksz);
 
-        let new_iter_size = cmp::min(blksz, unzoomed_view.iter_size - y);
-        let unzoomed_physical_size = unzoomed_view.physical_size();
-
-        let new_padding = if y + new_iter_size < unzoomed_physical_size {
-            0
-        } else {
-            y + new_iter_size - cmp::max(y, unzoomed_physical_size)
-        };
-
-        view.iter_size = new_iter_size;
-        view.padding = new_padding;
-        view.offset = unzoomed_view.offset + y / PH::to_usize();
+        let mut z_view = self.y_views.last_mut().unwrap();
+        z_view.iter_size = z_iter_size;
+        z_view.padding = z_padding;
+        z_view.offset = uz_view.offset + y / PH::to_usize();
     }
     
     #[inline(always)]

@@ -1,3 +1,4 @@
+//Public Modules
 mod matrix;
 mod general_stride;
 mod row_panel;
@@ -8,4 +9,5 @@ pub use self::general_stride::{Matrix};
 pub use self::row_panel::{RowPanelMatrix};
 pub use self::column_panel::{ColumnPanelMatrix};
 
-
+//Private Modules
+mod view;
