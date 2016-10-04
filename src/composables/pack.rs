@@ -53,11 +53,11 @@ impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>>
             let ap = a.get_buffer();
             let cs_a = a.get_column_stride();
             let rs_a = a.get_row_stride();
-
-            let panels_per_thread = (a_pack.get_n_panels()-1) / thr.num_threads() + 1;
+            
+            let n_panels = (a_pack.width()-1) / PW::to_usize() + 1;
+            let panels_per_thread = (n_panels-1) / thr.num_threads() + 1;
             let start = panels_per_thread * thr.thread_id();
-            let end = cmp::min(a_pack.get_n_panels(),
-                start+panels_per_thread);
+            let end = cmp::min(n_panels, start+panels_per_thread);
 
             for panel in start..end-1 {
                 let p = a_pack.get_panel(panel);
@@ -99,12 +99,12 @@ impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>>
             let cs_a = a.get_column_stride();
             let rs_a = a.get_row_stride();
 
-            let panels_per_thread = (a_pack.get_n_panels()-1) / thr.num_threads() + 1;
+            let n_panels = (a_pack.height()-1) / PH::to_usize() + 1;
+            let panels_per_thread = (n_panels-1) / thr.num_threads() + 1;
             let start = panels_per_thread * thr.thread_id();
-            let end = cmp::min(a_pack.get_n_panels(),
-                start+panels_per_thread);
+            let end = cmp::min(n_panels, start+panels_per_thread);
 
-            for panel in start..end {
+            for panel in start..end-1 {
                 let p = a_pack.get_panel(panel); 
                 let ap1 = ap.offset((panel * PH::to_usize() * rs_a) as isize); 
 

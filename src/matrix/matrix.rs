@@ -5,11 +5,6 @@ use core::ops::{Add, Mul, Sub, Div, AddAssign, MulAssign, SubAssign, DivAssign};
 use core::cmp;
 use thread_comm::ThreadInfo;
 
-/*
-use typenum::Unsigned;
-use core::marker::PhantomData;
-use self::alloc::heap;
-*/
 //Trait Definitions
 pub trait ScalarConstants {
     #[inline(always)]
@@ -17,7 +12,6 @@ pub trait ScalarConstants {
     #[inline(always)]
     fn zero( ) -> Self;
 }
-
 pub trait Scalar where
     Self: Add<Self, Output=Self>,
     Self: Mul<Self, Output=Self>,
@@ -32,10 +26,9 @@ pub trait Scalar where
     Self: Display,
     Self: rand::Rand,
     Self: Send,
-    //Self: Zero,
-    //Self: One,
     Self: ScalarConstants,
 {}
+
 
 impl ScalarConstants for f64 {
     #[inline(always)]
@@ -68,7 +61,7 @@ pub trait Mat<T: Scalar> where Self: Send {
     #[inline(always)]
     fn set( &mut self, y: usize, x: usize, alpha: T) 
             where T: Sized;
-    
+
     #[inline(always)]
     fn height( &self ) -> usize {
         if self.iter_height() < self.logical_h_padding() {
@@ -119,6 +112,15 @@ pub trait Mat<T: Scalar> where Self: Send {
     unsafe fn make_alias( &self ) -> Self where Self: Sized;
     #[inline(always)]
     unsafe fn send_alias( &mut self, thr: &ThreadInfo<T> ); 
+
+/*    #[inline(always)]
+    fn push_x_view( &mut self );
+    #[inline(always)]
+    fn push_y_view( &mut self );
+    #[inline(always)]
+    fn pop_x_view( &mut self );
+    #[inline(always)]
+    fn pop_y_view( &mut self );*/
     
     #[inline(always)]
     fn adjust_y_view( &mut self, parent_iter_h: usize, parent_padding: usize, parent_off_y: usize,
@@ -281,5 +283,3 @@ pub trait ResizableBuffer<T: Scalar> {
     fn aquire_buffer_for(&mut self, capacity: usize );
     fn resize_to( &mut self, other: &Mat<T> ); 
 }
-
-

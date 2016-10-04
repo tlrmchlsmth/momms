@@ -7,7 +7,7 @@ use matrix::{Scalar,Mat};
 use core::mem;
 use core::ptr::{self};
 
-pub struct MatrixView {
+struct MatrixView {
     offset: usize,
     padding: usize,
     iter_size: usize,

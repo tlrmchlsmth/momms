@@ -32,7 +32,11 @@ impl<T: Scalar, PW: Unsigned> ColumnPanelMatrix<T,PW> {
     
         //Figure out the number of panels
         let panel_w = PW::to_usize();
-        let n_panels = (w-1) / panel_w + 1; 
+        //let n_panels = (w-1) / panel_w + 1; 
+        let mut n_panels = w / panel_w;
+        if n_panels * panel_w < w {
+            n_panels += 1;
+        }
         let capacity = (n_panels+1) * panel_w * h; //Extra panel for ``preloading'' in ukernel
 
         let mut y_views : Vec<MatrixView> = Vec::with_capacity( 16 );
