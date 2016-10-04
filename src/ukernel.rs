@@ -8,9 +8,9 @@ extern crate libc;
 use self::libc::{ c_double, int64_t };
 
 extern{
-/*    fn bli_dgemm_asm_8x4 ( k: int64_t,
+    fn bli_dgemm_asm_8x4 ( k: int64_t,
         alpha: *mut c_double, a: *mut c_double, b: *mut c_double, beta: *mut c_double, 
-        c: *mut c_double, rs_c: int64_t, cs_c: int64_t ) -> ();*/
+        c: *mut c_double, rs_c: int64_t, cs_c: int64_t ) -> ();
     fn bli_dgemm_int_8x4 ( k: int64_t,
         alpha: *mut c_double, a: *mut c_double, b: *mut c_double, beta: *mut c_double, 
         c: *mut c_double, rs_c: int64_t, cs_c: int64_t ) -> ();
@@ -117,10 +117,8 @@ impl GemmNode<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f
                 rs_t as int64_t, cs_t as int64_t );
     
 
-            let t_h = t.iter_height();
-            let t_w = t.iter_width();
-            t.adjust_y_view( t_h, 0, 0, c.height(), 0 );
-            t.adjust_x_view( t_w, 0, 0, c.width(), 0 );
+            t.push_y_view(c.height());
+            t.push_x_view(c.width());
             c.axpby_small( 1.0, &t, 1.0 );
         }
     }
