@@ -194,7 +194,7 @@ impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
         uz_iter_size
     }
 
-#[inline(always)]
+    #[inline(always)]
     fn pop_x_view( &mut self ) {
         debug_assert!( self.x_views.len() >= 2 );
         self.x_views.pop();
