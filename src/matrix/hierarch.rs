@@ -10,6 +10,7 @@ use super::view::{MatrixView};
 use core::marker::PhantomData;
 use core::mem;
 use core::ptr::{self};
+use core::cmp::min;
 
 /*Notes:
  * This file is for implementing hierarchical matrices
@@ -24,17 +25,23 @@ use core::ptr::{self};
 pub trait HierarchyBuilder
 {
     fn build(h: usize, w: usize) -> (Vec<HierarchyNode>, Vec<HierarchyNode>);
+    fn iotas() -> (usize, usize);
 }
 pub struct HBX<Bsz: Unsigned, S: HierarchyBuilder>  {
     _st: PhantomData<S>,
     _bsz: PhantomData<Bsz>,
 }
 impl<Bsz: Unsigned, S:HierarchyBuilder> HierarchyBuilder for HBX<Bsz, S> {
-    fn build(h: usize, _: usize) -> (Vec<HierarchyNode>, Vec<HierarchyNode>) {
+    fn build(h: usize, w: usize) -> (Vec<HierarchyNode>, Vec<HierarchyNode>) {
         let stride_btw_blocks = Bsz::to_usize() * h;
-        let (y_hierarchy, mut x_hierarchy) = S::build(h, Bsz::to_usize());
+        let (y_hierarchy, mut x_hierarchy) = S::build(h, min(w, Bsz::to_usize()));
         x_hierarchy.push(HierarchyNode{ stride: stride_btw_blocks, blksz: Bsz::to_usize()});
         (y_hierarchy, x_hierarchy)
+    }
+    fn iotas() -> (usize, usize) {
+        let x_iota = Bsz::to_usize();
+        let (y_iota,_) = S::iotas();
+        (y_iota, x_iota)
     }
 }
 pub struct HBY<Bsz: Unsigned, S: HierarchyBuilder>  {
@@ -42,11 +49,16 @@ pub struct HBY<Bsz: Unsigned, S: HierarchyBuilder>  {
     _bsz: PhantomData<Bsz>,
 }
 impl<Bsz: Unsigned, S:HierarchyBuilder> HierarchyBuilder for HBY<Bsz, S> {
-    fn build(_: usize, w: usize) -> (Vec<HierarchyNode>, Vec<HierarchyNode>) {
+    fn build(h: usize, w: usize) -> (Vec<HierarchyNode>, Vec<HierarchyNode>) {
         let stride_btw_blocks = Bsz::to_usize() * w;
-        let (mut y_hierarchy, x_hierarchy) = S::build(Bsz::to_usize(), w);
+        let (mut y_hierarchy, x_hierarchy) = S::build(min(h,Bsz::to_usize()), w);
         y_hierarchy.push(HierarchyNode{ stride: stride_btw_blocks, blksz: Bsz::to_usize()});
         (y_hierarchy, x_hierarchy)
+    }
+    fn iotas() -> (usize, usize) {
+        let y_iota = Bsz::to_usize();
+        let (_,x_iota) = S::iotas();
+        (y_iota, x_iota)
     }
 }
 
@@ -59,6 +71,9 @@ impl HierarchyBuilder for HBLeaf{
         y_hierarchy.push(HierarchyNode{stride:0, blksz:0});
         x_hierarchy.push(HierarchyNode{stride:0, blksz:0});
         (y_hierarchy, x_hierarchy)
+    }
+    fn iotas() -> (usize, usize) {
+        (1, 1)
     }
 }
 
@@ -112,9 +127,16 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
         x_views.push(MatrixView{ offset: 0, padding: 0, iter_size: w });
 
         //Fill up hierarchy description
-        let (y_hierarchy, x_hierarchy) = H::build(h,w);
+        let (x_iota, y_iota) = H::iotas();
+        let n_blocks_y = (h-1) / y_iota + 1;
+        let n_blocks_x = (w-1) / x_iota + 1;
+        let h_padded = n_blocks_y * y_iota;
+        let w_padded = n_blocks_x * x_iota;
+
+        let (y_hierarchy, x_hierarchy) = H::build(h_padded,w_padded);
         let yh_index = y_hierarchy.len() - 1;
         let xh_index = x_hierarchy.len() - 1;
+
 
         //Figure out buffer and capacity
         let (ptr, capacity) = 
@@ -124,9 +146,7 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
                 }
             } else {
                 //Figure out the number of top-level blocks in each direction
-                let n_blocks_y = (h - 1) / y_hierarchy[yh_index].blksz + 1;
-                let n_blocks_x = (w - 1) / x_hierarchy[xh_index].blksz + 1;
-                let capacity = (n_blocks_y + 1) * y_hierarchy[yh_index].blksz * (n_blocks_x + 1) * x_hierarchy[xh_index].blksz;
+                let capacity = (n_blocks_y + 1) * y_iota * (n_blocks_x + 1) * x_iota;
 
                 //Allocate Buffer
                 unsafe { 
@@ -177,12 +197,14 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
         let mut x_off = self.x_views.last().unwrap().offset; // Tracks the physical address of the row x
         let mut x_index = x;                                 // Tracks the logical address within the current block of the row x
 
+        if x != 0 {
         for index in (1..self.xh_index+1).rev() {
             let block_index = x_index / self.x_hierarchy[index].blksz;
             x_off += block_index * self.x_hierarchy[index].stride;
             x_index -= block_index * self.x_hierarchy[index].blksz;
         }
-
+        }
+        
         //Handle the leaf node
         (x_off + x_index * LCS::to_usize()) as isize
     }
@@ -414,7 +436,6 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
 /*            let n_blocks_y = (h - 1) / self.y_hierarchy[self.yh_index].blksz + 1;
             let n_blocks_x = (w - 1) / self.x_hierarchy[self.xh_index].blksz + 1;
             (n_blocks_y + 1) * self.y_hierarchy[self.yh_index].blksz * (n_blocks_x + 1) * self.x_hierarchy[self.xh_index].blksz*/
-            0
         }
     }
     #[inline(always)]
