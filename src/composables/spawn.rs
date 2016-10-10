@@ -38,13 +38,6 @@ pub struct SpawnThreads<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNo
 impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
     SpawnThreads <T,At,Bt,Ct,S> 
     where S: Send {
-    pub fn new(n_threads: usize, child: S) -> SpawnThreads<T, At, Bt, Ct, S>{
-        let mut to_ret = SpawnThreads{ child: Arc::new(child), n_threads : n_threads, pool: Pool::new(n_threads as u32),
-                 cntl_cache: Arc::new(ThreadLocal::new()),
-                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData };
-        to_ret.bind_threads();
-        to_ret
-    }
     pub fn set_n_threads(&mut self, n_threads: usize){ 
         self.n_threads = n_threads;
         self.pool = Pool::new(n_threads as u32);
@@ -100,7 +93,6 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         //Make some shallow copies here to pass into the scoped,
         //because self.pool borrows self as mutable
         let nthr = self.n_threads;
-        let tree_clone = self.child.clone();
         let cache = self.cntl_cache.clone();
     
   
@@ -112,7 +104,6 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
                 let mut my_a = a.make_alias();
                 let mut my_b = b.make_alias();
                 let mut my_c = c.make_alias();
-                let my_tree = tree_clone.shadow();
                 let my_comm  = global_comm.clone();
                 let my_cache = cache.clone();
                 //let child_topo = topo.clone();
@@ -131,7 +122,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
 
                     //Get this thread's control tree
                     let thr = ThreadInfo::new(id, my_comm);
-                    let cntl_tree_cell = my_cache.get_or(|| Box::new(RefCell::new(my_tree.shadow())));
+                    let cntl_tree_cell = my_cache.get_or(|| Box::new(RefCell::new(S::new())));
 
                     //Run subproblem
                     cntl_tree_cell.borrow_mut().run(&mut my_a, &mut my_b, &mut my_c, &thr);
@@ -139,13 +130,10 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
             }
         });
     }
-    #[inline(always)]
-    unsafe fn shadow(&self) -> Self where Self: Sized {
-        SpawnThreads{ child: Arc::new(self.child.shadow()), 
-                      n_threads : self.n_threads,
-                      pool : Pool::new(self.n_threads as u32),
-                      cntl_cache: Arc::new(ThreadLocal::new()),
-                      _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
+    fn new() -> SpawnThreads<T, At, Bt, Ct, S>{
+        SpawnThreads{ child: Arc::new(S::new()), n_threads : 1, pool: Pool::new(1),
+                 cntl_cache: Arc::new(ThreadLocal::new()),
+                 _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
 }
 

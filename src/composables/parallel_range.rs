@@ -2,23 +2,42 @@ use core::marker::{PhantomData};
 use matrix::{Scalar,Mat};
 use thread_comm::ThreadInfo;
 use composables::GemmNode;
-
+use typenum::Unsigned;
+/*
 #[derive(Copy,Clone)]
 pub enum ThreadsTarget {
     Target(usize),
     TheRest,
+}*/
+
+//Some helper types so we can specify how the parallelizers decide how many threads to use
+pub trait Nwayer{
+    fn get_n_way( usize ) -> usize;
 }
+pub struct Target<Nthr: Unsigned> { _nthr: PhantomData<Nthr> }
+impl<Nthr: Unsigned> Nwayer for Target<Nthr> {
+    fn get_n_way( n_threads: usize ) -> usize {
+        if n_threads % Nthr::to_usize() == 0 { Nthr::to_usize() } else { 1 }
+    }
+}
+pub struct TheRest { }
+impl Nwayer for TheRest {
+    fn get_n_way( n_threads: usize ) -> usize {
+        n_threads
+    }
+}
+
+//Info for one thread to parallelize
 struct ParallelInfo<T: Scalar> {
     thr: ThreadInfo<T>,
     n_way: usize,
     work_id: usize,
 }
 
-pub struct ParallelM<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {
+pub struct ParallelM<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, 
+    Iota: Unsigned, Nthr: Nwayer, S: GemmNode<T, At, Bt, Ct>> {
     //Initialized Stuff
     child: S,
-    n_threads: ThreadsTarget,
-    iota: usize,
 
     //Info about how to parallelize, decided at runtime
     par_inf: Option<ParallelInfo<T>>,
@@ -27,21 +46,15 @@ pub struct ParallelM<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
+    _iotat: PhantomData<Iota>,
+    _nthr: PhantomData<Nthr>,
 }
-impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
-    ParallelM<T,At,Bt,Ct,S> {
-    pub fn new(n_threads: ThreadsTarget, iota: usize, child: S) -> ParallelM<T, At, Bt, Ct, S>{
-        ParallelM{ n_threads: n_threads, child: child, iota: iota, par_inf: Option::None,
-            _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
-    }
+impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, 
+    Iota: Unsigned, Nthr: Nwayer, S: GemmNode<T, At, Bt, Ct>> ParallelM<T,At,Bt,Ct,Iota,Nthr,S> {
     #[inline(always)]
     fn make_subinfo(&mut self, info: &ThreadInfo<T>) -> ParallelInfo<T>{
         //First figure out how many ways to split into
-        let n_way = match self.n_threads {
-            ThreadsTarget::Target(thr_target) => 
-                if info.num_threads() % thr_target == 0 { thr_target } else { 1 },
-            ThreadsTarget::TheRest => info.num_threads(),
-        };
+        let n_way = Nthr::get_n_way( info.num_threads() );
         let subcomm_n_threads = info.num_threads() / n_way;
 
         //Figure out new thread IDs
@@ -50,8 +63,8 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
             work_id: info.thread_id() / subcomm_n_threads }
     }
 }
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
-    GemmNode<T, At, Bt, Ct> for ParallelM<T, At, Bt, Ct, S> {
+impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, 
+    Iota: Unsigned, Nthr: Nwayer, S: GemmNode<T, At, Bt, Ct>> GemmNode<T, At, Bt, Ct> for ParallelM<T,At,Bt,Ct,Iota,Nthr,S> {
     #[inline(always)]
     unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T>) -> () {
         //Split the thread communicator and create new thread infos
@@ -66,10 +79,10 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         
         //Now figure out the range of this thread
         let range = a.iter_height();                     // Global range
-        let n_iotas = (range-1) / self.iota + 1;         // Number of MR micro-panels
+        let n_iotas = (range-1) / Iota::to_usize() + 1;         // Number of MR micro-panels
         let iotas_per_thread = (n_iotas-1) / parallel_info.n_way + 1; // micro-panels per thread
-        let start = self.iota*iotas_per_thread*parallel_info.work_id;
-        let end   = start+self.iota*iotas_per_thread;
+        let start = Iota::to_usize()*iotas_per_thread*parallel_info.work_id;
+        let end   = start+Iota::to_usize()*iotas_per_thread;
 
         //Partition matrices and adjust logical padding
         let h_iter_save = a.iter_height();
@@ -95,19 +108,17 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         c.set_iter_height(h_iter_save);
         c.set_off_y(cy_off_save);
     }
-    #[inline(always)]
-    unsafe fn shadow(&self) -> Self where Self: Sized {
-        ParallelM{ n_threads: self.n_threads, child: self.child.shadow(), iota: self.iota,
-            par_inf: Option::None,
-            _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
+    fn new() -> ParallelM<T, At, Bt, Ct, Iota, Nthr, S>{
+        ParallelM{ child: S::new(), par_inf: Option::None,
+            _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData,
+            _iotat: PhantomData, _nthr: PhantomData }
     }
 }
 
-pub struct ParallelN<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> {
+pub struct ParallelN<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, 
+    Iota: Unsigned, Nthr: Nwayer, S: GemmNode<T, At, Bt, Ct>> {
     //Initialized Stuff
     child: S,
-    n_threads: ThreadsTarget,
-    iota: usize,
 
     //Info about how to parallelize, decided at runtime
     par_inf: Option<ParallelInfo<T>>,
@@ -116,21 +127,15 @@ pub struct ParallelN<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
+    _iotat: PhantomData<Iota>,
+    _nthr: PhantomData<Nthr>,
 }
-impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
-    ParallelN<T,At,Bt,Ct,S> {
-    pub fn new(n_threads: ThreadsTarget, iota: usize, child: S) -> ParallelN<T, At, Bt, Ct, S>{
-        ParallelN{ n_threads: n_threads, child: child, iota: iota, par_inf: Option::None,
-            _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
-    }
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Iota: Unsigned, Nthr: Nwayer, S: GemmNode<T, At, Bt, Ct>> 
+    ParallelN<T,At,Bt,Ct,Iota,Nthr,S> {
     #[inline(always)]
     fn make_subinfo(&mut self, info: &ThreadInfo<T>) -> ParallelInfo<T>{
         //First figure out how many ways to split into
-        let n_way = match self.n_threads {
-            ThreadsTarget::Target(thr_target) => 
-                if info.num_threads() % thr_target == 0 { thr_target } else { 1 },
-            ThreadsTarget::TheRest => info.num_threads(),
-        };
+        let n_way = Nthr::get_n_way( info.num_threads() );
         let subcomm_n_threads = info.num_threads() / n_way;
 
         //Figure out new thread IDs
@@ -139,8 +144,8 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
             work_id: info.thread_id() / subcomm_n_threads }
     }
 }
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
-    GemmNode<T, At, Bt, Ct> for ParallelN<T, At, Bt, Ct, S> {
+impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, 
+    Iota: Unsigned, Nthr: Nwayer, S: GemmNode<T, At, Bt, Ct>> GemmNode<T, At, Bt, Ct> for ParallelN<T,At,Bt,Ct,Iota,Nthr,S> {
     #[inline(always)]
     unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T>) -> () {
         //Split the thread communicator and create new thread infos
@@ -155,10 +160,10 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         
         //Now figure out the range of this thread
         let range = b.iter_width();                     // Global range
-        let n_iotas = (range-1) / self.iota + 1;         // Number of MR micro-panels
+        let n_iotas = (range-1) / Iota::to_usize() + 1;         // Number of MR micro-panels
         let iotas_per_thread = (n_iotas-1) / parallel_info.n_way + 1; // micro-panels per thread
-        let start = self.iota*iotas_per_thread*parallel_info.work_id;
-        let end   = start+self.iota*iotas_per_thread;
+        let start = Iota::to_usize()*iotas_per_thread*parallel_info.work_id;
+        let end   = start+Iota::to_usize()*iotas_per_thread;
 
         //Partition matrices and adjust logical padding
         let w_iter_save = b.iter_width();
@@ -185,10 +190,9 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         c.set_iter_width(w_iter_save);
         c.set_off_x(cx_off_save);
     }
-    #[inline(always)]
-    unsafe fn shadow(&self) -> Self where Self: Sized {
-        ParallelN{ n_threads: self.n_threads, child: self.child.shadow(), iota: self.iota,
-            par_inf: Option::None,
-            _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
+    fn new() -> ParallelN<T,At,Bt,Ct,Iota,Nthr,S>{
+        ParallelN{ child: S::new(), par_inf: Option::None,
+            _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData,
+            _iotat: PhantomData, _nthr: PhantomData }
     }
 }

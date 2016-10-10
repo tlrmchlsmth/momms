@@ -20,7 +20,7 @@ pub struct Packer<T: Scalar, At: Mat<T>, Apt: Mat<T>> {
     _apt: PhantomData<Apt>,
 }
 impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Packer<T, At, Apt> {
-    pub fn new() -> Packer<T, At, Apt> {
+    fn new() -> Packer<T, At, Apt> {
         Packer{ _t: PhantomData, _at: PhantomData, _apt: PhantomData } 
     }
 }
@@ -143,11 +143,6 @@ pub struct PackA<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>,
 } 
 impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, APt, Bt, Ct>> PackA <T,At,Bt,Ct,APt,S> 
     where APt: ResizableBuffer<T> {
-    pub fn new( child: S ) -> PackA<T, At, Bt, Ct, APt, S>{
-        PackA{ child: child, 
-               a_pack: APt::empty(), packer: Packer::new(),
-               _bt: PhantomData, _ct: PhantomData }
-    }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, APt, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PackA<T, At, Bt, Ct, APt, S>
@@ -169,12 +164,17 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, 
         thr.barrier();
         self.child.run(&mut self.a_pack, b, c, thr);
     }
-    #[inline(always)]
+/*    #[inline(always)]
     unsafe fn shadow( &self ) -> Self where Self: Sized {
         PackA{ child: self.child.shadow(), 
                a_pack: APt::empty(), 
                packer: Packer::new(),
                _bt:PhantomData, _ct: PhantomData }
+    }*/
+    fn new( ) -> PackA<T, At, Bt, Ct, APt, S>{
+        PackA{ child: S::new(), 
+               a_pack: APt::empty(), packer: Packer::new(),
+               _bt: PhantomData, _ct: PhantomData }
     }
 }
 
@@ -188,11 +188,6 @@ pub struct PackB<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>,
 } 
 impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, At, BPt, Ct>> PackB <T,At,Bt,Ct,BPt,S> 
     where BPt: ResizableBuffer<T> {
-    pub fn new( child: S ) -> PackB<T, At, Bt, Ct, BPt, S>{
-        PackB{ child: child, 
-               b_pack: BPt::empty(), packer: Packer::new(),
-               _at:PhantomData, _ct: PhantomData }
-    }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, At, BPt, Ct>>
     GemmNode<T, At, Bt, Ct> for PackB<T, At, Bt, Ct, BPt, S>
@@ -214,11 +209,16 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, 
         thr.barrier();
         self.child.run(a, &mut self.b_pack, c, thr);
     }
-    #[inline(always)]
+/*    #[inline(always)]
     unsafe fn shadow( &self ) -> Self where Self: Sized {
         PackB{ child: self.child.shadow(), 
                b_pack: BPt::empty(), 
                packer: Packer::new(),
+               _at:PhantomData, _ct: PhantomData }
+    }*/
+    fn new( ) -> PackB<T, At, Bt, Ct, BPt, S> {
+        PackB{ child: S::new(), 
+               b_pack: BPt::empty(), packer: Packer::new(),
                _at:PhantomData, _ct: PhantomData }
     }
 }

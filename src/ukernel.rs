@@ -17,18 +17,10 @@ extern{
 }
 
 pub struct Ukernel<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>{
-    mr: usize,
-    nr: usize,
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
     _t: PhantomData<T>,
-    
-}
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> Ukernel<T, At, Bt, Ct> {
-    pub fn new( mr: usize, nr: usize ) -> Ukernel<T, At, Bt, Ct> { 
-        Ukernel{ mr: mr, nr: nr, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _t: PhantomData } 
-    }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> 
     GemmNode<T, At, Bt, Ct> for Ukernel<T, At, Bt, Ct> {
@@ -43,9 +35,8 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
             }
         }
     }
-    #[inline(always)]
-    unsafe fn shadow( &self ) -> Self where Self: Sized {
-        Ukernel{ mr: self.mr, nr: self.nr, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _t: PhantomData } 
+    fn new( ) -> Ukernel<T, At, Bt, Ct> { 
+        Ukernel{ _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _t: PhantomData } 
     }
 }
 /*
@@ -79,8 +70,8 @@ impl GemmNode<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f
                    b: &mut ColumnPanelMatrix<f64, U4>, 
                    c: &mut Matrix<f64>, 
                    _thr: &ThreadInfo<f64> ) -> () {
-//        assert!(c.height() == self.mr);
-//        assert!(c.width() == self.nr);
+        debug_assert!(c.height() <= U8::to_usize());
+        debug_assert!(c.width() <= U4::to_usize());
 
 
         let ap = a.get_mut_buffer();
@@ -91,7 +82,7 @@ impl GemmNode<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f
         let mut alpha: f64 = 1.0;
         let mut beta: f64 = 1.0;
 
-        if c.height() == self.mr && c.width() == self.nr {
+        if c.height() == U8::to_usize() && c.width() == U4::to_usize() {
             //bli_dgemm_asm_8x4 ( 
             bli_dgemm_int_8x4 (
                 a.width() as int64_t,
@@ -104,7 +95,7 @@ impl GemmNode<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f
         }
         else {
             //TODO: cache c_tmp somewhere!
-            let mut t : Matrix<f64> = Matrix::new( self.mr, self.nr );
+            let mut t : Matrix<f64> = Matrix::new( U8::to_usize(), U4::to_usize() );
             let tp = t.get_mut_buffer();
             let rs_t = t.get_row_stride();
             let cs_t = t.get_column_stride();
@@ -129,11 +120,11 @@ impl GemmNode<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f
 
 impl<HA:HierarchyBuilder, HB: HierarchyBuilder, HC: HierarchyBuilder, K: Unsigned>
     GemmNode<f64, Hierarch<f64, HA, U8, K, U1, U8>,
-                   Hierarch<f64, HB, K, U4, U4, U1>,
-                   Hierarch<f64, HC, U8, U4, U1, U8>> for
-Ukernel<f64, Hierarch<f64, HA, U8, K, U1, U8>,
-             Hierarch<f64, HB, K, U4, U4, U1>,
-             Hierarch<f64, HC, U8, U4, U1, U8>> {
+                  Hierarch<f64, HB, K, U4, U4, U1>,
+                  Hierarch<f64, HC, U8, U4, U1, U8>> for
+    Ukernel<f64, Hierarch<f64, HA, U8, K, U1, U8>,
+                 Hierarch<f64, HB, K, U4, U4, U1>,
+                 Hierarch<f64, HC, U8, U4, U1, U8>> {
     #[inline(always)]
     unsafe fn run( &mut self, 
                    a: &mut Hierarch<f64, HA, U8, K, U1, U8>,
