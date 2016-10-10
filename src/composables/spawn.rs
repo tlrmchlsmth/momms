@@ -5,7 +5,7 @@ extern crate hwloc;
 use matrix::{Scalar,Mat};
 use core::marker::{PhantomData};
 use thread_comm::{ThreadComm,ThreadInfo};
-use composables::{GemmNode};
+use composables::{GemmNode,AlgorithmStep};
 
 use std::sync::{Arc,Mutex};
 use std::cell::{RefCell};
@@ -24,7 +24,7 @@ fn cpuset_for_core(topology: &Topology, idx: usize) -> CpuSet {
 
 pub struct SpawnThreads<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
     where S: Send {
-    child: Arc<S>,
+    //child: Arc<S>,
     n_threads: usize,
     pool: Pool,
 
@@ -131,9 +131,12 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         });
     }
     fn new() -> SpawnThreads<T, At, Bt, Ct, S>{
-        SpawnThreads{ child: Arc::new(S::new()), n_threads : 1, pool: Pool::new(1),
+        SpawnThreads{ n_threads : 1, pool: Pool::new(1),
                  cntl_cache: Arc::new(ThreadLocal::new()),
                  _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
+    }
+    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+        S::hierarchy_description()
     }
 }
 

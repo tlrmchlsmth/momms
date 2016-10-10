@@ -5,7 +5,7 @@ use core::cmp;
 use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix,ResizableBuffer};
 use typenum::Unsigned;
 use thread_comm::ThreadInfo;
-use composables::GemmNode;
+use composables::{GemmNode,AlgorithmStep};
 
 //This trait exists so that Packer has a type to specialize over.
 //Yes this is stupid.
@@ -176,6 +176,9 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, 
                a_pack: APt::empty(), packer: Packer::new(),
                _bt: PhantomData, _ct: PhantomData }
     }
+    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+        S::hierarchy_description()
+    } 
 }
 
 pub struct PackB<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, 
@@ -221,4 +224,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, 
                b_pack: BPt::empty(), packer: Packer::new(),
                _at:PhantomData, _ct: PhantomData }
     }
+    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+        S::hierarchy_description()
+    } 
 }

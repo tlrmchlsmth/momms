@@ -1,5 +1,5 @@
 pub use matrix::{Scalar,Mat};
-pub use composables::GemmNode;
+pub use composables::{GemmNode,AlgorithmStep};
 pub use thread_comm::ThreadInfo;
 
 pub struct TripleLoop{}
@@ -20,4 +20,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
     fn new( ) -> Self {
         TripleLoop{}
     }
+    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+        Vec::new()
+    }  
 }

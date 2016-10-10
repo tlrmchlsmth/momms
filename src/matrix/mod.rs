@@ -9,6 +9,6 @@ pub use self::matrix::{Scalar,Mat,ResizableBuffer};
 pub use self::general_stride::{Matrix};
 pub use self::row_panel::{RowPanelMatrix};
 pub use self::column_panel::{ColumnPanelMatrix};
-pub use self::hierarch::{Hierarch,HierarchyBuilder,HBY,HBX,HBLeaf};
+pub use self::hierarch::{Hierarch};
 //Private Modules
 mod view;

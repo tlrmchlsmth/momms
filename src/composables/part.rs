@@ -1,6 +1,6 @@
 use matrix::{Scalar,Mat};
 use thread_comm::ThreadInfo;
-use composables::GemmNode;
+use composables::{GemmNode,AlgorithmStep};
 use core::marker::PhantomData;
 use typenum::Unsigned;
 
@@ -12,8 +12,6 @@ pub struct PartM<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Bsz: Unsigned, S
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
     _bszt: PhantomData<Bsz>,
-}
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Bsz: Unsigned, S: GemmNode<T, At, Bt, Ct>> PartM<T,At,Bt,Ct,Bsz,S> {
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Bsz: Unsigned, S: GemmNode<T, At, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for PartM<T,At,Bt,Ct,Bsz,S> {
@@ -36,6 +34,11 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Bsz: Unsigned, S: GemmNode<T
     }
     fn new( ) -> PartM<T,At,Bt,Ct,Bsz,S>{
             PartM{ child: S::new(), _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _bszt: PhantomData }
+    }
+    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+        let mut child_desc = S::hierarchy_description();
+        child_desc.push( AlgorithmStep::M{ bsz: Bsz::to_usize() } );
+        child_desc
     }
 }
 
@@ -71,6 +74,11 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Bsz: Unsigned, S: GemmNode<T
     fn new( ) -> PartN<T, At, Bt, Ct, Bsz, S>{
             PartN{ child: S::new(), _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _bszt: PhantomData }
     }
+    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+        let mut child_desc = S::hierarchy_description();
+        child_desc.push( AlgorithmStep::N{ bsz: Bsz::to_usize() } );
+        child_desc
+    }
 }
 
 pub struct PartK<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Bsz: Unsigned, S: GemmNode<T, At, Bt, Ct>> {
@@ -104,5 +112,10 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Bsz: Unsigned, S: GemmNode<T
     }
     fn new( ) -> PartK<T, At, Bt, Ct, Bsz, S>{
         PartK{ child: S::new(), _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _bszt: PhantomData }
+    }
+    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+        let mut child_desc = S::hierarchy_description();
+        child_desc.push( AlgorithmStep::K{ bsz: Bsz::to_usize() } );
+        child_desc
     }
 }

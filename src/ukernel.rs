@@ -1,6 +1,6 @@
-use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix,Hierarch,HierarchyBuilder};
+use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix,Hierarch};
 use core::marker::{PhantomData};
-use composables::{GemmNode};
+use composables::{GemmNode,AlgorithmStep};
 use thread_comm::{ThreadInfo};
 use typenum::{Unsigned,U1,U4,U8};
 
@@ -38,30 +38,11 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
     fn new( ) -> Ukernel<T, At, Bt, Ct> { 
         Ukernel{ _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _t: PhantomData } 
     }
+    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+        Vec::new()
+    }  
 }
-/*
-impl<T: Scalar, Ct: Mat<T>> GemmNode<T, RowPanelMatrix<T>, ColumnPanelMatrix<T>, Ct> for Ukernel<T> {
-    #[inline(always)]
-    default unsafe fn run( &mut self, 
-                           a: &mut RowPanelMatrix<T>, 
-                           b: &mut ColumnPanelMatrix<T>, 
-                           c: &mut Ct, 
-                           thr: &ThreadInfo<T> ) -> () {
-    let ap = a.get_mut_buffer();
-    let bp = b.get_mut_buffer();
-    for z in 0..a.width() {
-        for y in 0..self.mr {
-            for x in 0..self.nr {
-                let t = *ap.offset((z*self.mr + y) as isize) * *bp.offset((z*self.nr + x) as isize) + c.get(y,x);
-                c.set( y, x, t );
-            }
-        }
-    }
-    }
-}*/
 
-//Todo:
-//finish this function, call some inline assembly ukernel.
 impl GemmNode<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f64>> 
     for Ukernel<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f64>> {
     #[inline(always)]
@@ -118,18 +99,18 @@ impl GemmNode<f64, RowPanelMatrix<f64, U8>, ColumnPanelMatrix<f64, U4>, Matrix<f
     }
 }
 
-impl<HA:HierarchyBuilder, HB: HierarchyBuilder, HC: HierarchyBuilder, K: Unsigned>
-    GemmNode<f64, Hierarch<f64, HA, U8, K, U1, U8>,
-                  Hierarch<f64, HB, K, U4, U4, U1>,
-                  Hierarch<f64, HC, U8, U4, U1, U8>> for
-    Ukernel<f64, Hierarch<f64, HA, U8, K, U1, U8>,
-                 Hierarch<f64, HB, K, U4, U4, U1>,
-                 Hierarch<f64, HC, U8, U4, U1, U8>> {
+impl<K: Unsigned>
+    GemmNode<f64, Hierarch<f64, U8, K, U1, U8>,
+                  Hierarch<f64, K, U4, U4, U1>,
+                  Hierarch<f64, U8, U4, U1, U8>> for
+    Ukernel<f64, Hierarch<f64, U8, K, U1, U8>,
+                 Hierarch<f64, K, U4, U4, U1>,
+                 Hierarch<f64, U8, U4, U1, U8>> {
     #[inline(always)]
     unsafe fn run( &mut self, 
-                   a: &mut Hierarch<f64, HA, U8, K, U1, U8>,
-                   b: &mut Hierarch<f64, HB, K, U4, U4, U1>,
-                   c: &mut Hierarch<f64, HC, U8, U4, U1, U8>,
+                   a: &mut Hierarch<f64, U8, K, U1, U8>,
+                   b: &mut Hierarch<f64, K, U4, U4, U1>,
+                   c: &mut Hierarch<f64, U8, U4, U1, U8>,
                    _thr: &ThreadInfo<f64> ) -> () {
 //        assert!(c.height() == self.mr);
 //        assert!(c.width() == self.nr);

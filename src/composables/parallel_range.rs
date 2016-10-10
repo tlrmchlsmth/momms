@@ -1,14 +1,8 @@
 use core::marker::{PhantomData};
 use matrix::{Scalar,Mat};
 use thread_comm::ThreadInfo;
-use composables::GemmNode;
+use composables::{GemmNode,AlgorithmStep};
 use typenum::Unsigned;
-/*
-#[derive(Copy,Clone)]
-pub enum ThreadsTarget {
-    Target(usize),
-    TheRest,
-}*/
 
 //Some helper types so we can specify how the parallelizers decide how many threads to use
 pub trait Nwayer{
@@ -113,6 +107,9 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>,
             _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData,
             _iotat: PhantomData, _nthr: PhantomData }
     }
+    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+        S::hierarchy_description()
+    } 
 }
 
 pub struct ParallelN<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, 
@@ -195,4 +192,7 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>,
             _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData,
             _iotat: PhantomData, _nthr: PhantomData }
     }
+    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+        S::hierarchy_description()
+    } 
 }

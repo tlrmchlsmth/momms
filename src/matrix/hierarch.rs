@@ -6,11 +6,11 @@ use typenum::Unsigned;
 use self::alloc::heap;
 use matrix::{Scalar,Mat,ResizableBuffer};
 use super::view::{MatrixView};
+use composables::AlgorithmStep;
 
 use core::marker::PhantomData;
 use core::mem;
 use core::ptr::{self};
-use core::cmp::min;
 
 /*Notes:
  * This file is for implementing hierarchical matrices
@@ -21,62 +21,6 @@ use core::cmp::min;
  * Matrices always get padded s.t. they can be divided into an integer # of rows and columns of leaf blocks.
  */
 
-//Type-level description of a matrix hierarchy
-pub trait HierarchyBuilder
-{
-    fn build(h: usize, w: usize) -> (Vec<HierarchyNode>, Vec<HierarchyNode>);
-    fn iotas() -> (usize, usize);
-}
-pub struct HBX<Bsz: Unsigned, S: HierarchyBuilder>  {
-    _st: PhantomData<S>,
-    _bsz: PhantomData<Bsz>,
-}
-impl<Bsz: Unsigned, S:HierarchyBuilder> HierarchyBuilder for HBX<Bsz, S> {
-    fn build(h: usize, w: usize) -> (Vec<HierarchyNode>, Vec<HierarchyNode>) {
-        let stride_btw_blocks = Bsz::to_usize() * h;
-        let (y_hierarchy, mut x_hierarchy) = S::build(h, min(w, Bsz::to_usize()));
-        x_hierarchy.push(HierarchyNode{ stride: stride_btw_blocks, blksz: Bsz::to_usize()});
-        (y_hierarchy, x_hierarchy)
-    }
-    fn iotas() -> (usize, usize) {
-        let x_iota = Bsz::to_usize();
-        let (y_iota,_) = S::iotas();
-        (y_iota, x_iota)
-    }
-}
-pub struct HBY<Bsz: Unsigned, S: HierarchyBuilder>  {
-    _st: PhantomData<S>,
-    _bsz: PhantomData<Bsz>,
-}
-impl<Bsz: Unsigned, S:HierarchyBuilder> HierarchyBuilder for HBY<Bsz, S> {
-    fn build(h: usize, w: usize) -> (Vec<HierarchyNode>, Vec<HierarchyNode>) {
-        let stride_btw_blocks = Bsz::to_usize() * w;
-        let (mut y_hierarchy, x_hierarchy) = S::build(min(h,Bsz::to_usize()), w);
-        y_hierarchy.push(HierarchyNode{ stride: stride_btw_blocks, blksz: Bsz::to_usize()});
-        (y_hierarchy, x_hierarchy)
-    }
-    fn iotas() -> (usize, usize) {
-        let y_iota = Bsz::to_usize();
-        let (_,x_iota) = S::iotas();
-        (y_iota, x_iota)
-    }
-}
-
-pub struct HBLeaf {
-}
-impl HierarchyBuilder for HBLeaf{
-    fn build(_: usize, _: usize) -> (Vec<HierarchyNode>, Vec<HierarchyNode>) {
-        let mut y_hierarchy = Vec::with_capacity(16);
-        let mut x_hierarchy = Vec::with_capacity(16);
-        y_hierarchy.push(HierarchyNode{stride:0, blksz:0});
-        x_hierarchy.push(HierarchyNode{stride:0, blksz:0});
-        (y_hierarchy, x_hierarchy)
-    }
-    fn iotas() -> (usize, usize) {
-        (1, 1)
-    }
-}
-
 #[derive(Clone)]
 pub struct HierarchyNode {
     pub stride: usize, //This is the stride between submatrices
@@ -86,9 +30,13 @@ pub struct HierarchyNode {
 //I need to be able to specify everything about a hierarch matrix in its type!
 //Otherwise, how does the packer set it up??
 //It can't know to "add to x hierarchy"!
+//This may involve passing a gemm algorithm as a type to generalize over
+//Notice that the type of that algorithm can't be the same type that actually runs the
+//gemm with hierarchiccal matrices! Because that type depends on the type of this and we can't have
+//cyclical types.
 
 //LRS is leaf row stride, LCS is leaf column stride
-pub struct Hierarch<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned>{ 
+pub struct Hierarch<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned>{ 
     //We pop from the hierarchy nodes, and push into the view nodes (with some details added)
 
     //These are the view stacks just like the other Matrices
@@ -106,18 +54,69 @@ pub struct Hierarch<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, 
     buffer: *mut T,
     capacity: usize,
     is_alias: bool,
-    _ht:   PhantomData<H>,
+    //_ht:   PhantomData<H>,
     _lht:  PhantomData<LH>,
     _lwt:  PhantomData<LW>,
     _lrst: PhantomData<LRS>,
     _lcst: PhantomData<LCS>,
 }
 
-impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierarch<T, H, LH, LW, LRS, LCS> {
-    //Create a matrix.
-    //Not sure if it makes sense to be able to create a matrix first and then describe its hierarchy
-    //BUT I really like the ability to add to the hierarchy one piece at a time...
-    pub fn new( h: usize, w: usize ) -> Hierarch<T,H,LH,LW,LRS,LCS> {
+impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierarch<T, LH, LW, LRS, LCS> {
+    fn get_iota( hierarchy: &[AlgorithmStep], dimension_matcher: AlgorithmStep ) -> usize{
+        use composables::AlgorithmStep::*;
+        match( dimension_matcher, hierarchy[hierarchy.len()-1] ) {
+            (M{bsz: _}, M{bsz}) => {bsz},
+            (N{bsz: _}, N{bsz}) => {bsz},
+            (K{bsz: _}, K{bsz}) => {bsz},
+            _ => Self::get_iota( &hierarchy[0..hierarchy.len()-1], dimension_matcher ),
+        }
+    }
+    fn parse_input_hierarchy( h: usize, w: usize,
+                              hier: &[AlgorithmStep], y_step: AlgorithmStep, x_step: AlgorithmStep ) 
+        -> (Vec<HierarchyNode>, Vec<HierarchyNode>) {
+
+        let mut y_hierarchy = Vec::with_capacity(16);
+        let mut x_hierarchy = Vec::with_capacity(16);
+
+        let mut h_tracker = h;
+        let mut w_tracker = w;
+        
+        for index in (0..hier.len()).rev() {
+            use composables::AlgorithmStep::*;
+            match (x_step, hier[index]) {
+                (M{bsz:_}, M{bsz}) => {
+                    x_hierarchy.push(HierarchyNode{stride: h_tracker * bsz, blksz: bsz});
+                    w_tracker = bsz;},
+                (N{bsz:_}, N{bsz}) => {
+                    x_hierarchy.push(HierarchyNode{stride: h_tracker * bsz, blksz: bsz});
+                    w_tracker = bsz;},
+                (K{bsz:_}, K{bsz}) => {
+                    x_hierarchy.push(HierarchyNode{stride: h_tracker * bsz, blksz: bsz});
+                    w_tracker = bsz;},
+                _ => {},
+            };
+            match (y_step, hier[index]) {
+                (M{bsz:_}, M{bsz}) => {
+                    y_hierarchy.push(HierarchyNode{stride: w_tracker * bsz, blksz: bsz});
+                    h_tracker = bsz;},
+                (N{bsz:_}, N{bsz}) => {
+                    y_hierarchy.push(HierarchyNode{stride: w_tracker * bsz, blksz: bsz});
+                    h_tracker = bsz;},
+                (K{bsz:_}, K{bsz}) => {
+                    y_hierarchy.push(HierarchyNode{stride: w_tracker * bsz, blksz: bsz});
+                    h_tracker = bsz;},
+                _ => {},
+            };
+        }
+        y_hierarchy.push(HierarchyNode{stride:0, blksz:0});
+        x_hierarchy.push(HierarchyNode{stride:0, blksz:0});
+
+        (y_hierarchy, x_hierarchy)
+
+    }
+    pub fn new( h: usize, w: usize, 
+                hier: &[AlgorithmStep], y_step: AlgorithmStep, x_step: AlgorithmStep ) 
+        -> Hierarch<T,LH,LW,LRS,LCS> {
         assert!(mem::size_of::<T>() != 0, "Matrix can't handle ZSTs");
 
         //Setup Views stack
@@ -127,16 +126,17 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
         x_views.push(MatrixView{ offset: 0, padding: 0, iter_size: w });
 
         //Fill up hierarchy description
-        let (x_iota, y_iota) = H::iotas();
+        let y_iota = Self::get_iota(&hier, y_step);
+        let x_iota = Self::get_iota(&hier, x_step);
+
         let n_blocks_y = (h-1) / y_iota + 1;
         let n_blocks_x = (w-1) / x_iota + 1;
         let h_padded = n_blocks_y * y_iota;
         let w_padded = n_blocks_x * x_iota;
 
-        let (y_hierarchy, x_hierarchy) = H::build(h_padded,w_padded);
-        let yh_index = y_hierarchy.len() - 1;
-        let xh_index = x_hierarchy.len() - 1;
-
+        let (y_hierarchy, x_hierarchy) = Self::parse_input_hierarchy( h_padded, w_padded, &hier, y_step, x_step );
+        let yh_index = 0;
+        let xh_index = 0;
 
         //Figure out buffer and capacity
         let (ptr, capacity) = 
@@ -161,7 +161,6 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
                   yh_index: yh_index, xh_index: xh_index,  
                   buffer: ptr as *mut _, capacity: capacity,
                   is_alias: false,
-                  _ht: PhantomData,
                   _lht: PhantomData, _lwt: PhantomData,
                   _lrst: PhantomData, _lcst: PhantomData }
     }
@@ -183,7 +182,7 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
         let mut y_off = self.y_views.last().unwrap().offset; // Tracks the physical address of the row y
         let mut y_index = y;                                 // Tracks the logical address within the current block of the row y
 
-        for index in (1..self.yh_index+1).rev() {
+        for index in self.yh_index..self.y_hierarchy.len()-1 {
             let block_index = y_index / self.y_hierarchy[index].blksz;
             y_off += block_index * self.y_hierarchy[index].stride;
             y_index -= block_index * self.y_hierarchy[index].blksz;
@@ -197,12 +196,10 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
         let mut x_off = self.x_views.last().unwrap().offset; // Tracks the physical address of the row x
         let mut x_index = x;                                 // Tracks the logical address within the current block of the row x
 
-        if x != 0 {
-        for index in (1..self.xh_index+1).rev() {
+        for index in self.xh_index..self.x_hierarchy.len()-1 {
             let block_index = x_index / self.x_hierarchy[index].blksz;
             x_off += block_index * self.x_hierarchy[index].stride;
             x_index -= block_index * self.x_hierarchy[index].blksz;
-        }
         }
         
         //Handle the leaf node
@@ -213,8 +210,8 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
         self.get_offset_y(y) + self.get_offset_x(x)
     }
 }
-impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T> for
-    Hierarch<T, H, LH, LW, LRS, LCS> {
+impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T> for
+    Hierarch<T, LH, LW, LRS, LCS> {
     #[inline(always)]
     fn get(&self, y: usize, x: usize) -> T {
         unsafe{
@@ -304,7 +301,7 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
     #[inline(always)]
     fn push_y_view( &mut self, blksz: usize ) -> usize{
         let iota = self.y_hierarchy[self.yh_index].blksz;
-        debug_assert!(iota == blksz);
+        debug_assert!(iota == blksz, "iota {}, blksz {} {} ", iota, blksz, self.yh_index);
 
         let (zoomed_view, uz_iter_size) = {
             let uz_view = self.y_views.last().unwrap();
@@ -312,7 +309,7 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
             (MatrixView{ offset: uz_view.offset, padding: z_padding, iter_size: z_iter_size }, uz_view.iter_size)
         };
         self.y_views.push(zoomed_view);
-        self.yh_index -= 1;
+        self.yh_index += 1;
         uz_iter_size
     }
     #[inline(always)]
@@ -326,7 +323,7 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
             (MatrixView{ offset: uz_view.offset, padding: z_padding, iter_size: z_iter_size }, uz_view.iter_size)
         };
         self.x_views.push(zoomed_view);
-        self.xh_index -= 1;
+        self.xh_index += 1;
         uz_iter_size
     }
 
@@ -334,19 +331,19 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
     fn pop_y_view( &mut self ) {
         debug_assert!( self.y_views.len() >= 2 );
         self.y_views.pop();
-        self.yh_index += 1;
+        self.yh_index -= 1;
     }
     #[inline(always)]
     fn pop_x_view( &mut self ) {
         debug_assert!( self.x_views.len() >= 2 );
         self.x_views.pop();
-        self.xh_index += 1;
+        self.xh_index -= 1;
     }
     #[inline(always)]
     fn slide_y_view_to( &mut self, y: usize, blksz: usize ) {
         let view_len = self.y_views.len();
         debug_assert!( view_len >= 2 );
-        let iota = self.y_hierarchy[self.yh_index+1].blksz;
+        let iota = self.y_hierarchy[self.yh_index-1].blksz;
         debug_assert!( y % iota == 0 );
 
         let uz_view = self.y_views[view_len-2];
@@ -355,13 +352,13 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
         let mut z_view = self.y_views.last_mut().unwrap();
         z_view.iter_size = z_iter_size;
         z_view.padding = z_padding;
-        z_view.offset = uz_view.offset + (y / iota) * self.y_hierarchy[self.yh_index+1].stride;
+        z_view.offset = uz_view.offset + (y / iota) * self.y_hierarchy[self.yh_index-1].stride;
     }
     #[inline(always)]
     fn slide_x_view_to( &mut self, x: usize, blksz: usize ) {
         let view_len = self.x_views.len();
         debug_assert!( view_len >= 2 );
-        let iota = self.x_hierarchy[self.xh_index+1].blksz;
+        let iota = self.x_hierarchy[self.xh_index-1].blksz;
         debug_assert!( x % iota == 0 );
 
         let uz_view = self.x_views[view_len-2];
@@ -370,7 +367,7 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
         let mut z_view = self.x_views.last_mut().unwrap();
         z_view.iter_size = z_iter_size;
         z_view.padding = z_padding;
-        z_view.offset = uz_view.offset + (x / iota) * self.x_hierarchy[self.xh_index+1].stride;
+        z_view.offset = uz_view.offset + (x / iota) * self.x_hierarchy[self.xh_index-1].stride;
     }
 
     #[inline(always)]
@@ -394,7 +391,6 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
                   buffer: self.buffer,
                   capacity: self.capacity,
                   is_alias: true,
-                  _ht: PhantomData,
                   _lht: PhantomData, _lwt: PhantomData,
                   _lrst: PhantomData, _lcst: PhantomData }
     }
@@ -406,7 +402,7 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
         self.buffer = buf;
     }
 }
-impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Drop for Hierarch<T, H, LH, LW, LRS, LCS> {
+impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Drop for Hierarch<T, LH, LW, LRS, LCS> {
     fn drop(&mut self) {
         if !self.is_alias {
             unsafe {
@@ -415,13 +411,14 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
         }
     }
 }
-unsafe impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Send for Hierarch<T, H, LH, LW, LRS, LCS> {}
+unsafe impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Send for Hierarch<T, LH, LW, LRS, LCS> {}
 
-impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> ResizableBuffer<T>
-     for Hierarch<T, H, LH, LW, LRS, LCS> {
+impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> ResizableBuffer<T>
+     for Hierarch<T, LH, LW, LRS, LCS> {
     #[inline(always)]
     fn empty() -> Self {
-        Hierarch::new(0,0)
+        panic!("Not implemented!");
+//        Hierarch::new(0,0)
     }
     #[inline(always)]
     fn capacity(&self) -> usize { self.capacity }
@@ -451,21 +448,7 @@ impl<T: Scalar, H: HierarchyBuilder, LH: Unsigned, LW: Unsigned, LRS: Unsigned, 
     }
     #[inline(always)]
     fn resize_to( &mut self, other: &Mat<T> ) {
-        debug_assert!( self.y_views.len() == 1, "Can't resize a submatrix!");
-        let mut y_view = self.y_views.last_mut().unwrap();
-        let mut x_view = self.x_views.last_mut().unwrap();
-    
-        self.y_hierarchy.truncate(0);
-        self.x_hierarchy.truncate(0);
-        
-        let (mut yh, mut xh) = H::build(other.height(),other.width());
-        self.y_hierarchy.append(&mut yh);
-        self.x_hierarchy.append(&mut xh);
-
-        y_view.iter_size = other.iter_height();
-        x_view.iter_size = other.iter_width();
-        y_view.padding = other.logical_h_padding();
-        x_view.padding = other.logical_w_padding();
+        panic!("resize_to is not implemented for hierarchies yet!");
     }
 }
 
