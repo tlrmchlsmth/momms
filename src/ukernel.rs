@@ -135,3 +135,39 @@ impl<K: Unsigned>
             1 as int64_t, 8 as int64_t );
     }
 }
+
+
+impl 
+    GemmNode<f64, RowPanelMatrix<f64, U8>, 
+                  ColumnPanelMatrix<f64, U4>, 
+                  Hierarch<f64, U8, U4, U1, U8>> for
+    Ukernel<f64, RowPanelMatrix<f64, U8>, 
+                 ColumnPanelMatrix<f64, U4>, 
+                 Hierarch<f64, U8, U4, U1, U8>> {
+    #[inline(always)]
+    unsafe fn run( &mut self, 
+                   a: &mut RowPanelMatrix<f64, U8>, 
+                   b: &mut ColumnPanelMatrix<f64, U4>, 
+                   c: &mut Hierarch<f64, U8, U4, U1, U8>,
+                   _thr: &ThreadInfo<f64> ) -> () {
+//        assert!(c.height() == self.mr);
+//        assert!(c.width() == self.nr);
+        let ap = a.get_mut_buffer();
+        let bp = b.get_mut_buffer();
+        let cp = c.get_mut_buffer();
+//        let rs_c = c.get_row_stride();
+//        let cs_c = c.get_column_stride();
+        let mut alpha: f64 = 1.0;
+        let mut beta: f64 = 1.0;
+
+        //bli_dgemm_asm_8x4 ( 
+        bli_dgemm_int_8x4 (
+            a.width() as int64_t,
+            &mut alpha as *mut c_double,
+            ap as *mut c_double,
+            bp as *mut c_double,
+            &mut beta as *mut c_double,
+            cp as *mut c_double,
+            1 as int64_t, 8 as int64_t );
+    }
+}
