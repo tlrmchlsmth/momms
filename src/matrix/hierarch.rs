@@ -1,5 +1,4 @@
 extern crate alloc;
-extern crate generic_array;
 
 use thread_comm::ThreadInfo;
 use typenum::Unsigned;
