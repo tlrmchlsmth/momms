@@ -166,17 +166,30 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
 
     #[inline(always)]
     pub unsafe fn get_buffer( &self ) -> *const T { 
-        self.buffer.offset(self.get_offset(0,0))
+        let y_off = self.y_views.last().unwrap().offset;
+        let x_off = self.x_views.last().unwrap().offset;
+        self.buffer.offset((y_off + x_off) as isize) 
     }   
 
     #[inline(always)]
     pub unsafe fn get_mut_buffer( &mut self ) -> *mut T { 
-        self.buffer.offset(self.get_offset(0,0))
-    }  
+        let y_off = self.y_views.last().unwrap().offset;
+        let x_off = self.x_views.last().unwrap().offset;
+        self.buffer.offset((y_off + x_off) as isize) 
+    }
 
+    #[inline(always)]
+    pub fn block_stride_x(&self) -> usize {
+        self.x_hierarchy[self.xh_index].stride
+    }
+    #[inline(always)]
+    pub fn block_stride_y(&self) -> usize {
+        self.y_hierarchy[self.yh_index].stride
+    }
+      
     //Helper functions to drill down the cache hierarchy to get the physical location of a matrix
     //element
-    #[inline(always)]
+//    #[inline(always)]
     pub fn get_offset_y(&self, y: usize) -> isize {
         let mut y_off = self.y_views.last().unwrap().offset; // Tracks the physical address of the row y
         let mut y_index = y;                                 // Tracks the logical address within the current block of the row y
@@ -190,7 +203,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         //Handle the leaf node
         (y_off + y_index * LRS::to_usize()) as isize
     }
-    #[inline(always)]
+//    #[inline(always)]
     pub fn get_offset_x(&self, x: usize) -> isize {
         let mut x_off = self.x_views.last().unwrap().offset; // Tracks the physical address of the row x
         let mut x_index = x;                                 // Tracks the logical address within the current block of the row x
@@ -235,20 +248,14 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
 
     #[inline(always)]
     fn set_off_y( &mut self, off_y: usize ) {
-        let iota = self.y_hierarchy[self.yh_index].blksz;
-        if off_y % iota != 0 {
-            panic!("Illegal partitioning within Hierarch!");
-        }
+        debug_assert!(off_y % self.y_hierarchy[self.yh_index].blksz == 0);
 
         let mut y_view = self.y_views.last_mut().unwrap();
         y_view.offset = off_y;
     }
     #[inline(always)]
     fn set_off_x( &mut self, off_x: usize ) {
-        let iota = self.x_hierarchy[self.xh_index].blksz;
-        if off_x % iota != 0 {
-            panic!("Illegal partitioning within Hierarch!");
-        }
+        debug_assert!(off_x % self.x_hierarchy[self.xh_index].blksz == 0);
 
         let mut x_view = self.x_views.last_mut().unwrap();
         x_view.offset = off_x;
@@ -297,7 +304,6 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         x_view.padding = w_pad
     }
 
-    #[inline(always)]
     fn push_y_view( &mut self, blksz: usize ) -> usize{
         let iota = self.y_hierarchy[self.yh_index].blksz;
         debug_assert!(iota == blksz, "iota {}, blksz {} {} ", iota, blksz, self.yh_index);
@@ -311,7 +317,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         self.yh_index += 1;
         uz_iter_size
     }
-    #[inline(always)]
+    
     fn push_x_view( &mut self, blksz: usize ) -> usize {
         let iota = self.x_hierarchy[self.xh_index].blksz;
         debug_assert!(iota == blksz);
@@ -338,7 +344,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         self.x_views.pop();
         self.xh_index -= 1;
     }
-    #[inline(always)]
+    
     fn slide_y_view_to( &mut self, y: usize, blksz: usize ) {
         let view_len = self.y_views.len();
         debug_assert!( view_len >= 2 );
@@ -353,7 +359,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         z_view.padding = z_padding;
         z_view.offset = uz_view.offset + (y / iota) * self.y_hierarchy[self.yh_index-1].stride;
     }
-    #[inline(always)]
+
     fn slide_x_view_to( &mut self, x: usize, blksz: usize ) {
         let view_len = self.x_views.len();
         debug_assert!( view_len >= 2 );

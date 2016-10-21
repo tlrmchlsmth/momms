@@ -142,7 +142,6 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
         x_view.padding = w_pad 
     }
 
-    #[inline(always)]
     fn push_x_view( &mut self, blksz: usize ) -> usize {
         let (zoomed_view, uz_iter_size) = { 
             let uz_view = self.x_views.last().unwrap();
@@ -152,7 +151,7 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
         self.x_views.push(zoomed_view);
         uz_iter_size
     }
-    #[inline(always)]
+    
     fn push_y_view( &mut self, blksz: usize ) -> usize{
         let (zoomed_view, uz_iter_size) = { 
             let uz_view = self.y_views.last().unwrap();
@@ -172,7 +171,7 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
         debug_assert!( self.y_views.len() >= 2 );
         self.y_views.pop();
     }
-    #[inline(always)]
+    
     fn slide_x_view_to( &mut self, x: usize, blksz: usize ) {
         let view_len = self.x_views.len();
         debug_assert!( view_len >= 2 );
@@ -185,7 +184,7 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
         z_view.padding = z_padding;
         z_view.offset = uz_view.offset + x;
     }
-    #[inline(always)]
+    
     fn slide_y_view_to( &mut self, y: usize, blksz: usize ) {
         let view_len = self.y_views.len();
         debug_assert!( view_len >= 2 );

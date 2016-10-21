@@ -173,7 +173,7 @@ impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
         x_view.padding = w_pad
     }
 
-    #[inline(always)]
+    
     fn push_x_view( &mut self, blksz: usize ) -> usize {
         let (zoomed_view, uz_iter_size) = { 
             let uz_view = self.x_views.last().unwrap();
@@ -183,7 +183,7 @@ impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
         self.x_views.push(zoomed_view);
         uz_iter_size
     }   
-    #[inline(always)]
+    
     fn push_y_view( &mut self, blksz: usize ) -> usize{
         let (zoomed_view, uz_iter_size) = { 
             let uz_view = self.y_views.last().unwrap();
@@ -204,7 +204,7 @@ impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
         debug_assert!( self.y_views.len() >= 2 );
         self.y_views.pop();
     }
-    #[inline(always)]
+    
     fn slide_x_view_to( &mut self, x: usize, blksz: usize ) { 
         let view_len = self.x_views.len();
         debug_assert!( view_len >= 2 );
@@ -217,7 +217,7 @@ impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
         z_view.padding = z_padding;
         z_view.offset = uz_view.offset + x / PW::to_usize();
     }   
-    #[inline(always)]
+    
     fn slide_y_view_to( &mut self, y: usize, blksz: usize ) { 
         let view_len = self.y_views.len();
         debug_assert!( view_len >= 2 );

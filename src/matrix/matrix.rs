@@ -112,17 +112,11 @@ pub trait Mat<T: Scalar> where Self: Send {
     #[inline(always)]
     unsafe fn send_alias( &mut self, thr: &ThreadInfo<T> ); 
 
-    #[inline(always)]
     fn push_x_view( &mut self, blksz: usize ) -> usize;
-    #[inline(always)]
     fn push_y_view( &mut self, blksz: usize ) -> usize;
-    #[inline(always)]
     fn pop_x_view( &mut self );
-    #[inline(always)]
     fn pop_y_view( &mut self );
-    #[inline(always)]
     fn slide_x_view_to( &mut self, x: usize, blksz: usize );
-    #[inline(always)]
     fn slide_y_view_to( &mut self, y: usize, blksz: usize );
 
     fn print_wolfram( &self ) {
@@ -144,10 +138,22 @@ pub trait Mat<T: Scalar> where Self: Send {
         print!("}}");
     }
 
+    fn print_matlab( &self ) {
+        print!("[");
+        for y in 0..self.height() {
+            for x in 0..self.width() {
+                print!("{}", self.get(y,x));
+                if x+1 != self.width() { print!(","); }
+            }
+            if y+1 != self.height() { print!(";"); }
+        }
+        print!("]");
+    }
+
     fn print( &self ) {
         for y in 0..self.height() {
             for x in 0..self.width() {
-                let formatted_number = format!("{:.*}", 2, self.get(y,x));
+                let formatted_number = format!("{:.*}", 3, self.get(y,x));
                 print!("{} ", formatted_number);
             }
             println!("");
