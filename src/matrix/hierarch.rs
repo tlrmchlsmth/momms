@@ -179,17 +179,16 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
     }
 
     #[inline(always)]
-    pub fn block_stride_x(&self) -> usize {
-        self.x_hierarchy[self.xh_index].stride
+    pub fn block_stride_x(&self, level: usize) -> usize {
+        self.x_hierarchy[self.xh_index + level].stride
     }
     #[inline(always)]
-    pub fn block_stride_y(&self) -> usize {
-        self.y_hierarchy[self.yh_index].stride
+    pub fn block_stride_y(&self, level: usize) -> usize {
+        self.y_hierarchy[self.yh_index + level].stride
     }
       
     //Helper functions to drill down the cache hierarchy to get the physical location of a matrix
     //element
-//    #[inline(always)]
     pub fn get_offset_y(&self, y: usize) -> isize {
         let mut y_off = self.y_views.last().unwrap().offset; // Tracks the physical address of the row y
         let mut y_index = y;                                 // Tracks the logical address within the current block of the row y
@@ -203,7 +202,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         //Handle the leaf node
         (y_off + y_index * LRS::to_usize()) as isize
     }
-//    #[inline(always)]
+    
     pub fn get_offset_x(&self, x: usize) -> isize {
         let mut x_off = self.x_views.last().unwrap().offset; // Tracks the physical address of the row x
         let mut x_index = x;                                 // Tracks the logical address within the current block of the row x
