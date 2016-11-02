@@ -16,7 +16,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>
     GemmNode<T, At, Bt, Ct> for 
     KernelMN<T, At, Bt, Ct, Mr, Nr> {
     #[inline(always)]
-    default unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T> ) -> () {
+    default unsafe fn run( &mut self, _a: &mut At, _b: &mut Bt, _c: &mut Ct, _thr: &ThreadInfo<T> ) -> () {
         panic!("Macrokernel general case not implemented!");
     }
     fn new( ) -> KernelMN<T, At, Bt, Ct, Mr, Nr> { 
@@ -85,7 +85,7 @@ impl<K: Unsigned>
                 //ymm15: b3
                 let mut a_ind : isize = 0;
                 let mut b_ind : isize = 0;
-                for iter in 0..k{
+                for _ in 0..k{
                     asm!("
                         vmovapd ymm13, [$3 + 8*$1 + 0]
                         vmovapd ymm14, [$3 + 8*$1 + 32]

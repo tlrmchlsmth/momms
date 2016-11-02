@@ -16,7 +16,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mc: Unsigned, Kc: Unsigned>
     GemmNode<T, At, Bt, Ct> for 
     GemvAL1<T, At, Bt, Ct, Mc, Kc> {
     #[inline(always)]
-    default unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T> ) -> () {
+    default unsafe fn run( &mut self, _a: &mut At, _b: &mut Bt, _c: &mut Ct, _thr: &ThreadInfo<T> ) -> () {
         panic!("Macrokernel general case not implemented!");
     }
     fn new( ) -> GemvAL1<T, At, Bt, Ct, Mc, Kc> { 
@@ -54,8 +54,6 @@ impl<Kc: Unsigned, N: Unsigned>
         let k = a.width() as isize;
         debug_assert!(m <= Mc::to_isize() && k <= Kc::to_isize());
         let n = c.width() as isize;
-
-        let c_x_stride = Mc::to_isize();
 
         let mut x: isize = 0;
         let mut c_x = cp;
@@ -174,8 +172,6 @@ impl<Kc: Unsigned, N: Unsigned>
         let n = c.width() as isize;
         debug_assert!(m <= U56::to_isize() && k <= Kc::to_isize());
 
-        let c_x_stride = U56::to_isize();
-
         let mut x: isize = 0;
         let mut c_x = cp;
         let mut b_x = bp;
@@ -190,7 +186,6 @@ impl<Kc: Unsigned, N: Unsigned>
 
             let mut z: isize = 0;
             let mut a_z = ap;
-            let mut b_z = b_x;
             while z < k {
                 //Perform an AXPY:
 
@@ -200,54 +195,6 @@ impl<Kc: Unsigned, N: Unsigned>
                 //Load element of A
                 //Multiply them with the element of B and update corresponding SIMD register of C
                 asm!("
-                    vbroadcastsd ymm15, [$1 + 8*$2]
-                    vfmadd231pd ymm0, ymm15, [$0 + 0]
-                    vfmadd231pd ymm1, ymm15, [$0 + 8*4]
-                    vfmadd231pd ymm2, ymm15, [$0 + 8*8]
-                    vfmadd231pd ymm3, ymm15, [$0 + 8*12]
-                    vfmadd231pd ymm4, ymm15, [$0 + 8*16]
-                    vfmadd231pd ymm5, ymm15, [$0 + 8*20]
-                    vfmadd231pd ymm6, ymm15, [$0 + 8*24]
-                    vfmadd231pd ymm7, ymm15, [$0 + 8*28]
-                    vfmadd231pd ymm8, ymm15, [$0 + 8*32]
-                    vfmadd231pd ymm9, ymm15, [$0 + 8*36]
-                    vfmadd231pd ymm10, ymm15, [$0 + 8*40]
-                    vfmadd231pd ymm11, ymm15, [$0 + 8*44]
-                    vfmadd231pd ymm12, ymm15, [$0 + 8*48]
-                    vfmadd231pd ymm13, ymm15, [$0 + 8*52]
-
-                    vbroadcastsd ymm15, [$1 + 8*$2]
-                    vfmadd231pd ymm0, ymm15, [$0 + 0]
-                    vfmadd231pd ymm1, ymm15, [$0 + 8*4]
-                    vfmadd231pd ymm2, ymm15, [$0 + 8*8]
-                    vfmadd231pd ymm3, ymm15, [$0 + 8*12]
-                    vfmadd231pd ymm4, ymm15, [$0 + 8*16]
-                    vfmadd231pd ymm5, ymm15, [$0 + 8*20]
-                    vfmadd231pd ymm6, ymm15, [$0 + 8*24]
-                    vfmadd231pd ymm7, ymm15, [$0 + 8*28]
-                    vfmadd231pd ymm8, ymm15, [$0 + 8*32]
-                    vfmadd231pd ymm9, ymm15, [$0 + 8*36]
-                    vfmadd231pd ymm10, ymm15, [$0 + 8*40]
-                    vfmadd231pd ymm11, ymm15, [$0 + 8*44]
-                    vfmadd231pd ymm12, ymm15, [$0 + 8*48]
-                    vfmadd231pd ymm13, ymm15, [$0 + 8*52]
-
-                    vbroadcastsd ymm15, [$1 + 8*$2]
-                    vfmadd231pd ymm0, ymm15, [$0 + 0]
-                    vfmadd231pd ymm1, ymm15, [$0 + 8*4]
-                    vfmadd231pd ymm2, ymm15, [$0 + 8*8]
-                    vfmadd231pd ymm3, ymm15, [$0 + 8*12]
-                    vfmadd231pd ymm4, ymm15, [$0 + 8*16]
-                    vfmadd231pd ymm5, ymm15, [$0 + 8*20]
-                    vfmadd231pd ymm6, ymm15, [$0 + 8*24]
-                    vfmadd231pd ymm7, ymm15, [$0 + 8*28]
-                    vfmadd231pd ymm8, ymm15, [$0 + 8*32]
-                    vfmadd231pd ymm9, ymm15, [$0 + 8*36]
-                    vfmadd231pd ymm10, ymm15, [$0 + 8*40]
-                    vfmadd231pd ymm11, ymm15, [$0 + 8*44]
-                    vfmadd231pd ymm12, ymm15, [$0 + 8*48]
-                    vfmadd231pd ymm13, ymm15, [$0 + 8*52]
-
                     vbroadcastsd ymm15, [$1 + 8*$2]
                     vfmadd231pd ymm0, ymm15, [$0 + 0]
                     vfmadd231pd ymm1, ymm15, [$0 + 8*4]

@@ -12,6 +12,7 @@ extern crate libc;
 use std::time::{Instant};
 use std::ffi::{CString};
 use self::libc::{c_double, int64_t, c_char};
+use typenum::{U1};
 
 mod matrix;
 mod composables;
@@ -98,7 +99,7 @@ fn test_c_eq_a_b<T:Scalar, At:Mat<T>, Bt:Mat<T>, Ct:Mat<T>>( a: &mut At, b: &mut
 }
 
 fn dur_seconds(start: Instant) -> f64 {
-    let mut dur = start.elapsed();
+    let dur = start.elapsed();
     let time_secs = dur.as_secs() as f64;
     let time_nanos = dur.subsec_nanos() as f64;
     time_nanos / 1E9 + time_secs
@@ -110,7 +111,7 @@ fn gflops(m: usize, n: usize, k: usize, seconds: f64) -> f64 {
 }
 
 fn pin_to_core(core: usize) {
-    use self::hwloc::{Topology, CPUBIND_THREAD, CpuSet, ObjectType};
+    use self::hwloc::{Topology, CPUBIND_THREAD, ObjectType};
     let mut topo = Topology::new();
     let tid = unsafe { libc::pthread_self() };
 
@@ -146,7 +147,6 @@ fn compare_gotos() {
           PackA<T, MTA, ColumnPanelMatrix<T,NR>, MTC, RowPanelMatrix<T,MR>,
           KernelNM<T, RowPanelMatrix<T,MR>, ColumnPanelMatrix<T,NR>, MTC, NR, MR>>>>>;
 
-    let mut ref_gemm : TripleLoop = TripleLoop{};
     type GotoOrig  = Goto<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>>;
     type GotoHierC = Goto<f64, Matrix<f64>, Matrix<f64>, HierC<f64>>;
     type GotoHier = GotoH<f64, HierA<f64>, HierB<f64>, HierC<f64>>;
@@ -188,7 +188,7 @@ fn compare_gotos() {
                 goto.run( &mut a2, &mut b2, &mut c2, &ThreadInfo::single_thread() );
             }
             best_time = best_time.min(dur_seconds(start));
-            let mut err = test_c_eq_a_b( &mut a2, &mut b2, &mut c2);
+            let err = test_c_eq_a_b( &mut a2, &mut b2, &mut c2);
             worst_err = worst_err.max(err);
             c2.transpose();
 
@@ -197,7 +197,7 @@ fn compare_gotos() {
                 goto_hier_c.run( &mut a2, &mut b2, &mut c, &ThreadInfo::single_thread() );
             }
             best_time_2 = best_time_2.min(dur_seconds(start));
-            let mut err = test_c_eq_a_b( &mut a2, &mut b2, &mut c);
+            let err = test_c_eq_a_b( &mut a2, &mut b2, &mut c);
             worst_err_2 = worst_err_2.max(err);
             
             c.fill_zero();           
@@ -206,7 +206,7 @@ fn compare_gotos() {
                 goto_hier.run( &mut a, &mut b, &mut c, &ThreadInfo::single_thread() );
             }
             best_time_3 = best_time_3.min(dur_seconds(start));
-            let mut err = test_c_eq_a_b( &mut a, &mut b, &mut c);
+            let err = test_c_eq_a_b( &mut a, &mut b, &mut c);
             worst_err_3 = worst_err_3.max(err);
             
 
@@ -214,7 +214,6 @@ fn compare_gotos() {
             blas_dgemm( &mut a2, &mut b2, &mut c2);
             best_time_blis = best_time_blis.min(dur_seconds(start));
         }
-        let nflops = (m * n * k) as f64;
         println!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", 
                  m, n, k,
                  gflops(m,n,k,best_time), 
@@ -275,7 +274,7 @@ fn test_gemv_kernel() {
                 algo.run( &mut a, &mut b, &mut c, &ThreadInfo::single_thread() );
             }
             best_time = best_time.min(dur_seconds(start));
-            let mut err = test_c_eq_a_b( &mut a, &mut b, &mut c);
+            let err = test_c_eq_a_b( &mut a, &mut b, &mut c);
             worst_err = worst_err.max(err);
 
 /*

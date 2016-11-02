@@ -16,7 +16,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
     GemmNode<T, At, Bt, Ct> for 
     KernelNM<T, At, Bt, Ct, Nr, Mr> {
     #[inline(always)]
-    default unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T> ) -> () {
+    default unsafe fn run( &mut self, _a: &mut At, _b: &mut Bt, _c: &mut Ct, _thr: &ThreadInfo<T> ) -> () {
         panic!("Macrokernel general case not implemented!");
     }
     fn new( ) -> KernelNM<T, At, Bt, Ct, Nr, Mr> { 
@@ -73,7 +73,7 @@ impl<K: Unsigned>
                 //ymm15: b3
                 let mut a_ind : isize = 0;
                 let mut b_ind : isize = 0;
-                for iter in 0..k{
+                for _ in 0..k{
                     asm!("
                         vmovapd ymm13, [$3 + 8*$1 + 0]
                         vmovapd ymm14, [$3 + 8*$1 + 32]
@@ -152,7 +152,6 @@ impl<K: Unsigned>
 {
     #[inline(always)]
     unsafe fn run(&mut self, a: &mut Hierarch<T, U12, K, U1, U12>, b: &mut Hierarch<T, K, U4, U4, U1>, c: &mut Hierarch<T, U12, U4, U4, U1>, _thr: &ThreadInfo<T>){ 
-        panic!("asdf");
         let ap0 = a.get_mut_buffer();
         let bp0 = b.get_mut_buffer();
         let cp0 = c.get_mut_buffer();
@@ -192,7 +191,7 @@ impl<K: Unsigned>
                 //ymm15: a3
                 let mut a_ind : isize = 0;
                 let mut b_ind : isize = 0;
-                for iter in 0..k{
+                for _ in 0..k{
                     asm!("
                         vmovapd ymm13, [$3 + 8*$1 + 0]
                         vmovapd ymm14, [$3 + 8*$1 + 32]
