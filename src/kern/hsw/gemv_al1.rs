@@ -29,22 +29,21 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mc: Unsigned, Kc: Unsigned>
     }  
 }
 
-use typenum::{U60};
 type T = f64;
-type Mc = U60;
+use typenum::{U60};
 impl<Kc: Unsigned, N: Unsigned>
-     GemmNode<T, Hierarch<T, Mc, Kc, U1, Mc>,
+     GemmNode<T, Hierarch<T, U60, Kc, U1, U60>,
                  Hierarch<T, Kc, N,  U1, Kc>,
-                 Hierarch<T, Mc, N,  U1, Mc>> for
-     GemvAL1<T, Hierarch<T, Mc, Kc, U1, Mc>,
+                 Hierarch<T, U60, N,  U1, U60>> for
+     GemvAL1<T, Hierarch<T, U60, Kc, U1, U60>,
                 Hierarch<T, Kc, N,  U1, Kc>,
-                Hierarch<T, Mc, N,  U1, Mc>, Mc, Kc>
+                Hierarch<T, U60, N,  U1, U60>, U60, Kc>
 {
     #[inline(always)]
     unsafe fn run(&mut self, 
-        a: &mut Hierarch<T, Mc, Kc, U1, Mc>,
+        a: &mut Hierarch<T, U60, Kc, U1, U60>,
         b: &mut Hierarch<T, Kc, N,  U1, Kc>, 
-        c: &mut Hierarch<T, Mc, N,  U1, Mc>, _thr: &ThreadInfo<T>)
+        c: &mut Hierarch<T, U60, N,  U1, U60>, _thr: &ThreadInfo<T>)
     {
         let ap = a.get_mut_buffer();
         let bp = b.get_mut_buffer();
@@ -52,7 +51,7 @@ impl<Kc: Unsigned, N: Unsigned>
 
         let m = c.height() as isize;
         let k = a.width() as isize;
-        debug_assert!(m <= Mc::to_isize() && k <= Kc::to_isize());
+        debug_assert!(m <= U60::to_isize() && k <= Kc::to_isize());
         let n = c.width() as isize;
 
         let mut x: isize = 0;
@@ -99,7 +98,7 @@ impl<Kc: Unsigned, N: Unsigned>
                     : : "r"(a_z),"r"(b_z) : :"intel");
 
                 z += 1;
-                a_z = a_z.offset(Mc::to_isize());
+                a_z = a_z.offset(U60::to_isize());
                 b_z = b_z.offset(1 as isize);
             }
 
@@ -141,7 +140,7 @@ impl<Kc: Unsigned, N: Unsigned>
                 : : "r"(c_x) : "memory" :"intel");
 
             x += 1;
-            c_x = c_x.offset(Mc::to_isize());
+            c_x = c_x.offset(U60::to_isize());
             b_x = b_x.offset(Kc::to_isize());
         }
     }
@@ -151,16 +150,16 @@ impl<Kc: Unsigned, N: Unsigned>
 use typenum::{U56};
 impl<Kc: Unsigned, N: Unsigned>
      GemmNode<T, Hierarch<T, U56, Kc, U1, U56>,
-                 Hierarch<T, Kc,  N,  U1, Kc>,
+                 Hierarch<T, Kc, N,  U1, Kc>,
                  Hierarch<T, U56, N,  U1, U56>> for
      GemvAL1<T, Hierarch<T, U56, Kc, U1, U56>,
-                Hierarch<T, Kc,  N,  U1, Kc>,
+                Hierarch<T, Kc, N,  U1, Kc>,
                 Hierarch<T, U56, N,  U1, U56>, U56, Kc>
 {
     #[inline(always)]
     unsafe fn run(&mut self, 
         a: &mut Hierarch<T, U56, Kc, U1, U56>,
-        b: &mut Hierarch<T, Kc,  N,  U1, Kc>, 
+        b: &mut Hierarch<T, Kc, N,  U1, Kc>, 
         c: &mut Hierarch<T, U56, N,  U1, U56>, _thr: &ThreadInfo<T>)
     {
         let ap = a.get_mut_buffer();
@@ -169,8 +168,8 @@ impl<Kc: Unsigned, N: Unsigned>
 
         let m = c.height() as isize;
         let k = a.width() as isize;
-        let n = c.width() as isize;
         debug_assert!(m <= U56::to_isize() && k <= Kc::to_isize());
+        let n = c.width() as isize;
 
         let mut x: isize = 0;
         let mut c_x = cp;
@@ -186,6 +185,7 @@ impl<Kc: Unsigned, N: Unsigned>
 
             let mut z: isize = 0;
             let mut a_z = ap;
+            let mut b_z = b_x;
             while z < k {
                 //Perform an AXPY:
 
@@ -195,7 +195,7 @@ impl<Kc: Unsigned, N: Unsigned>
                 //Load element of A
                 //Multiply them with the element of B and update corresponding SIMD register of C
                 asm!("
-                    vbroadcastsd ymm15, [$1 + 8*$2]
+                    vbroadcastsd ymm15, [$1 + 0]
                     vfmadd231pd ymm0, ymm15, [$0 + 0]
                     vfmadd231pd ymm1, ymm15, [$0 + 8*4]
                     vfmadd231pd ymm2, ymm15, [$0 + 8*8]
@@ -211,13 +211,15 @@ impl<Kc: Unsigned, N: Unsigned>
                     vfmadd231pd ymm12, ymm15, [$0 + 8*48]
                     vfmadd231pd ymm13, ymm15, [$0 + 8*52]
                     "
-                    : : "r"(a_z),"r"(b_x), "r"(z) : :"intel");
+                    : : "r"(a_z),"r"(b_z) : :"intel");
 
-                z += 4;
+                z += 1;
                 a_z = a_z.offset(U56::to_isize());
+                b_z = b_z.offset(1 as isize);
             }
 
             //Update C
+
             asm!("
                     vaddpd ymm0, ymm0, [$0+8*0]
                     vaddpd ymm1, ymm1, [$0+8*4]
@@ -257,3 +259,4 @@ impl<Kc: Unsigned, N: Unsigned>
         }
     }
 }
+
