@@ -24,7 +24,6 @@ fn cpuset_for_core(topology: &Topology, idx: usize) -> CpuSet {
 
 pub struct SpawnThreads<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
     where S: Send {
-    //child: Arc<S>,
     n_threads: usize,
     pool: Pool,
 
@@ -62,12 +61,12 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
                     let tid = unsafe { libc::pthread_self() };
                     {
                     let mut locked_topo = child_topo.lock().unwrap();
-//                    let before = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
+                    let before = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
                     let bind_to = cpuset_for_core(&*locked_topo, id);
                     //Doesn't matter if it worked or not
                     let _ = locked_topo.set_cpubind_for_thread(tid, bind_to, CPUBIND_THREAD);
-//                    let after = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
-    //                    println!("Thread {}: Before {:?}, After {:?}", id, before, after);
+                    let after = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
+//                    println!("Thread {}: Before {:?}, After {:?}", id, before, after);
                     }
                 });
             }
@@ -79,49 +78,32 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     where S: Send {
     #[inline(always)]
     unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c:&mut Ct, _thr: &ThreadInfo<T>) -> () {
-        //What we do here:
-        //3. Spawn a bunch of threads. How many? 
-        //  For now store these in cntl tree.
-        //  This will be easy to change since this cntl tree will be the root (so the 'outside' has
-        //  ownership.
-        //4. Set cpu affinity for each thread.
-
         //Should the thread communicator be cached???
         //Probably this is cheap so don't worry about it
         let global_comm : Arc<ThreadComm<T>> = Arc::new(ThreadComm::new(self.n_threads));
 
         //Make some shallow copies here to pass into the scoped,
         //because self.pool borrows self as mutable
-        let nthr = self.n_threads;
+        let num_threads = self.n_threads;
         let cache = self.cntl_cache.clone();
     
-  
-//        println!("Found {} cores.", num_cores);
-
         self.pool.scoped(|scope| {
-            for id in 0..nthr {
+            for id in 0..num_threads {
                 //Make some shallow copies because of borrow rules
                 let mut my_a = a.make_alias();
                 let mut my_b = b.make_alias();
                 let mut my_c = c.make_alias();
                 let my_comm  = global_comm.clone();
                 let my_cache = cache.clone();
-                //let child_topo = topo.clone();
 
                 scope.execute( move || {
-                    //Set CPU affinity 
-/*                    let tid = unsafe { libc::pthread_self() };
-                    {
-                    let mut locked_topo = child_topo.lock().unwrap();
-                    let before = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
-                    let bind_to = cpuset_for_core(&*locked_topo, id);
-                    let result = locked_topo.set_cpubind_for_thread(tid, bind_to, CPUBIND_THREAD);
-                    let after = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
-//                    println!("Thread {}: Before {:?}, After {:?}", id, before, after);
-                    }*/
-
-                    //Get this thread's control tree
+                    //Make this thread's communicator holder
                     let thr = ThreadInfo::new(id, my_comm);
+
+                    //We need to have a barrier here to force multiple threads to actually spawn.
+                    thr.barrier();
+                    
+                    //Read this thread's cached control tree
                     let cntl_tree_cell = my_cache.get_or(|| Box::new(RefCell::new(S::new())));
 
                     //Run subproblem
