@@ -107,8 +107,8 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
                 _ => {},
             };
         }
-        y_hierarchy.push(HierarchyNode{stride:0, blksz:0});
-        x_hierarchy.push(HierarchyNode{stride:0, blksz:0});
+        y_hierarchy.push(HierarchyNode{stride:1, blksz:1});
+        x_hierarchy.push(HierarchyNode{stride:1, blksz:1});
 
         (y_hierarchy, x_hierarchy)
 
@@ -236,6 +236,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         }
     }
 
+    //Used to save and restore offsets
     #[inline(always)]
     fn off_y( &self ) -> usize { 
         self.y_views.last().unwrap().offset
@@ -248,7 +249,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
     #[inline(always)]
     fn set_off_y( &mut self, off_y: usize ) {
         debug_assert!(off_y % self.y_hierarchy[self.yh_index].blksz == 0);
-
+        
         let mut y_view = self.y_views.last_mut().unwrap();
         y_view.offset = off_y;
     }
@@ -258,6 +259,23 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
 
         let mut x_view = self.x_views.last_mut().unwrap();
         x_view.offset = off_x;
+    }
+
+    #[inline(always)]
+    fn add_off_y( &mut self, start: usize ) {
+        debug_assert!(start % self.y_hierarchy[self.yh_index].blksz == 0);
+
+        let n_blocks = start / self.y_hierarchy[self.yh_index].blksz;
+        let mut y_view = self.y_views.last_mut().unwrap();
+        y_view.offset += n_blocks * self.y_hierarchy[self.yh_index].stride;
+    }
+    #[inline(always)]
+    fn add_off_x( &mut self, start: usize ) {
+        debug_assert!(start % self.x_hierarchy[self.xh_index].blksz == 0);
+
+        let n_blocks = start / self.x_hierarchy[self.xh_index].blksz;
+        let mut x_view = self.x_views.last_mut().unwrap();
+        x_view.offset += n_blocks * self.x_hierarchy[self.xh_index].stride;
     }
 
     #[inline(always)]

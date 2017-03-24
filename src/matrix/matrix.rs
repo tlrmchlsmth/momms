@@ -99,6 +99,11 @@ pub trait Mat<T: Scalar> where Self: Send {
     fn set_off_x( &mut self, off_x: usize );
 
     #[inline(always)]
+    fn add_off_y( &mut self, start: usize );
+    #[inline(always)]
+    fn add_off_x( &mut self, start: usize );
+
+    #[inline(always)]
     fn set_logical_h_padding( &mut self, iter_h: usize );
     #[inline(always)]
     fn logical_h_padding( &self ) -> usize;

@@ -130,6 +130,17 @@ impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
         let mut x_view = self.x_views.last_mut().unwrap();
         x_view.offset = off_x / panel_w;
     }
+    #[inline(always)]
+    fn add_off_y( &mut self, start: usize ) { 
+        let off = self.off_y();
+        self.set_off_y(start + off);
+    }   
+    #[inline(always)]
+    fn add_off_x( &mut self, start: usize ) { 
+        let off = self.off_x();
+        self.set_off_x(start + off);
+    } 
+
 
     #[inline(always)]
     fn iter_height( &self ) -> usize {
