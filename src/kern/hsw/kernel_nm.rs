@@ -17,7 +17,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
     KernelNM<T, At, Bt, Ct, Nr, Mr> {
     #[inline(always)]
     default unsafe fn run( &mut self, _a: &mut At, _b: &mut Bt, _c: &mut Ct, _thr: &ThreadInfo<T> ) -> () {
-        panic!("Macrokernel general case not implemented!");
+        panic!("Macrokernel general case not implemented! for NR {} MR {}", Nr::to_usize(), Mr::to_usize());
     }
     fn new( ) -> KernelNM<T, At, Bt, Ct, Nr, Mr> { 
         KernelNM{ _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _t: PhantomData, _nrt: PhantomData, _mrt: PhantomData } 
@@ -31,6 +31,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
 }
 
 type T = f64;
+/*
 impl<K: Unsigned>
     GemmNode<T, Hierarch<T, U4, K,  U1, U4>,
                 Hierarch<T, K,  U12, U12, U1>,
@@ -140,7 +141,7 @@ impl<K: Unsigned>
             c_jr = c_jr.offset(c_nr_stride);
         }
     }
-}
+}*/
 
 impl<K: Unsigned>
     GemmNode<T, Hierarch<T, U12, K,  U1, U12>,
@@ -428,6 +429,66 @@ impl GemmNode<T, RowPanelMatrix<T,U6>,
             jr += U8::to_isize();
             c_jr = c_jr.offset(c_nr_stride as isize);
             b_jr = b_jr.offset(b.get_panel_stride() as isize);
+        }
+    }
+}
+
+extern{
+    fn bli_dgemm_hsw_4x12 ( k: int64_t,
+        alpha: *mut c_double, a: *mut c_double, b: *mut c_double, beta: *mut c_double, 
+        c: *mut c_double, rs_c: int64_t, cs_c: int64_t ) -> ();
+}
+
+impl <K: Unsigned>
+    GemmNode<T, Hierarch<T, U4, K,  U1, U4>,
+                Hierarch<T, K,  U12, U12, U1>,
+                Hierarch<T, U4, U12, U12, U1>> for
+    KernelNM<T, Hierarch<T, U4, K,  U1, U4>,
+                Hierarch<T, K,  U12, U12, U1>,
+                Hierarch<T, U4, U12, U12, U1>, U12, U4> 
+{
+    #[inline(always)]
+    unsafe fn run(&mut self, a: &mut Hierarch<T, U4, K, U1, U4>, b: &mut Hierarch<T, K, U12, U12, U1>, c: &mut Hierarch<T, U4, U12, U12, U1>, _thr: &ThreadInfo<T>){ 
+        let ap = a.get_mut_buffer();
+        let bp = b.get_mut_buffer();
+        let cp = c.get_mut_buffer();
+
+        let m = c.height() as isize;
+        let n = c.width() as isize;
+        let k = a.width() as isize;
+
+        if m <= 0 || n <= 0 || k <= 0 {
+            return;
+        }
+
+        let mut alpha : f64 = 1.0;
+        let mut beta : f64 = 1.0;
+
+        let c_nr_stride = c.block_stride_x(0) as isize;
+        let mut c_jr = cp;
+
+        let mut jr : isize = 0;
+        while jr < n {
+            let b_jr = bp.offset(jr * K::to_isize());
+    
+            let mut ir : isize = 0;
+            while ir < m {
+                let a_ir = ap.offset(ir * K::to_isize());
+                let c_ir = c_jr.offset(ir * U12::to_isize());
+
+                bli_dgemm_hsw_4x12 (
+                    k as int64_t,
+                    &mut alpha as *mut c_double,
+                    a_ir as *mut c_double,
+                    b_jr as *mut c_double,
+                    &mut beta as *mut c_double,
+                    c_ir as *mut c_double,
+                    U12::to_isize() as int64_t, U1::to_isize() as int64_t );
+
+                ir += U4::to_isize();
+            }
+            jr += U12::to_isize();
+            c_jr = c_jr.offset(c_nr_stride);
         }
     }
 }
