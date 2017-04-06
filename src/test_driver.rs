@@ -1,9 +1,4 @@
-#![feature(specialization)]
-#![feature(alloc, heap_api)]
-#![feature(conservative_impl_trait)]
-#![feature(cfg_target_feature)]
-#![feature(asm)] 
-
+extern crate gemm_oxide;
 extern crate core;
 extern crate typenum;
 extern crate hwloc;
@@ -14,16 +9,11 @@ use std::ffi::{CString};
 use self::libc::{c_double, int64_t, c_char};
 use typenum::{U1};
 
-mod matrix;
-mod composables;
-mod thread_comm;
-mod triple_loop;
-mod kern;
-use kern::hsw::{Ukernel, KernelMN, KernelNM, GemvAL1};
-pub use matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
-pub use composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, Nwayer};
-pub use thread_comm::ThreadInfo;
-pub use triple_loop::TripleLoop;
+use gemm_oxide::kern::hsw::{Ukernel, KernelMN, KernelNM, GemvAL1};
+pub use gemm_oxide::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
+pub use gemm_oxide::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, Nwayer};
+pub use gemm_oxide::thread_comm::ThreadInfo;
+pub use gemm_oxide::triple_loop::TripleLoop;
 
 
 extern{
