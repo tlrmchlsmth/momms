@@ -14,3 +14,11 @@ hwloc = "0.3.0"
 
 [profile.release]
 lto = true
+
+[lib]
+name = "gemm_oxide"
+path = "src/lib.rs"
+
+[[bin]]
+name = "test_driver"
+path = "src/test_driver.rs"
