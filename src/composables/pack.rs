@@ -2,7 +2,7 @@ use core::ptr::{self};
 use core::marker::PhantomData;
 use core::cmp;
 
-use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix,ResizableBuffer};
+use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Hierarch,Matrix,ResizableBuffer,HierarchyNode};
 use typenum::Unsigned;
 use thread_comm::ThreadInfo;
 use composables::{GemmNode,AlgorithmStep};
@@ -10,7 +10,7 @@ use composables::{GemmNode,AlgorithmStep};
 //This trait exists so that Packer has a type to specialize over.
 //Yes this is stupid.
 pub trait Copier <T: Scalar, At: Mat<T>, Apt: Mat<T>> {
-        fn pack( &self, a: &At, a_pack: &mut Apt, thr: &ThreadInfo<T> );
+        fn pack( &self, a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T> );
 }
 
 
@@ -25,9 +25,10 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Packer<T, At, Apt> {
     }
 }
     
+//Default implementation of Packer. Uses the getters and setters of Mat<T>
 impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Copier<T, At, Apt> 
     for Packer<T, At, Apt> {
-    default fn pack( &self, a: &At, a_pack: &mut Apt, thr: &ThreadInfo<T> ) {
+    default fn pack( &self, a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T> ) {
         if a_pack.width() <= 0 || a_pack.height() <= 0 {
             return;
         }
@@ -42,10 +43,12 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Copier<T, At, Apt>
         }
     }
 }
-
+ 
+//Specialized implementation of Packer for packing from general strided matrices into column panel
+//matrices
 impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>> 
     for Packer<T, Matrix<T>, ColumnPanelMatrix<T, PW>> {
-    fn pack( &self, a: &Matrix<T>, a_pack: &mut ColumnPanelMatrix<T, PW>, thr: &ThreadInfo<T> ) {
+    fn pack( &self, a: &mut Matrix<T>, a_pack: &mut ColumnPanelMatrix<T, PW>, thr: &ThreadInfo<T> ) {
         if a_pack.width() <= 0 || a_pack.height() <= 0 {
             return;
         }
@@ -88,9 +91,11 @@ impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>>
     }
 }
 
+//Specialized implementation of Packer for packing from general strided matrices into row panel
+//matrices
 impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>> 
     for Packer<T, Matrix<T>, RowPanelMatrix<T, PH>> {
-    fn pack( &self, a: &Matrix<T>, a_pack: &mut RowPanelMatrix<T, PH>, thr: &ThreadInfo<T> ) {
+    fn pack( &self, a: &mut Matrix<T>, a_pack: &mut RowPanelMatrix<T, PH>, thr: &ThreadInfo<T> ) {
         if a_pack.width() <= 0 || a_pack.height() <= 0 {
             return;
         }
@@ -133,6 +138,100 @@ impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>>
     }
 }
 
+
+fn pack_hier_leaf<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> 
+(a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>) {
+/*    for x in 0..a.width() {
+        for y in 0..a.height() { 
+            a_pack.set(y, x, a.get(y,x));
+        }
+    }*/
+    unsafe{
+        let cs_a = a.get_column_stride();
+        let rs_a = a.get_row_stride();
+        let ap = a.get_buffer();
+
+        let mut a_pack_p = a_pack.get_mut_buffer();
+
+        for y in 0..a.height() {
+            for x in 0..a.width() {
+                let alpha = ptr::read(ap.offset((y*rs_a + x*cs_a) as isize));
+                ptr::write( a_pack_p.offset((y*LRS::to_usize() + x*LCS::to_usize()) as isize), alpha );
+            }
+        }
+    }
+}
+fn pack_hier_y<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> 
+(a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>, y_hier: &[HierarchyNode]){
+    if y_hier.len()-1 == 0 { 
+        pack_hier_leaf(a, a_pack);
+    } else {
+        let blksz = y_hier[0].blksz;
+        let m_save = a.push_y_view(blksz);
+        a_pack.push_y_view(blksz);
+        
+        let mut i = 0;
+        while i < m_save {
+            a.slide_y_view_to(i, blksz);
+            a_pack.slide_y_view_to(i, blksz);
+            
+            pack_hier_y(a, a_pack, &y_hier[1..y_hier.len()]);
+            i += blksz;
+        }   
+        a.pop_y_view();
+        a_pack.pop_y_view();
+    }
+}
+fn pack_hier_x<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> 
+(a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>, x_hier: &[HierarchyNode], y_hier: &[HierarchyNode])
+{
+    if x_hier.len()-1 == 0 {
+        pack_hier_y(a, a_pack, y_hier);
+    } else {
+        let blksz = x_hier[0].blksz;
+        let n_save = a.push_x_view(blksz);
+        a_pack.push_x_view(blksz);
+        
+        let mut j = 0;
+        while j < n_save  {
+            a.slide_x_view_to(j, blksz);
+            a_pack.slide_x_view_to(j, blksz);
+            pack_hier_x(a, a_pack, &x_hier[1..x_hier.len()], y_hier);
+            j += blksz;
+        }   
+        a.pop_x_view();
+        a_pack.pop_x_view();
+    }
+}
+
+//Specialized implementation of Packer for packing from Matrix<T> into Hierarch<T>
+impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> 
+    Copier<T, Matrix<T>, Hierarch<T, LH, LW, LRS, LCS>> 
+    for Packer<T, Matrix<T>, Hierarch<T, LH, LW, LRS, LCS>> {
+    default fn pack( &self, a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>, thr: &ThreadInfo<T> ) {
+        if a_pack.width() <= 0 || a_pack.height() <= 0 {
+            return;
+        }
+
+        let x_hier : Vec<HierarchyNode> = 
+        {
+            let tmp1 = a_pack.get_x_hierarchy();
+            let mut tmp2 : Vec<HierarchyNode> = Vec::with_capacity(tmp1.len());
+            tmp2.extend_from_slice(tmp1);
+            tmp2
+        };
+        let y_hier : Vec<HierarchyNode> = 
+        {
+            let tmp1 = a_pack.get_y_hierarchy();
+            let mut tmp2 : Vec<HierarchyNode> = Vec::with_capacity(tmp1.len());
+            tmp2.extend_from_slice(tmp1);
+            tmp2
+        };
+        pack_hier_x(a, a_pack, &x_hier, &y_hier);
+    }
+}
+
+
 pub struct PackA<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, 
     S: GemmNode<T, APt, Bt, Ct>> {
     child: S,
@@ -149,31 +248,34 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, 
     where APt: ResizableBuffer<T> {
     #[inline(always)]
     unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T> ) -> () {
+        let algo_desc = S::hierarchy_description();
+        let y_marker = AlgorithmStep::M{bsz: 0};
+        let x_marker = AlgorithmStep::K{bsz: 0};
+
+        let capacity_for_apt = APt:: capacity_for(a, y_marker, x_marker, &algo_desc);
         thr.barrier();
-        if self.a_pack.capacity() < APt::capacity_for(a) {
+        if self.a_pack.capacity() < capacity_for_apt {
             if thr.thread_id() == 0 {
-                self.a_pack.aquire_buffer_for(APt::capacity_for(a));
+                self.a_pack.aquire_buffer_for(capacity_for_apt);
             }
             else {
-                self.a_pack.set_capacity( APt::capacity_for(a) );
+                self.a_pack.set_capacity( capacity_for_apt );
             }
             self.a_pack.send_alias( thr );
         }
-        self.a_pack.resize_to( a );
+
+        self.a_pack.resize_to( a, y_marker, x_marker, &algo_desc );
         self.packer.pack( a, &mut self.a_pack, thr );
         thr.barrier();
         self.child.run(&mut self.a_pack, b, c, thr);
     }
-/*    #[inline(always)]
-    unsafe fn shadow( &self ) -> Self where Self: Sized {
-        PackA{ child: self.child.shadow(), 
-               a_pack: APt::empty(), 
-               packer: Packer::new(),
-               _bt:PhantomData, _ct: PhantomData }
-    }*/
     fn new( ) -> PackA<T, At, Bt, Ct, APt, S>{
+        let algo_desc = S::hierarchy_description();
+        let y_marker = AlgorithmStep::M{bsz: 0};
+        let x_marker = AlgorithmStep::K{bsz: 0};
+
         PackA{ child: S::new(), 
-               a_pack: APt::empty(), packer: Packer::new(),
+               a_pack: APt::empty(y_marker, x_marker, &algo_desc), packer: Packer::new(),
                _bt: PhantomData, _ct: PhantomData }
     }
     fn hierarchy_description( ) -> Vec<AlgorithmStep> {
@@ -197,31 +299,33 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, 
     where BPt: ResizableBuffer<T> {
     #[inline(always)]
     unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T> ) -> () {
+        let algo_desc = S::hierarchy_description();
+        let y_marker = AlgorithmStep::K{bsz: 0};
+        let x_marker = AlgorithmStep::N{bsz: 0};
+
+        let capacity_for_bpt = BPt:: capacity_for(b, y_marker, x_marker, &algo_desc);
         thr.barrier();
-        if self.b_pack.capacity() < BPt::capacity_for(b) {
+        if self.b_pack.capacity() < capacity_for_bpt {
             if thr.thread_id() == 0 {
-                self.b_pack.aquire_buffer_for(BPt::capacity_for(b));
+                self.b_pack.aquire_buffer_for(capacity_for_bpt);
             }
             else {
-                self.b_pack.set_capacity( BPt::capacity_for(b) );
+                self.b_pack.set_capacity(capacity_for_bpt);
             }
             self.b_pack.send_alias( thr );
         }
-        self.b_pack.resize_to( b );
+        self.b_pack.resize_to(b, y_marker, x_marker, &algo_desc);
         self.packer.pack( b, &mut self.b_pack, thr );
         thr.barrier();
         self.child.run(a, &mut self.b_pack, c, thr);
     }
-/*    #[inline(always)]
-    unsafe fn shadow( &self ) -> Self where Self: Sized {
-        PackB{ child: self.child.shadow(), 
-               b_pack: BPt::empty(), 
-               packer: Packer::new(),
-               _at:PhantomData, _ct: PhantomData }
-    }*/
     fn new( ) -> PackB<T, At, Bt, Ct, BPt, S> {
+        let algo_desc = S::hierarchy_description();
+        let y_marker = AlgorithmStep::K{bsz: 0};
+        let x_marker = AlgorithmStep::N{bsz: 0};
+
         PackB{ child: S::new(), 
-               b_pack: BPt::empty(), packer: Packer::new(),
+               b_pack: BPt::empty(y_marker, x_marker, &algo_desc), packer: Packer::new(),
                _at:PhantomData, _ct: PhantomData }
     }
     fn hierarchy_description( ) -> Vec<AlgorithmStep> {

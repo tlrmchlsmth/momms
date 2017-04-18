@@ -171,3 +171,62 @@ impl
             1 as int64_t, 8 as int64_t );
     }
 }
+
+impl<K: Unsigned>
+    GemmNode<f64, Hierarch<f64, U8, K, U1, U8>,
+                  Hierarch<f64, K, U4, U4, U1>,
+                  Matrix<f64>> for
+    Ukernel<f64, Hierarch<f64, U8, K, U1, U8>,
+                 Hierarch<f64, K, U4, U4, U1>,
+                 Matrix<f64>> {
+    #[inline(always)]
+    unsafe fn run( &mut self, 
+                   a: &mut Hierarch<f64, U8, K, U1, U8>,
+                   b: &mut Hierarch<f64, K, U4, U4, U1>,
+                   c: &mut Matrix<f64>,
+                   _thr: &ThreadInfo<f64> ) -> () {
+        debug_assert!(c.height() <= U8::to_usize());
+        debug_assert!(c.width() <= U4::to_usize());
+
+        let ap = a.get_mut_buffer();
+        let bp = b.get_mut_buffer();
+        let cp = c.get_mut_buffer();
+        let rs_c = c.get_row_stride();
+        let cs_c = c.get_column_stride();
+        let mut alpha: f64 = 1.0;
+        let mut beta: f64 = 1.0;
+
+        if c.height() == U8::to_usize() && c.width() == U4::to_usize() {
+            //bli_dgemm_asm_8x4 ( 
+            bli_dgemm_int_8x4 (
+                a.width() as int64_t,
+                &mut alpha as *mut c_double,
+                ap as *mut c_double,
+                bp as *mut c_double,
+                &mut beta as *mut c_double,
+                cp as *mut c_double,
+                rs_c as int64_t, cs_c as int64_t );
+        }
+        else {
+            let mut t : Matrix<f64> = Matrix::new( U8::to_usize(), U4::to_usize() );
+            let tp = t.get_mut_buffer();
+            let rs_t = t.get_row_stride();
+            let cs_t = t.get_column_stride();
+            beta = 0.0;
+
+            bli_dgemm_int_8x4 (
+                a.width() as int64_t,
+                &mut alpha as *mut c_double,
+                ap as *mut c_double,
+                bp as *mut c_double,
+                &mut beta as *mut c_double,
+                tp as *mut c_double,
+                rs_t as int64_t, cs_t as int64_t );
+
+
+            t.push_y_view(c.height());
+            t.push_x_view(c.width());
+            c.axpby_small( 1.0, &t, 1.0 );
+        }
+    }
+}

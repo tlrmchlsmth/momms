@@ -10,6 +10,8 @@ use core::marker::PhantomData;
 use core::{mem};
 use core::ptr::{self};
 
+use composables::{AlgorithmStep};
+
 pub struct RowPanelMatrix<T: Scalar, PH: Unsigned> {
     y_views: Vec<MatrixView>, //offset is in # of panels
     x_views: Vec<MatrixView>,
@@ -280,7 +282,7 @@ unsafe impl<T:Scalar, PH: Unsigned> Send for RowPanelMatrix<T, PH> {}
 
 impl<T:Scalar, PH: Unsigned> ResizableBuffer<T> for RowPanelMatrix<T, PH> {
     #[inline(always)]
-    fn empty() -> Self {
+    fn empty(_: AlgorithmStep, _: AlgorithmStep, _: &Vec<AlgorithmStep>) -> Self {
         RowPanelMatrix::new(0,0)
     }
     #[inline(always)]
@@ -288,7 +290,7 @@ impl<T:Scalar, PH: Unsigned> ResizableBuffer<T> for RowPanelMatrix<T, PH> {
     #[inline(always)]
     fn set_capacity(&mut self, capacity: usize) { self.capacity = capacity; }
     #[inline(always)]
-    fn capacity_for(other: &Mat<T>) -> usize {
+    fn capacity_for(other: &Mat<T>, _: AlgorithmStep, _: AlgorithmStep, _: &Vec<AlgorithmStep>) -> usize {
         if other.height() <= 0 || other.width() <= 0 { 
             0   
         } else {
@@ -308,7 +310,7 @@ impl<T:Scalar, PH: Unsigned> ResizableBuffer<T> for RowPanelMatrix<T, PH> {
         }
     }
     #[inline(always)]
-    fn resize_to( &mut self, other: &Mat<T> ) {
+    fn resize_to( &mut self, other: &Mat<T>, _: AlgorithmStep, _: AlgorithmStep, _: &Vec<AlgorithmStep> ) {
         debug_assert!( self.y_views.len() == 1, "Can't resize a submatrix!");
         let mut y_view = self.y_views.last_mut().unwrap();
         let mut x_view = self.x_views.last_mut().unwrap();

@@ -61,13 +61,21 @@ pub struct Hierarch<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: U
 }
 
 impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierarch<T, LH, LW, LRS, LCS> {
-    fn get_iota( hierarchy: &[AlgorithmStep], dimension_matcher: AlgorithmStep ) -> usize{
+    pub fn get_y_hierarchy(&self) -> &[HierarchyNode] {
+        &self.y_hierarchy[self.yh_index..self.y_hierarchy.len()]
+    }
+    pub fn get_x_hierarchy(&self) -> &[HierarchyNode] {
+        &self.x_hierarchy[self.xh_index..self.x_hierarchy.len()]
+    }
+    fn get_top_level_dim_size( hierarchy: &[AlgorithmStep], dimension_matcher: AlgorithmStep ) -> Option<usize> {
         use composables::AlgorithmStep::*;
-        match( dimension_matcher, hierarchy[hierarchy.len()-1] ) {
-            (M{bsz: _}, M{bsz}) => {bsz},
-            (N{bsz: _}, N{bsz}) => {bsz},
-            (K{bsz: _}, K{bsz}) => {bsz},
-            _ => Self::get_iota( &hierarchy[0..hierarchy.len()-1], dimension_matcher ),
+        if hierarchy.len() == 0 { None } else {
+            match( dimension_matcher, hierarchy[hierarchy.len()-1] ) {
+                (M{bsz: _}, M{bsz}) => {Some(bsz)},
+                (N{bsz: _}, N{bsz}) => {Some(bsz)},
+                (K{bsz: _}, K{bsz}) => {Some(bsz)},
+                _ => Self::get_top_level_dim_size( &hierarchy[0..hierarchy.len()-1], dimension_matcher ),
+            } 
         }
     }
     fn parse_input_hierarchy( h: usize, w: usize,
@@ -125,13 +133,19 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         x_views.push(MatrixView{ offset: 0, padding: 0, iter_size: w });
 
         //Fill up hierarchy description
-        let y_iota = Self::get_iota(&hier, y_step);
-        let x_iota = Self::get_iota(&hier, x_step);
-
-        let n_blocks_y = (h-1) / y_iota + 1;
-        let n_blocks_x = (w-1) / x_iota + 1;
-        let h_padded = n_blocks_y * y_iota;
-        let w_padded = n_blocks_x * x_iota;
+        let y_tlds = match (Self::get_top_level_dim_size(&hier, y_step) ){
+            Some(a) => a,
+            None => LH::to_usize(),
+        };
+        let x_tlds = match (Self::get_top_level_dim_size(&hier, x_step) ){
+            Some(a) => a,
+            None => LW::to_usize(),
+        };
+    
+        let n_blocks_y = if h == 0 {1} else {(h-1) / y_tlds + 1};
+        let n_blocks_x = if w == 0 {1} else {(w-1) / x_tlds + 1};
+        let h_padded = n_blocks_y * y_tlds;
+        let w_padded = n_blocks_x * x_tlds;
 
         let (y_hierarchy, x_hierarchy) = Self::parse_input_hierarchy( h_padded, w_padded, &hier, y_step, x_step );
         let yh_index = 0;
@@ -145,7 +159,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
                 }
             } else {
                 //Figure out the number of top-level blocks in each direction
-                let capacity = (n_blocks_y + 1) * y_iota * (n_blocks_x + 1) * x_iota;
+                let capacity = (n_blocks_y + 1) * y_tlds * (n_blocks_x + 1) * x_tlds;
 
                 //Allocate Buffer
                 unsafe { 
@@ -438,25 +452,35 @@ unsafe impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned>
 impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> ResizableBuffer<T>
      for Hierarch<T, LH, LW, LRS, LCS> {
     #[inline(always)]
-    fn empty() -> Self {
-        panic!("Not implemented!");
-//        Hierarch::new(0,0)
+    fn empty( y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep> ) -> Self {
+        Hierarch::new(0,0, hier, y_hier_label, x_hier_label)
     }
     #[inline(always)]
     fn capacity(&self) -> usize { self.capacity }
     #[inline(always)]
     fn set_capacity(&mut self, capacity: usize) { self.capacity = capacity; }
     #[inline(always)]
-    fn capacity_for(other: &Mat<T>) -> usize {
+    fn capacity_for(other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep> ) -> usize {
         if other.height() <= 0 || other.width() <= 0 {
             0
         } else {
-            panic!("capacity for other not implemented!");
-/*            let n_blocks_y = (h - 1) / self.y_hierarchy[self.yh_index].blksz + 1;
-            let n_blocks_x = (w - 1) / self.x_hierarchy[self.xh_index].blksz + 1;
-            (n_blocks_y + 1) * self.y_hierarchy[self.yh_index].blksz * (n_blocks_x + 1) * self.x_hierarchy[self.xh_index].blksz*/
+            let y_tlds = match (Self::get_top_level_dim_size(&hier, y_hier_label) ){
+                Some(a) => a,
+                None => LH::to_usize(),
+            };
+            let x_tlds = match (Self::get_top_level_dim_size(&hier, x_hier_label) ){
+                Some(a) => a,
+                None => LW::to_usize(),
+            };
+
+             let n_blocks_y = (other.height()-1) / y_tlds + 1;
+             let n_blocks_x = (other.width()-1) / x_tlds + 1;
+             let other_capacity = (n_blocks_y + 1) * y_tlds * (n_blocks_x + 1) * x_tlds;
+             other_capacity
         }
     }
+
+    //Reallocate buffer if too small
     #[inline(always)]
     fn aquire_buffer_for(&mut self, req_capacity: usize) {
         let req_padded_capacity = req_capacity;
@@ -468,12 +492,36 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
             }
         }
     }
+
+    //Todo: rebuild hierarchy
+    //(But maybe only need to change y_hierarchy[self.yh_index] and x_hierarchy[self.xh_index])
     #[inline(always)]
-    fn resize_to( &mut self, other: &Mat<T> ) {
-        panic!("resize_to is not implemented for hierarchies yet!");
+    fn resize_to( &mut self, other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep> ) {
+		debug_assert!( self.y_views.len() == 1, "Can't resize a submatrix!");
+
+        let mut y_view = self.y_views.last_mut().unwrap();
+        let mut x_view = self.x_views.last_mut().unwrap();
+
+		//Adjust the size of this matrix
+        y_view.iter_size = other.iter_height();
+        x_view.iter_size = other.iter_width();
+        y_view.padding = other.logical_h_padding();
+        x_view.padding = other.logical_w_padding();
+
+        let y_tlds = self.y_hierarchy[self.yh_index].blksz;
+        let x_tlds = self.x_hierarchy[self.xh_index].blksz;
+
+        let n_blocks_y = (other.height()-1) / y_tlds + 1;
+        let n_blocks_x = (other.width()-1) / x_tlds + 1;
+        let h_padded = n_blocks_y * y_tlds;
+        let w_padded = n_blocks_x * x_tlds;
+		
+		//Need to do this to adjust the strides of the x and y hierarchies
+        let (y_hierarchy, x_hierarchy) = Self::parse_input_hierarchy( h_padded, w_padded, &hier, y_hier_label, x_hier_label );
+		self.y_hierarchy = y_hierarchy;
+		self.x_hierarchy = x_hierarchy;
+        self.yh_index = 0;
+        self.xh_index = 0;
     }
 }
-
-
-
 
