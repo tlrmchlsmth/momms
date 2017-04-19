@@ -61,11 +61,11 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
                     let tid = unsafe { libc::pthread_self() };
                     {
                     let mut locked_topo = child_topo.lock().unwrap();
-                    let before = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
+//                    let before = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
                     let bind_to = cpuset_for_core(&*locked_topo, id);
                     //Doesn't matter if it worked or not
                     let _ = locked_topo.set_cpubind_for_thread(tid, bind_to, CPUBIND_THREAD);
-                    let after = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
+//                    let after = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
 //                    println!("Thread {}: Before {:?}, After {:?}", id, before, after);
                     }
                 });

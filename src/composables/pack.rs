@@ -185,7 +185,7 @@ fn pack_hier_leaf<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Uns
         let rs_a = a.get_row_stride();
         let ap = a.get_buffer();
 
-        let mut a_pack_p = a_pack.get_mut_buffer();
+        let a_pack_p = a_pack.get_mut_buffer();
 
         for y in ystart..yend {
             for x in xstart..xend {
