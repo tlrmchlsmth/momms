@@ -70,7 +70,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
     fn get_top_level_dim_size( hierarchy: &[AlgorithmStep], dimension_matcher: AlgorithmStep ) -> Option<usize> {
         use composables::AlgorithmStep::*;
         if hierarchy.len() == 0 { None } else {
-            match( dimension_matcher, hierarchy[hierarchy.len()-1] ) {
+            match (dimension_matcher, hierarchy[hierarchy.len()-1]) {
                 (M{bsz: _}, M{bsz}) => {Some(bsz)},
                 (N{bsz: _}, N{bsz}) => {Some(bsz)},
                 (K{bsz: _}, K{bsz}) => {Some(bsz)},
@@ -133,11 +133,11 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         x_views.push(MatrixView{ offset: 0, padding: 0, iter_size: w });
 
         //Fill up hierarchy description
-        let y_tlds = match (Self::get_top_level_dim_size(&hier, y_step) ){
+        let y_tlds = match Self::get_top_level_dim_size(&hier, y_step) {
             Some(a) => a,
             None => LH::to_usize(),
         };
-        let x_tlds = match (Self::get_top_level_dim_size(&hier, x_step) ){
+        let x_tlds = match Self::get_top_level_dim_size(&hier, x_step) {
             Some(a) => a,
             None => LW::to_usize(),
         };
@@ -464,11 +464,11 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
         if other.height() <= 0 || other.width() <= 0 {
             0
         } else {
-            let y_tlds = match (Self::get_top_level_dim_size(&hier, y_hier_label) ){
+            let y_tlds = match Self::get_top_level_dim_size(&hier, y_hier_label) {
                 Some(a) => a,
                 None => LH::to_usize(),
             };
-            let x_tlds = match (Self::get_top_level_dim_size(&hier, x_hier_label) ){
+            let x_tlds = match Self::get_top_level_dim_size(&hier, x_hier_label) {
                 Some(a) => a,
                 None => LW::to_usize(),
             };

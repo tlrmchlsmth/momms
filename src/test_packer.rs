@@ -12,7 +12,7 @@ use typenum::{U1};
 //use gemm_oxide::kern::hsw::{Ukernel, KernelMN, KernelNM, GemvAL1};
 use gemm_oxide::kern::snb;
 pub use gemm_oxide::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
-pub use gemm_oxide::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, Nwayer};
+pub use gemm_oxide::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, Target, TheRest};
 pub use gemm_oxide::thread_comm::ThreadInfo;
 pub use gemm_oxide::triple_loop::TripleLoop;
 
@@ -126,31 +126,39 @@ fn compare_packing() {
     type HierB<T> = Hierarch<T, KC, NR, NR, U1>;
     type HierC<T> = Hierarch<T, MR, NR, NR, U1>;
 
+    type MTAPH<T:Scalar> = Hierarch<T, MR, KC, U1, MR>;
+    type MTBPH<T:Scalar> = Hierarch<T, KC, NR, NR, U1>;
     type GotoH<T:Scalar,MTA:Mat<T>,MTB:Mat<T>,MTC:Mat<T>> 
-        = PartK<T, MTA, MTB, MTC, KC,
-          PackB<T, MTA, MTB, MTC, Hierarch<T, KC, NR, NR, U1>,
-          PartM<T, MTA, Hierarch<T, KC, NR, NR, U1>, MTC, MC,
-          PackA<T, MTA, Hierarch<T, KC, NR, NR, U1>, MTC, Hierarch<T, MR, KC, U1, MR>,
-          PartN<T, Hierarch<T, MR, KC, U1, MR>, Hierarch<T, KC, NR, NR, U1>, MTC, NR,
-          PartM<T, Hierarch<T, MR, KC, U1, MR>, Hierarch<T, KC, NR, NR, U1>, MTC, MR,
-          snb::Ukernel<T, Hierarch<T, MR, KC, U1, MR>, Hierarch<T, KC, NR, NR, U1>, MTC>>>>>>>;
+        = SpawnThreads<T, MTA, MTB, MTC,
+          PartK<T, MTA, MTB, MTC, KC,
+          PackB<T, MTA, MTB, MTC, MTBPH<T>,
+          PartM<T, MTA, MTBPH<T>, MTC, MC,
+          PackA<T, MTA, MTBPH<T>, MTC, MTAPH<T>,
+          ParallelN<T, MTAPH<T>, MTBPH<T>, MTC, NR, TheRest,  
+          PartN<T, MTAPH<T>, MTBPH<T>, MTC, NR,
+          PartM<T, MTAPH<T>, MTBPH<T>, MTC, MR,
+          snb::Ukernel<T, MTAPH<T>, MTBPH<T>, MTC>>>>>>>>>;
 
-//          KernelNM<T, Hierarch<T, MR, KC, U1, MR>, Hierarch<T, KC, NR, NR, U1>, MTC, NR, MR>>>>>;
-
+    type CPanel<T:Scalar> = ColumnPanelMatrix<T,NR>; 
+    type RPanel<T:Scalar> = RowPanelMatrix<T,MR>; 
     type Goto<T:Scalar,MTA:Mat<T>,MTB:Mat<T>,MTC:Mat<T>> 
-        = PartK<T, MTA, MTB, MTC, KC,
-          PackB<T, MTA, MTB, MTC, ColumnPanelMatrix<T,NR>,
-          PartM<T, MTA, ColumnPanelMatrix<T,NR>, MTC, MC,
-          PackA<T, MTA, ColumnPanelMatrix<T,NR>, MTC, RowPanelMatrix<T,MR>,
-          PartN<T, RowPanelMatrix<T,MR>, ColumnPanelMatrix<T,NR>, MTC, NR,
-          PartM<T, RowPanelMatrix<T,MR>, ColumnPanelMatrix<T,NR>, MTC, MR,
-          snb::Ukernel<T, RowPanelMatrix<T,MR>, ColumnPanelMatrix<T,NR>, MTC>>>>>>>;
+        = SpawnThreads<T, MTA, MTB, MTC,
+          PartK<T, MTA, MTB, MTC, KC,
+          PackB<T, MTA, MTB, MTC, CPanel<T>,
+          PartM<T, MTA, CPanel<T>, MTC, MC,
+          PackA<T, MTA, CPanel<T>, MTC, RPanel<T>,
+          ParallelN<T, RPanel<T>, CPanel<T>, MTC, NR, TheRest,  
+          PartN<T, RPanel<T>, CPanel<T>, MTC, NR,
+          PartM<T, RPanel<T>, CPanel<T>, MTC, MR,
+          snb::Ukernel<T, RPanel<T>, CPanel<T>, MTC>>>>>>>>>;
 
     type GotoOrig  = Goto<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>>;
     type GotoHier  = GotoH<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>>;
 
     let mut goto  : GotoOrig = GotoOrig::new();
     let mut gotoh : GotoHier = GotoHier::new();
+    goto.set_n_threads(2);
+    gotoh.set_n_threads(2);
     //let algo_desc = GotoHier::hierarchy_description();
     
     pin_to_core(0);
