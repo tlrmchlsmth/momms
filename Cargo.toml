@@ -1,5 +1,5 @@
 [package]
-name = "gemm_oxide"
+name = "mommies"
 version = "0.1.0"
 authors = ["Tyler Smith <tms@cs.utexas.edu>"]
 build = "build.rs"
@@ -16,9 +16,9 @@ hwloc = "0.3.0"
 lto = true
 
 [lib]
-name = "gemm_oxide"
+name = "mommies"
 path = "src/lib.rs"
 
 [[bin]]
-name = "test_driver"
-path = "src/test_driver.rs"
+name = "test_packer"
+path = "src/test_packer.rs"

@@ -1,18 +1,15 @@
-extern crate gemm_oxide;
-extern crate core;
+extern crate mommies;
 extern crate typenum;
-extern crate hwloc;
-extern crate libc;
 
 use std::time::{Instant};
 use typenum::{U1};
 
-//use gemm_oxide::kern::hsw::{Ukernel, KernelMN, KernelNM, GemvAL1};
-use gemm_oxide::kern::snb;
-use gemm_oxide::matrix::{Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
-use gemm_oxide::composables::{GemmNode, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelN, TheRest};
-use gemm_oxide::thread_comm::ThreadInfo;
-use gemm_oxide::util;
+//use mommies::kern::hsw::{Ukernel, KernelMN, KernelNM, GemvAL1};
+use mommies::kern::snb;
+use mommies::matrix::{Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
+use mommies::composables::{GemmNode, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelN, TheRest};
+use mommies::thread_comm::ThreadInfo;
+use mommies::util;
 
 
 
@@ -21,9 +18,6 @@ fn compare_packing() {
     type MC = typenum::U96; 
     type NR = typenum::U4;
     type MR = typenum::U8;
-    type HierA<T> = Hierarch<T, MR, KC, U1, MR>;
-    type HierB<T> = Hierarch<T, KC, NR, NR, U1>;
-    type HierC<T> = Hierarch<T, MR, NR, NR, U1>;
 
     type MTAPH<T> = Hierarch<T, MR, KC, U1, MR>;
     type MTBPH<T> = Hierarch<T, KC, NR, NR, U1>;

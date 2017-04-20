@@ -1,17 +1,13 @@
-extern crate gemm_oxide;
-extern crate core;
+extern crate mommies;
 extern crate typenum;
-extern crate hwloc;
-extern crate libc;
 
 use std::time::{Instant};
 use typenum::{U1};
-
-use gemm_oxide::kern::hsw::{KernelNM, GemvAL1};
-pub use gemm_oxide::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
-pub use gemm_oxide::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, Nwayer};
-pub use gemm_oxide::thread_comm::ThreadInfo;
-pub use gemm_oxide::util;
+use mommies::kern::hsw::{KernelNM, GemvAL1};
+pub use mommies::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
+pub use mommies::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, Nwayer};
+pub use mommies::thread_comm::ThreadInfo;
+pub use mommies::util;
 
 #[allow(dead_code)]
 fn compare_gotos() {
