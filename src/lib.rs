@@ -8,7 +8,6 @@
 
 extern crate core;
 extern crate typenum;
-extern crate hwloc;
 extern crate libc;
 
 pub mod matrix;
