@@ -220,7 +220,9 @@ fn pack_hier_y<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsign
             a.slide_y_view_to(i, blksz);
             a_pack.slide_y_view_to(i, blksz);
             
-            pack_hier_y(a, a_pack, &y_hier[1..y_hier.len()], x_parallelize_level, x_threads, x_id, y_parallelize_level, y_threads, y_id);
+            pack_hier_y(a, a_pack, &y_hier[1..y_hier.len()], 
+                x_parallelize_level, x_threads, x_id, 
+                y_parallelize_level-1, y_threads, y_id);
             i += blksz;
         }   
         a.pop_y_view();
@@ -252,7 +254,9 @@ fn pack_hier_x<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsign
         while j < end  {
             a.slide_x_view_to(j, blksz);
             a_pack.slide_x_view_to(j, blksz);
-            pack_hier_x(a, a_pack, &x_hier[1..x_hier.len()], y_hier, x_parallelize_level-1, x_threads, x_id, y_parallelize_level, y_threads, y_id);
+            pack_hier_x(a, a_pack, &x_hier[1..x_hier.len()], y_hier, 
+                x_parallelize_level-1, x_threads, x_id, 
+                y_parallelize_level, y_threads, y_id);
             j += blksz;
         }   
         a.pop_x_view();
@@ -294,12 +298,13 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned>
         while (thr.num_threads() % index) != 0 {
             index = index - 1;
         }
-        let (y_nt, x_nt) = 
+        let (y_nt, x_nt) = (4,1);
             if y_score < x_score {
                 (index, thr.num_threads() / index)
             } else {
                 (thr.num_threads() / index, index)
             };
+        
         let x_tid = thr.thread_id() / y_nt;
         let y_tid = thr.thread_id() % y_nt;
 

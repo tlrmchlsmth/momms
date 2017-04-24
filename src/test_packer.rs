@@ -5,7 +5,7 @@ use std::time::{Instant};
 use typenum::{U1};
 
 //use mommies::kern::hsw::{Ukernel, KernelMN, KernelNM, GemvAL1};
-use mommies::kern::snb;
+use mommies::kern::hsw;
 use mommies::matrix::{Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
 use mommies::composables::{GemmNode, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelN, TheRest};
 use mommies::thread_comm::ThreadInfo;
@@ -14,10 +14,10 @@ use mommies::util;
 
 
 fn compare_packing() {
-    type KC = typenum::U256; 
-    type MC = typenum::U96; 
-    type NR = typenum::U4;
-    type MR = typenum::U8;
+    type KC = typenum::U192; 
+    type MC = typenum::U120; 
+    type MR = typenum::U4;
+    type NR = typenum::U12;
 
     type MTAPH<T> = Hierarch<T, MR, KC, U1, MR>;
     type MTBPH<T> = Hierarch<T, KC, NR, NR, U1>;
@@ -30,7 +30,7 @@ fn compare_packing() {
           ParallelN<T, MTAPH<T>, MTBPH<T>, MTC, NR, TheRest,  
           PartN<T, MTAPH<T>, MTBPH<T>, MTC, NR,
           PartM<T, MTAPH<T>, MTBPH<T>, MTC, MR,
-          snb::Ukernel<T, MTAPH<T>, MTBPH<T>, MTC>>>>>>>>>;
+          hsw::Ukernel<T, MTAPH<T>, MTBPH<T>, MTC>>>>>>>>>;
 
     type CPanel<T> = ColumnPanelMatrix<T,NR>; 
     type RPanel<T> = RowPanelMatrix<T,MR>; 
@@ -43,19 +43,17 @@ fn compare_packing() {
           ParallelN<T, RPanel<T>, CPanel<T>, MTC, NR, TheRest,  
           PartN<T, RPanel<T>, CPanel<T>, MTC, NR,
           PartM<T, RPanel<T>, CPanel<T>, MTC, MR,
-          snb::Ukernel<T, RPanel<T>, CPanel<T>, MTC>>>>>>>>>;
+          hsw::Ukernel<T, RPanel<T>, CPanel<T>, MTC>>>>>>>>>;
 
     type GotoOrig  = Goto<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>>;
     type GotoHier  = GotoH<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>>;
 
     let mut goto  : GotoOrig = GotoOrig::new();
     let mut gotoh : GotoHier = GotoHier::new();
-    goto.set_n_threads(2);
-    gotoh.set_n_threads(2);
+    goto.set_n_threads(4);
+    gotoh.set_n_threads(4);
     //let algo_desc = GotoHier::hierarchy_description();
     
-    util::pin_to_core(0);
-
     for index in 1..128 {
         let mut best_time: f64 = 9999999999.0;
         let mut best_time_2: f64 = 9999999999.0;
