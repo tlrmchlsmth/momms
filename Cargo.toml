@@ -26,3 +26,7 @@ path = "src/test_packer.rs"
 [[bin]]
 name = "exper_l4"
 path = "src/experiments/l4.rs"
+
+[[bin]]
+name = "exper_l3"
+path = "src/experiments/l3.rs"
