@@ -434,7 +434,7 @@ impl GemmNode<T, RowPanelMatrix<T,U6>,
 }
 
 extern{
-    fn bli_dgemm_hsw_4x12 ( k: int64_t,
+    fn bli_dgemm_asm_4x12 ( k: int64_t,
         alpha: *mut c_double, a: *mut c_double, b: *mut c_double, beta: *mut c_double, 
         c: *mut c_double, rs_c: int64_t, cs_c: int64_t ) -> ();
 }
@@ -476,7 +476,7 @@ impl <K: Unsigned>
                 let a_ir = ap.offset(ir * K::to_isize());
                 let c_ir = c_jr.offset(ir * U12::to_isize());
 
-                bli_dgemm_hsw_4x12 (
+                bli_dgemm_asm_4x12 (
                     k as int64_t,
                     &mut alpha as *mut c_double,
                     a_ir as *mut c_double,

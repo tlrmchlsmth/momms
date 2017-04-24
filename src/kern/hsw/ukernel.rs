@@ -10,7 +10,7 @@ extern{
     fn bli_dgemm_asm_6x8 ( k: int64_t,
         alpha: *mut c_double, a: *mut c_double, b: *mut c_double, beta: *mut c_double, 
         c: *mut c_double, rs_c: int64_t, cs_c: int64_t ) -> ();
-    fn bli_dgemm_hsw_4x12 ( k: int64_t,
+    fn bli_dgemm_asm_4x12 ( k: int64_t,
         alpha: *mut c_double, a: *mut c_double, b: *mut c_double, beta: *mut c_double, 
         c: *mut c_double, rs_c: int64_t, cs_c: int64_t ) -> ();
 }
@@ -184,7 +184,7 @@ impl<K: Unsigned>
         let mut alpha: f64 = 1.0;
         let mut beta: f64 = 1.0;
 
-        bli_dgemm_hsw_4x12 (
+        bli_dgemm_asm_4x12 (
             K::to_isize() as int64_t,
             &mut alpha as *mut c_double,
             ap as *mut c_double,
@@ -217,7 +217,7 @@ impl<K: Unsigned>
         let mut beta: f64 = 1.0;
 
         if c.height() == U4::to_usize() && c.width() == U12::to_usize() {
-            bli_dgemm_hsw_4x12 (
+            bli_dgemm_asm_4x12 (
                 a.width() as int64_t,
                 &mut alpha as *mut c_double,
                 ap as *mut c_double,
@@ -233,7 +233,7 @@ impl<K: Unsigned>
             let cs_t = t.get_column_stride();
             beta = 0.0;
 
-            bli_dgemm_hsw_4x12 (
+            bli_dgemm_asm_4x12 (
                 a.width() as int64_t,
                 &mut alpha as *mut c_double,
                 ap as *mut c_double,
@@ -270,7 +270,7 @@ impl GemmNode<f64, RowPanelMatrix<f64, U4>,
         let mut beta: f64 = 1.0;
 
         if c.height() == U4::to_usize() && c.width() == U12::to_usize() {
-            bli_dgemm_hsw_4x12 (
+            bli_dgemm_asm_4x12 (
                 a.width() as int64_t,
                 &mut alpha as *mut c_double,
                 ap as *mut c_double,
@@ -286,7 +286,7 @@ impl GemmNode<f64, RowPanelMatrix<f64, U4>,
             let cs_t = t.get_column_stride();
             beta = 0.0;
 
-            bli_dgemm_hsw_4x12 (
+            bli_dgemm_asm_4x12 (
                 a.width() as int64_t,
                 &mut alpha as *mut c_double,
                 ap as *mut c_double,
