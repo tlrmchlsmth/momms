@@ -27,32 +27,39 @@ pub trait Scalar where
     Self: rand::Rand,
     Self: Send,
     Self: ScalarConstants,
-{}
+    Self: PartialOrd,
+{
+    fn max(self, other: Self) -> Self;
+    fn min(self, other: Self) -> Self;
+}
+
+
 
 
 impl ScalarConstants for f64 {
     #[inline(always)]
-    fn one( ) -> Self {
-        1.0 as f64
-    }
+    fn one( ) -> Self { 1.0 as f64 }
     #[inline(always)]
-    fn zero( ) -> Self {
-        0.0 as f64
-    }
+    fn zero( ) -> Self { 0.0 as f64 }
 }
-impl Scalar for f64{}
+impl Scalar for f64 {
+    #[inline(always)]
+    fn max( self, other: f64) -> f64 { self.max(other) }
+    #[inline(always)]
+    fn min( self, other: f64) -> f64 { self.min(other) }
+}
 
 impl ScalarConstants for f32 {
     #[inline(always)]
-    fn one( ) -> Self {
-        1.0 as f32
-    }
+    fn one( ) -> Self { 1.0 as f32 }
     #[inline(always)]
-    fn zero( ) -> Self {
-        0.0 as f32
-    }
+    fn zero( ) -> Self { 0.0 as f32 }
 }
-impl Scalar for f32{}
+impl Scalar for f32 {
+    #[inline(always)]
+    fn max( self, other: f32) -> f32 { self.max(other) }
+    fn min( self, other: f32) -> f32 { self.min(other) }
+}
 
 /* Mat trait and its implementors */
 pub trait Mat<T: Scalar> where Self: Send {
