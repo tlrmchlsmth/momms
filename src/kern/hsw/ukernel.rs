@@ -1,4 +1,4 @@
-use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix,Hierarch};
+use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Matrix,Hierarch,RoCM};
 use core::marker::{PhantomData};
 use composables::{GemmNode,AlgorithmStep};
 use thread_comm::{ThreadInfo};

@@ -2,7 +2,7 @@ use core::ptr::{self};
 use core::marker::PhantomData;
 use core::cmp;
 
-use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Hierarch,Matrix,ResizableBuffer,HierarchyNode};
+use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Hierarch,Matrix,ResizableBuffer,HierarchyNode,RoCM};
 use typenum::Unsigned;
 use thread_comm::ThreadInfo;
 use composables::{GemmNode,AlgorithmStep};

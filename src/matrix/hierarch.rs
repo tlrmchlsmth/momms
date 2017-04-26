@@ -3,7 +3,7 @@ extern crate alloc;
 use thread_comm::ThreadInfo;
 use typenum::Unsigned;
 use self::alloc::heap;
-use matrix::{Scalar,Mat,ResizableBuffer};
+use matrix::{Scalar,Mat,ResizableBuffer,RoCM};
 use super::view::{MatrixView};
 use composables::AlgorithmStep;
 
@@ -493,7 +493,6 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
         }
     }
 
-    //Todo: rebuild hierarchy
     //(But maybe only need to change y_hierarchy[self.yh_index] and x_hierarchy[self.xh_index])
     #[inline(always)]
     fn resize_to( &mut self, other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep> ) {
@@ -516,7 +515,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
         let h_padded = n_blocks_y * y_tlds;
         let w_padded = n_blocks_x * x_tlds;
 		
-		//Need to do this to adjust the strides of the x and y hierarchies
+		//Need to rebuild the hierarchy to adjust the strides, since the dimensions changed. 
         let (y_hierarchy, x_hierarchy) = Self::parse_input_hierarchy( h_padded, w_padded, &hier, y_hier_label, x_hier_label );
 		self.y_hierarchy = y_hierarchy;
 		self.x_hierarchy = x_hierarchy;
@@ -525,3 +524,57 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
     }
 }
 
+impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> RoCM<T> for
+    Hierarch<T, LH, LW, LRS, LCS> {
+    #[inline(always)]
+    fn partition_is_rocm(&self) -> bool { 
+        self.height() <= LH::to_usize() && self.width() <= LW::to_usize()
+    }
+
+    #[inline(always)]
+    fn get_leaf_rs(&self) -> usize { 
+        LRS::to_usize()
+    }
+
+    #[inline(always)]
+    fn get_leaf_cs(&self) -> usize { 
+        LCS::to_usize()
+    }
+
+    #[inline(always)]
+    unsafe fn get_buffer(&self) -> *const T {
+        let y_off = self.y_views.last().unwrap().offset;
+        let x_off = self.x_views.last().unwrap().offset;
+        self.buffer.offset((y_off + x_off) as isize) 
+    }
+
+    #[inline(always)]
+    unsafe fn get_mut_buffer( &mut self ) -> *mut T {
+        let y_off = self.y_views.last().unwrap().offset;
+        let x_off = self.x_views.last().unwrap().offset;
+        self.buffer.offset((y_off + x_off) as isize) 
+    }
+
+    #[inline(always)]
+    fn get_block_rs(&self, lvl: usize, blksz: usize) -> usize {
+        if lvl == 0 { 
+            LRS::to_usize()
+        } else {
+            let index = self.y_hierarchy.len() - lvl - 1;
+            println!("{} {}", self.y_hierarchy[index].blksz, blksz);
+            debug_assert!(self.y_hierarchy[index].blksz == blksz);
+            self.y_hierarchy[index].stride
+        }
+    }
+    #[inline(always)]
+    fn get_block_cs(&self, lvl: usize, blksz: usize) -> usize {
+        if lvl == 0 { 
+            LCS::to_usize()
+        } else {
+            let index = self.x_hierarchy.len() - lvl - 1;
+            println!("{} {}", self.x_hierarchy[index].blksz, blksz);
+            debug_assert!( self.x_hierarchy[index].blksz == blksz);
+            self.x_hierarchy[index].stride
+        }
+    }
+}

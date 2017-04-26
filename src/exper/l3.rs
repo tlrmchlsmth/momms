@@ -12,7 +12,8 @@ extern crate mommies;
 use std::time::{Instant};
 use typenum::{U1};
 
-use mommies::kern::hsw::KernelNM;
+//use mommies::kern::hsw::KernelNM;
+use mommies::kern::KernelNM;
 use mommies::matrix::{Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
 use mommies::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, TheRest};
 use mommies::thread_comm::ThreadInfo;
@@ -47,30 +48,30 @@ fn test() {
     type L3bC<T> = Hierarch<T, MR, NR, NR, U1>;
 
     type GotoH<T,MTA,MTB,MTC> 
-        = SpawnThreads<T, MTA, MTB, MTC,
+        = //SpawnThreads<T, MTA, MTB, MTC,
           PartN<T, MTA, MTB, MTC, NC,
           PartK<T, MTA, MTB, MTC, KC,
           PartM<T, MTA, MTB, MTC, MC,
           ParallelN<T, MTA, MTB, MTC, NR, TheRest,
-          KernelNM<T, MTA, MTB, MTC, NR, MR>>>>>>;
+          KernelNM<T, MTA, MTB, MTC, NR, MR>>>>>;
 
     type L3H<T,MTA,MTB,MTC> 
-        = SpawnThreads<T, MTA, MTB, MTC,
+        = //SpawnThreads<T, MTA, MTB, MTC,
           PartN<T, MTA, MTB, MTC, NcL3,
           PartK<T, MTA, MTB, MTC, KcL3,
           PartM<T, MTA, MTB, MTC, McL2,
           //Barrier<T, MTA, MTB, MTC,
           PartK<T, MTA, MTB, MTC, KcL2,
           ParallelN<T, MTA, MTB, MTC, NR, TheRest,
-          KernelNM<T, MTA, MTB, MTC, NR, MR>>>>>>>;
+          KernelNM<T, MTA, MTB, MTC, NR, MR>>>>>>;
 
     type GotoHier = GotoH<f64, GotoA<f64>, GotoB<f64>, GotoC<f64>>;
     type L3Hier = L3H<f64, L3bA<f64>, L3bB<f64>, L3bC<f64>>;
 
     let mut goto_hier : GotoHier = GotoHier::new();
     let mut l3_hier : L3Hier = L3Hier::new();
-    goto_hier.set_n_threads(4);
-    l3_hier.set_n_threads(4);
+//    goto_hier.set_n_threads(4);
+//    l3_hier.set_n_threads(4);
     let goto_desc = GotoHier::hierarchy_description();
     let l3_desc = L3Hier::hierarchy_description();
 
@@ -102,7 +103,7 @@ fn test() {
             flush_cache(&mut flusher);
             let mut start = Instant::now();
             unsafe{
-                goto_hier.run( &mut a, &mut b, &mut c, &ThreadInfo::single_thread() );
+            //    goto_hier.run( &mut a, &mut b, &mut c, &ThreadInfo::single_thread() );
             }
             best_time_goto = best_time_goto.min(util::dur_seconds(start));
             let err = util::test_c_eq_a_b( &mut a, &mut b, &mut c);

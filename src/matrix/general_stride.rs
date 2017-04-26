@@ -2,7 +2,7 @@ extern crate alloc;
 
 use thread_comm::ThreadInfo;
 use self::alloc::heap;
-use matrix::{Scalar,Mat};
+use matrix::{Scalar,Mat,RoCM};
 use super::view::{MatrixView};
 use core::{mem};
 use core::ptr::{self};
@@ -55,7 +55,7 @@ impl<T: Scalar> Matrix<T> {
         self.row_stride = tmp;
     }
     
-    #[inline(always)]
+/*    #[inline(always)]
     pub unsafe fn get_buffer( &self ) -> *const T { 
         let y_view = self.y_views.last().unwrap();
         let x_view = self.x_views.last().unwrap();
@@ -69,7 +69,7 @@ impl<T: Scalar> Matrix<T> {
         let x_view = self.x_views.last().unwrap();
 
         self.buffer.offset((y_view.offset*self.row_stride + x_view.offset*self.column_stride) as isize)
-    }
+    }*/
 }
 impl<T: Scalar> Mat<T> for Matrix<T> {
     #[inline(always)]
@@ -254,3 +254,39 @@ impl<T:Scalar> Drop for Matrix<T> {
     }
 }
 unsafe impl<T:Scalar> Send for Matrix<T> {}
+
+
+impl<T: Scalar> RoCM<T> for Matrix<T> {
+    #[inline(always)]
+    fn partition_is_rocm(&self) -> bool { true }
+
+    #[inline(always)]
+    fn get_leaf_rs(&self) -> usize { self.row_stride }
+
+    #[inline(always)]
+    fn get_leaf_cs(&self) -> usize { self.column_stride }
+    
+    #[inline(always)]
+    unsafe fn get_buffer(&self) -> *const T {
+        let y_view = self.y_views.last().unwrap();
+        let x_view = self.x_views.last().unwrap();
+
+        self.buffer.offset((y_view.offset*self.row_stride + x_view.offset*self.column_stride) as isize)
+    }   
+
+    #[inline(always)]
+    unsafe fn get_mut_buffer( &mut self ) -> *mut T {
+        let y_view = self.y_views.last().unwrap();
+        let x_view = self.x_views.last().unwrap();
+
+        self.buffer.offset((y_view.offset*self.row_stride + x_view.offset*self.column_stride) as isize)
+    }
+    #[inline(always)]
+    fn get_block_rs(&self, _: usize, blksz: usize) -> usize {
+        blksz * self.row_stride
+    }
+    #[inline(always)]
+    fn get_block_cs(&self, _: usize, blksz: usize) -> usize {
+        blksz * self.column_stride
+    }
+}

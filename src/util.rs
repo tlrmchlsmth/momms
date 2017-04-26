@@ -6,7 +6,7 @@ use std::time::Instant;
 use std::ffi::{CString};
 
 use thread_comm::ThreadInfo;
-use matrix::{Scalar, Mat, Matrix};
+use matrix::{Scalar, Mat, Matrix, RoCM};
 use composables::{GemmNode, TripleLoop};
 
 extern{

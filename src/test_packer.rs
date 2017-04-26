@@ -5,7 +5,8 @@ use std::time::{Instant};
 use typenum::{U1};
 
 //use mommies::kern::hsw::{Ukernel, KernelMN, KernelNM, GemvAL1};
-use mommies::kern::hsw;
+//use mommies::kern::hsw;
+use mommies::kern::KernelNM;
 use mommies::matrix::{Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
 use mommies::composables::{GemmNode, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelN, TheRest};
 use mommies::thread_comm::ThreadInfo;

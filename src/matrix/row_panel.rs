@@ -3,7 +3,7 @@ extern crate alloc;
 use thread_comm::ThreadInfo;
 use typenum::Unsigned;
 use self::alloc::heap;
-use matrix::{Scalar,Mat,ResizableBuffer};
+use matrix::{Scalar,Mat,ResizableBuffer,RoCM};
 use super::view::{MatrixView};
 
 use core::marker::PhantomData;
@@ -54,7 +54,7 @@ impl<T: Scalar, PH: Unsigned> RowPanelMatrix<T,PH> {
 
     #[inline(always)]
     pub fn get_panel_stride( &self ) -> usize { self.panel_stride }
-
+/*
     #[inline(always)]
     pub unsafe fn get_buffer( &self ) -> *const T { 
         let panel_h = PH::to_usize();
@@ -72,7 +72,7 @@ impl<T: Scalar, PH: Unsigned> RowPanelMatrix<T,PH> {
 
         self.buffer.offset((x_view.offset*panel_h + y_view.offset*self.panel_stride) as isize)
     }
-
+*/
     #[inline(always)]
     pub unsafe fn get_panel( &mut self, id: usize ) -> *mut T {
         let y_view = self.y_views.last().unwrap();
@@ -320,5 +320,55 @@ impl<T:Scalar, PH: Unsigned> ResizableBuffer<T> for RowPanelMatrix<T, PH> {
         y_view.padding = other.logical_h_padding();
         x_view.padding = other.logical_w_padding();
         self.panel_stride = PH::to_usize()*other.width();
+    }
+}
+
+impl<T: Scalar, PH: Unsigned> RoCM<T> for RowPanelMatrix<T,PH> {
+    #[inline(always)]
+    fn partition_is_rocm(&self) -> bool { 
+        self.height() <= PH::to_usize()
+    }
+
+    #[inline(always)]
+    fn get_leaf_rs(&self) -> usize { 
+        1
+    }
+
+    #[inline(always)]
+    fn get_leaf_cs(&self) -> usize { 
+        PH::to_usize()
+    }
+
+    #[inline(always)]
+    unsafe fn get_buffer(&self) -> *const T {
+        let panel_h = PH::to_usize();
+        let y_view = self.y_views.last().unwrap();
+        let x_view = self.x_views.last().unwrap();
+
+        self.buffer.offset((x_view.offset*panel_h + y_view.offset*self.panel_stride) as isize)
+    }
+
+    #[inline(always)]
+    unsafe fn get_mut_buffer( &mut self ) -> *mut T {
+        let panel_h = PH::to_usize();
+        let y_view = self.y_views.last().unwrap();
+        let x_view = self.x_views.last().unwrap();
+
+        self.buffer.offset((x_view.offset*panel_h + y_view.offset*self.panel_stride) as isize)
+    }
+
+	#[inline(always)]
+    fn get_block_rs(&self, lvl: usize, blksz: usize) -> usize {
+        if lvl == 0 {
+            1
+        } else {
+			debug_assert!( blksz % PH::to_usize() == 0 );
+			self.panel_stride * blksz / PH::to_usize()
+        }
+    }
+
+	#[inline(always)]
+    fn get_block_cs(&self, _: usize, blksz: usize) -> usize {
+		PH::to_usize()
     }
 }

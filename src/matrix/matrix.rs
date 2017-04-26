@@ -261,3 +261,15 @@ pub trait ResizableBuffer<T: Scalar> {
     fn aquire_buffer_for(&mut self, capacity: usize );
     fn resize_to( &mut self, other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep> ); 
 }
+
+//Trait indicating that the matrix can be partitioned down into row or column major form.
+//BUT is not necessarily always in row or column major form
+pub trait RoCM<T: Scalar> {
+    fn partition_is_rocm(&self) -> bool;
+    fn get_leaf_rs(&self) -> usize;
+    fn get_leaf_cs(&self) -> usize;
+    unsafe fn get_buffer(&self) -> *const T;
+    unsafe fn get_mut_buffer(&mut self) -> *mut T;
+    fn get_block_rs(&self, lvl: usize, blksz: usize) -> usize;
+    fn get_block_cs(&self, lvl: usize, blksz: usize) -> usize;
+}
