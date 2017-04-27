@@ -12,7 +12,7 @@ extern crate momms;
 use std::time::{Instant};
 use typenum::{Unsigned,U1};
 
-use momms::kern::hsw::KernelNM;
+use momms::kern::KernelNM;
 use momms::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
 use momms::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, TheRest};
 use momms::thread_comm::ThreadInfo;

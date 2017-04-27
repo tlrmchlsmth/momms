@@ -4,9 +4,7 @@ extern crate typenum;
 use std::time::{Instant};
 use typenum::{U1};
 
-//use momms::kern::hsw::{Ukernel, KernelMN, KernelNM, GemvAL1};
-//use momms::kern::hsw;
-use momms::kern::KernelNM;
+use momms::kern::{KernelNM,Ukernel};
 use momms::matrix::{Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
 use momms::composables::{GemmNode, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelN, TheRest};
 use momms::thread_comm::ThreadInfo;
@@ -31,7 +29,7 @@ fn compare_packing() {
           ParallelN<T, MTAPH<T>, MTBPH<T>, MTC, NR, TheRest,  
           PartN<T, MTAPH<T>, MTBPH<T>, MTC, NR,
           PartM<T, MTAPH<T>, MTBPH<T>, MTC, MR,
-          hsw::Ukernel<T, MTAPH<T>, MTBPH<T>, MTC>>>>>>>>>;
+          Ukernel<T, MTAPH<T>, MTBPH<T>, MTC, MR, NR>>>>>>>>>;
 
     type CPanel<T> = ColumnPanelMatrix<T,NR>; 
     type RPanel<T> = RowPanelMatrix<T,MR>; 
@@ -44,7 +42,7 @@ fn compare_packing() {
           ParallelN<T, RPanel<T>, CPanel<T>, MTC, NR, TheRest,  
           PartN<T, RPanel<T>, CPanel<T>, MTC, NR,
           PartM<T, RPanel<T>, CPanel<T>, MTC, MR,
-          hsw::Ukernel<T, RPanel<T>, CPanel<T>, MTC>>>>>>>>>;
+          Ukernel<T, RPanel<T>, CPanel<T>, MTC, MR, NR>>>>>>>>>;
 
     type GotoOrig  = Goto<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>>;
     type GotoHier  = GotoH<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>>;

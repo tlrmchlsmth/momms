@@ -33,9 +33,6 @@ pub trait Scalar where
     fn min(self, other: Self) -> Self;
 }
 
-
-
-
 impl ScalarConstants for f64 {
     #[inline(always)]
     fn one( ) -> Self { 1.0 as f64 }

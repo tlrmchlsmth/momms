@@ -10,7 +10,7 @@ use composables::{GemmNode,AlgorithmStep};
 //This trait exists so that Packer has a type to specialize over.
 //Yes this is stupid.
 pub trait Copier <T: Scalar, At: Mat<T>, Apt: Mat<T>> {
-        fn pack( &self, a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T> );
+    fn pack( &self, a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T> );
 }
 
 
