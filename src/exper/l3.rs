@@ -110,11 +110,8 @@ fn test() {
           ParallelN<T, MTA, MTB, MTC, NR, TheRest,
           KernelNM<T, MTA, MTB, MTC, NR, MR>>>>>>>;
 
-    type DGoto = Goto<f64, GotoA<f64>, GotoB<f64>, GotoC<f64>>;
-    type DL3B   = L3B<f64, L3bA<f64>, L3bB<f64>, L3bC<f64>>;
-
-    let mut goto : DGoto = DGoto::new();
-    let mut l3b : DL3B = DL3B::new();
+    let mut goto = <Goto<f64, GotoA<f64>, GotoB<f64>, GotoC<f64>>>::new();
+    let mut l3b = <L3B<f64, L3bA<f64>, L3bB<f64>, L3bC<f64>>>::new();
     goto.set_n_threads(4);
     l3b.set_n_threads(4);
 

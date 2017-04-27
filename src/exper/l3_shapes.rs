@@ -18,8 +18,8 @@ use momms::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, Pa
 use momms::thread_comm::ThreadInfo;
 use momms::util;
 
-fn test_algorithm<T: Scalar, Mr: Unsigned, Nr: Unsigned, Kc:Unsigned, 
-    S: GemmNode<T, Hierarch<T, Mr, Kc, U1, Mr>, Hierarch<T, Kc, Nr, Nr, U1>, Hierarch<T, Mr, Nr, Nr, U1>>>
+fn test_algorithm<T: Scalar, Mr: Unsigned, Nr: Unsigned, Kc:Unsigned, CLRS: Unsigned, CLCS: Unsigned, 
+    S: GemmNode<T, Hierarch<T, Mr, Kc, U1, Mr>, Hierarch<T, Kc, Nr, Nr, U1>, Hierarch<T, Mr, Nr, CLRS, CLCS>>>
     ( m:usize, n: usize, k: usize, algo: &mut S, flusher: &mut Vec<f64>, n_reps: usize ) -> (f64, T) 
 {
     let algo_desc = S::hierarchy_description();
@@ -30,7 +30,7 @@ fn test_algorithm<T: Scalar, Mr: Unsigned, Nr: Unsigned, Kc:Unsigned,
         //Create matrices.
         let mut a : Hierarch<T, Mr, Kc, U1, Mr> = Hierarch::new(m, k, &algo_desc, AlgorithmStep::M{bsz: 0}, AlgorithmStep::K{bsz: 0});
         let mut b : Hierarch<T, Kc, Nr, Nr, U1> = Hierarch::new(k, n, &algo_desc, AlgorithmStep::K{bsz: 0}, AlgorithmStep::N{bsz: 0});
-        let mut c : Hierarch<T, Mr, Nr, Nr, U1> = Hierarch::new(m, n, &algo_desc, AlgorithmStep::M{bsz: 0}, AlgorithmStep::N{bsz: 0});
+        let mut c : Hierarch<T, Mr, Nr, CLRS, CLCS> = Hierarch::new(m, n, &algo_desc, AlgorithmStep::M{bsz: 0}, AlgorithmStep::N{bsz: 0});
 
         //Fill the matrices
         a.fill_rand(); c.fill_zero(); b.fill_rand();
@@ -57,7 +57,7 @@ fn test() {
     type Mr = typenum::U4;
     type Nr = typenum::U12;
 
-    type GotoH<T,MTA,MTB,MTC> 
+    type Goto<T,MTA,MTB,MTC> 
         = SpawnThreads<T, MTA, MTB, MTC,
           PartN<T, MTA, MTB, MTC, Nc,
           PartK<T, MTA, MTB, MTC, Kc,
@@ -95,23 +95,19 @@ fn test() {
           PartM<T, MTA, MTB, MTC, typenum::U720, //Use 720 as blocksize as it is divisible by Mc=120
           PartK<T, MTA, MTB, MTC, Kc,
           PartM<T, MTA, MTB, MTC, McL2,
-          ParallelN<T, MTA, MTB, MTC, Nr, TheRest,
-          KernelNM<T, MTA, MTB, MTC, Nr, Mr>>>>>>>;
+          ParallelN<T, MTA, MTB, MTC, typenum::U4, TheRest,
+          KernelNM<T, MTA, MTB, MTC, typenum::U4, typenum::U12>>>>>>>;
 
     //We can use the same matrix type for all three algorithms
-    type BaseHierarchA<T> = Hierarch<T, Mr, Kc, U1, Mr>;
-    type BaseHierarchB<T> = Hierarch<T, Kc, Nr, Nr, U1>;
-    type BaseHierarchC<T> = Hierarch<T, Mr, Nr, Nr, U1>;
+    type HierA<T> = Hierarch<T, Mr, Kc, U1, Mr>;
+    type HierB<T> = Hierarch<T, Kc, Nr, Nr, U1>;
+    type HierCRM<T> = Hierarch<T, Mr, Nr, Nr, U1>;
+    type HierCCM<T> = Hierarch<T, Mr, Nr, U1, Mr>;
 
-
-    type GotoInst = GotoH<f64, BaseHierarchA<f64>, BaseHierarchB<f64>, BaseHierarchC<f64>>;
-    type L3AInst = L3A<f64, BaseHierarchA<f64>, BaseHierarchB<f64>, BaseHierarchC<f64>>;
-    type L3BInst = L3B<f64, BaseHierarchA<f64>, BaseHierarchB<f64>, BaseHierarchC<f64>>;
-    type L3CInst = L3C<f64, BaseHierarchA<f64>, BaseHierarchB<f64>, BaseHierarchC<f64>>;
-    let mut goto = GotoInst::new();
-    let mut l3a = L3AInst::new();
-    let mut l3b = L3BInst::new();
-    let mut l3c = L3CInst::new();
+    let mut goto = <Goto<f64, HierA<f64>, HierB<f64>, HierCRM<f64>>>::new();
+    let mut l3a = <L3A<f64, HierA<f64>, HierB<f64>, HierCCM<f64>>>::new();
+    let mut l3b = <L3B<f64, HierA<f64>, HierB<f64>, HierCRM<f64>>>::new();
+    let mut l3c = <L3C<f64, HierA<f64>, HierB<f64>, HierCRM<f64>>>::new();
 
     goto.set_n_threads(4);
     l3a.set_n_threads(4);
