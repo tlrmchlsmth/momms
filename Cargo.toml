@@ -1,5 +1,5 @@
 [package]
-name = "mommies"
+name = "momms"
 version = "0.1.0"
 authors = ["Tyler Smith <tms@cs.utexas.edu>"]
 build = "build.rs"
@@ -16,7 +16,7 @@ hwloc = "0.3.0"
 lto = true
 
 [lib]
-name = "mommies"
+name = "momms"
 path = "src/lib.rs"
 
 [[bin]]

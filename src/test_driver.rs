@@ -1,13 +1,13 @@
-extern crate mommies;
+extern crate momms;
 extern crate typenum;
 
 use std::time::{Instant};
 use typenum::{U1};
-use mommies::kern::hsw::{KernelNM, GemvAL1};
-pub use mommies::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
-pub use mommies::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, Nwayer};
-pub use mommies::thread_comm::ThreadInfo;
-pub use mommies::util;
+use momms::kern::hsw::{KernelNM, GemvAL1};
+pub use momms::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
+pub use momms::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, Nwayer};
+pub use momms::thread_comm::ThreadInfo;
+pub use momms::util;
 
 #[allow(dead_code)]
 fn compare_gotos() {

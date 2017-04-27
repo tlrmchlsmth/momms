@@ -1,16 +1,16 @@
-extern crate mommies;
+extern crate momms;
 extern crate typenum;
 
 use std::time::{Instant};
 use typenum::{U1};
 
-//use mommies::kern::hsw::{Ukernel, KernelMN, KernelNM, GemvAL1};
-//use mommies::kern::hsw;
-use mommies::kern::KernelNM;
-use mommies::matrix::{Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
-use mommies::composables::{GemmNode, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelN, TheRest};
-use mommies::thread_comm::ThreadInfo;
-use mommies::util;
+//use momms::kern::hsw::{Ukernel, KernelMN, KernelNM, GemvAL1};
+//use momms::kern::hsw;
+use momms::kern::KernelNM;
+use momms::matrix::{Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
+use momms::composables::{GemmNode, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelN, TheRest};
+use momms::thread_comm::ThreadInfo;
+use momms::util;
 
 
 

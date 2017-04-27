@@ -7,16 +7,16 @@
 
 extern crate core;
 extern crate typenum;
-extern crate mommies;
+extern crate momms;
 
 use std::time::{Instant};
 use typenum::{Unsigned,U1};
 
-use mommies::kern::hsw::KernelNM;
-use mommies::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
-use mommies::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, TheRest};
-use mommies::thread_comm::ThreadInfo;
-use mommies::util;
+use momms::kern::hsw::KernelNM;
+use momms::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
+use momms::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, TheRest};
+use momms::thread_comm::ThreadInfo;
+use momms::util;
 
 fn test_blas_dgemm ( m:usize, n: usize, k: usize, flusher: &mut Vec<f64>, n_reps: usize ) -> (f64, f64) 
 {

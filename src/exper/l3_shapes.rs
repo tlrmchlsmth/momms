@@ -7,16 +7,16 @@
 
 extern crate core;
 extern crate typenum;
-extern crate mommies;
+extern crate momms;
 
 use std::time::{Instant};
 use typenum::{U1, B0, UInt, Unsigned};
 
-use mommies::kern::hsw::{KernelNM,KernelMN};
-use mommies::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
-use mommies::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, TheRest};
-use mommies::thread_comm::ThreadInfo;
-use mommies::util;
+use momms::kern::hsw::{KernelNM,KernelMN};
+use momms::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
+use momms::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, TheRest};
+use momms::thread_comm::ThreadInfo;
+use momms::util;
 
 fn test_algorithm<T: Scalar, Mr: Unsigned, Nr: Unsigned, Kc:Unsigned, 
     S: GemmNode<T, Hierarch<T, Mr, Kc, U1, Mr>, Hierarch<T, Kc, Nr, Nr, U1>, Hierarch<T, Mr, Nr, Nr, U1>>>
