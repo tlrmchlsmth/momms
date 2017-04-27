@@ -4,7 +4,7 @@ extern crate typenum;
 use std::time::{Instant};
 use typenum::{U1};
 
-use momms::kern::{KernelNM,Ukernel};
+use momms::kern::{Ukernel};
 use momms::matrix::{Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
 use momms::composables::{GemmNode, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelN, TheRest};
 use momms::thread_comm::ThreadInfo;
