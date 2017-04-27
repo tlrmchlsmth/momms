@@ -129,7 +129,7 @@ fn test() {
         let size = index*64;
         let (m, n, k) = (size, size, size);
 
-        let n_reps = 10;
+        let n_reps = 6;
         let (goto_time, goto_err) = test_algorithm(m, n, k, &mut goto, &mut flusher, n_reps);
         let (l3a_time, l3a_err) = test_algorithm(m, n, k, &mut l3a, &mut flusher, n_reps);
         let (l3b_time, l3b_err) = test_algorithm(m, n, k, &mut l3b, &mut flusher, n_reps);
