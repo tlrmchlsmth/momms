@@ -74,8 +74,8 @@ fn test() {
           PartK<T, MTA, MTB, MTC, RootS3,
           PartN<T, MTA, MTB, MTC, NcL2,
           PartK<T, MTA, MTB, MTC, Kc,
-          ParallelN<T, MTA, MTB, MTC, Nr, TheRest,
-          KernelMN<T, MTA, MTB, MTC, Mr, Nr>>>>>>>;
+          ParallelM<T, MTA, MTB, MTC, Nr, TheRest, //This algorithm uses a 12x4 ukernel instead of 4x12 like the other two
+          KernelMN<T, MTA, MTB, MTC, Nr, Mr>>>>>>>;
 
     //Resident B algorithm
     type McL2 = typenum::U120;
@@ -85,7 +85,7 @@ fn test() {
           PartK<T, MTA, MTB, MTC, RootS3,
           PartM<T, MTA, MTB, MTC, McL2,
           PartK<T, MTA, MTB, MTC, Kc,
-          ParallelM<T, MTA, MTB, MTC, Mr, TheRest,
+          ParallelN<T, MTA, MTB, MTC, Nr, TheRest,
           KernelNM<T, MTA, MTB, MTC, Nr, Mr>>>>>>>;
 
     //Resident C algorithm
@@ -95,19 +95,22 @@ fn test() {
           PartM<T, MTA, MTB, MTC, typenum::U720, //Use 720 as blocksize as it is divisible by Mc=120
           PartK<T, MTA, MTB, MTC, Kc,
           PartM<T, MTA, MTB, MTC, McL2,
-          ParallelN<T, MTA, MTB, MTC, typenum::U4, TheRest,
-          KernelNM<T, MTA, MTB, MTC, typenum::U4, typenum::U12>>>>>>>;
+          ParallelN<T, MTA, MTB, MTC, Nr, TheRest,
+          KernelNM<T, MTA, MTB, MTC, Nr, Mr>>>>>>>;
 
     //We can use the same matrix type for all three algorithms
     type HierA<T> = Hierarch<T, Mr, Kc, U1, Mr>;
     type HierB<T> = Hierarch<T, Kc, Nr, Nr, U1>;
-    type HierCRM<T> = Hierarch<T, Mr, Nr, Nr, U1>;
-    type HierCCM<T> = Hierarch<T, Mr, Nr, U1, Mr>;
+    type HierC<T> = Hierarch<T, Mr, Nr, Nr, U1>;
 
-    let mut goto = <Goto<f64, HierA<f64>, HierB<f64>, HierCRM<f64>>>::new();
-    let mut l3a = <L3A<f64, HierA<f64>, HierB<f64>, HierCCM<f64>>>::new();
-    let mut l3b = <L3B<f64, HierA<f64>, HierB<f64>, HierCRM<f64>>>::new();
-    let mut l3c = <L3C<f64, HierA<f64>, HierB<f64>, HierCRM<f64>>>::new();
+    type HierAL3a<T> = Hierarch<T, Nr, Kc, U1, Nr>;
+    type HierBL3a<T> = Hierarch<T, Kc, Mr, Mr, U1>;
+    type HierCL3a<T> = Hierarch<T, Nr, Mr, U1, Nr>;
+
+    let mut goto = <Goto<f64, HierA<f64>, HierB<f64>, HierC<f64>>>::new();
+    let mut l3a = <L3A<f64, HierAL3a<f64>, HierBL3a<f64>, HierCL3a<f64>>>::new();
+    let mut l3b = <L3B<f64, HierA<f64>, HierB<f64>, HierC<f64>>>::new();
+    let mut l3c = <L3C<f64, HierA<f64>, HierB<f64>, HierC<f64>>>::new();
 
     goto.set_n_threads(4);
     l3a.set_n_threads(4);
@@ -120,27 +123,28 @@ fn test() {
         flusher.push(0.0);
     }
 
+    println!("m\tn\tk\tgoto\t\tl3a\t\tl3b\t\tl3c\t\tgoto\t\tl3a\t\tl3b\t\tl3c");
     //TODO: change this to take arguments specifying problem sizes??
     for index in 01..50 {
         let size = index*64;
         let (m, n, k) = (size, size, size);
 
-        let n_reps = 6;
+        let n_reps = 10;
         let (goto_time, goto_err) = test_algorithm(m, n, k, &mut goto, &mut flusher, n_reps);
         let (l3a_time, l3a_err) = test_algorithm(m, n, k, &mut l3a, &mut flusher, n_reps);
         let (l3b_time, l3b_err) = test_algorithm(m, n, k, &mut l3b, &mut flusher, n_reps);
         let (l3c_time, l3c_err) = test_algorithm(m, n, k, &mut l3c, &mut flusher, n_reps);
 
-        println!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t", 
+        println!("{}\t{}\t{}\t{} \t{} \t{} \t{} \t{} \t{} \t{} \t{}", 
                  m, n, k,
-                 util::gflops(m,n,k,goto_time), 
-                 util::gflops(m,n,k,l3a_time), 
-                 util::gflops(m,n,k,l3b_time), 
-                 util::gflops(m,n,k,l3c_time), 
-                 format!("{:e}", goto_err.sqrt()),
-                 format!("{:e}", l3a_err.sqrt()),
-                 format!("{:e}", l3b_err.sqrt()),
-                 format!("{:e}", l3c_err.sqrt()));
+                 format!("{:5.5}", util::gflops(m,n,k,goto_time)), 
+                 format!("{:5.5}", util::gflops(m,n,k,l3a_time)), 
+                 format!("{:5.5}", util::gflops(m,n,k,l3b_time)), 
+                 format!("{:5.5}", util::gflops(m,n,k,l3c_time)), 
+                 format!("{:5.5e}", goto_err.sqrt()),
+                 format!("{:5.5e}", l3a_err.sqrt()),
+                 format!("{:5.5e}", l3b_err.sqrt()),
+                 format!("{:5.5e}", l3c_err.sqrt()));
     }
 
     let mut sum = 0.0;
