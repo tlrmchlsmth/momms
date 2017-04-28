@@ -14,7 +14,7 @@ use typenum::{Unsigned,U1};
 
 use momms::kern::KernelNM;
 use momms::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
-use momms::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, TheRest};
+use momms::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, UnpackC, SpawnThreads, ParallelM, ParallelN, TheRest};
 use momms::thread_comm::ThreadInfo;
 use momms::util;
 
@@ -101,7 +101,7 @@ fn test() {
     type KcL2 = typenum::U192;
     type L3bA<T> = Hierarch<T, MR, KcL2, U1, MR>;
     type L3bB<T> = Hierarch<T, KcL2, NR, NR, U1>;
-//    type L3bC<T> = Hierarch<T, MR, NR, NR, U1>;
+    type L3bC<T> = Hierarch<T, MR, NR, NR, U1>;
 
     type L3B<T,MTA,MTB,MTC> 
         = SpawnThreads<T, MTA, MTB, MTC,
@@ -109,11 +109,11 @@ fn test() {
           PartK<T, MTA, MTB, MTC, KcL3,
           PackB<T, MTA, MTB, MTC, L3bB<T>,
           PartM<T, MTA, L3bB<T>, MTC, McL2,
-//          PackC<T, MTA, MTB, MTC, L3bB<T>, //not sure if this goes here or the beginning or never...
-          PartK<T, MTA, L3bB<T>, MTC, KcL2,
-          PackA<T, MTA, L3bB<T>, MTC, L3bA<T>,
-          ParallelN<T, L3bA<T>, L3bB<T>, MTC, NR, TheRest,
-          KernelNM<T, L3bA<T>, L3bB<T>, MTC, NR, MR>>>>>>>>>;
+          UnpackC<T, MTA, L3bB<T>, MTC, L3bC<T>, //not sure if this goes here or the beginning or never...
+          PartK<T, MTA, L3bB<T>, L3bC<T>, KcL2,
+          PackA<T, MTA, L3bB<T>, L3bC<T>, L3bA<T>,
+          ParallelN<T, L3bA<T>, L3bB<T>, L3bC<T>, NR, TheRest,
+          KernelNM<T, L3bA<T>, L3bB<T>, L3bC<T>, NR, MR>>>>>>>>>>;
 
     let mut goto = <Goto<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>>>::new();
     let mut l3b = <L3B<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>>>::new();
