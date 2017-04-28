@@ -97,7 +97,9 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Bsz: Unsigned, S: GemmNode<T
     unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
         let k_save = a.push_x_view(Bsz::to_usize());
         b.push_y_view(Bsz::to_usize());
-        
+
+        let beta_save = c.get_scalar();
+
         let mut i = 0;
         while i < k_save  {
             a.slide_x_view_to(i, Bsz::to_usize());
@@ -105,10 +107,11 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Bsz: Unsigned, S: GemmNode<T
 
             self.child.run(a, b, c, thr);
             i += Bsz::to_usize();
+            c.set_scalar(T::one());
         }
-
         a.pop_x_view();
         b.pop_y_view();
+        c.set_scalar(beta_save);
     }
     fn new( ) -> PartK<T, At, Bt, Ct, Bsz, S>{
         PartK{ child: S::new(), _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _bszt: PhantomData }

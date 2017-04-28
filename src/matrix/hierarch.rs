@@ -36,7 +36,7 @@ pub struct HierarchyNode {
 
 //LRS is leaf row stride, LCS is leaf column stride
 pub struct Hierarch<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned>{ 
-    //We pop from the hierarchy nodes, and push into the view nodes (with some details added)
+    alpha: T,
 
     //These are the view stacks just like the other Matrices
     y_views: Vec<MatrixView>,
@@ -67,19 +67,19 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
     pub fn get_x_hierarchy(&self) -> &[HierarchyNode] {
         &self.x_hierarchy[self.xh_index..self.x_hierarchy.len()]
     }
-    fn get_top_level_dim_size( hierarchy: &[AlgorithmStep], dimension_matcher: AlgorithmStep ) -> Option<usize> {
+    fn get_top_level_dim_size(hierarchy: &[AlgorithmStep], dimension_matcher: AlgorithmStep) -> Option<usize> {
         use composables::AlgorithmStep::*;
         if hierarchy.len() == 0 { None } else {
             match (dimension_matcher, hierarchy[hierarchy.len()-1]) {
                 (M{bsz: _}, M{bsz}) => {Some(bsz)},
                 (N{bsz: _}, N{bsz}) => {Some(bsz)},
                 (K{bsz: _}, K{bsz}) => {Some(bsz)},
-                _ => Self::get_top_level_dim_size( &hierarchy[0..hierarchy.len()-1], dimension_matcher ),
+                _ => Self::get_top_level_dim_size(&hierarchy[0..hierarchy.len()-1], dimension_matcher),
             } 
         }
     }
-    fn parse_input_hierarchy( h: usize, w: usize,
-                              hier: &[AlgorithmStep], y_step: AlgorithmStep, x_step: AlgorithmStep ) 
+    fn parse_input_hierarchy(h: usize, w: usize,
+                              hier: &[AlgorithmStep], y_step: AlgorithmStep, x_step: AlgorithmStep) 
         -> (Vec<HierarchyNode>, Vec<HierarchyNode>) {
 
         let mut y_hierarchy = Vec::with_capacity(16);
@@ -121,8 +121,8 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         (y_hierarchy, x_hierarchy)
 
     }
-    pub fn new( h: usize, w: usize, 
-                hier: &[AlgorithmStep], y_step: AlgorithmStep, x_step: AlgorithmStep ) 
+    pub fn new(h: usize, w: usize, 
+                hier: &[AlgorithmStep], y_step: AlgorithmStep, x_step: AlgorithmStep) 
         -> Hierarch<T,LH,LW,LRS,LCS> {
         assert!(mem::size_of::<T>() != 0, "Matrix can't handle ZSTs");
 
@@ -147,7 +147,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         let h_padded = n_blocks_y * y_tlds;
         let w_padded = n_blocks_x * x_tlds;
 
-        let (y_hierarchy, x_hierarchy) = Self::parse_input_hierarchy( h_padded, w_padded, &hier, y_step, x_step );
+        let (y_hierarchy, x_hierarchy) = Self::parse_input_hierarchy(h_padded, w_padded, &hier, y_step, x_step);
         let yh_index = 0;
         let xh_index = 0;
 
@@ -155,7 +155,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         let (ptr, capacity) = 
             if h == 0 || w == 0 {
                 unsafe { 
-                    (heap::allocate( 0 * mem::size_of::<T>(), 4096 ), 0)
+                    (heap::allocate(0 * mem::size_of::<T>(), 4096), 0)
                 }
             } else {
                 //Figure out the number of top-level blocks in each direction
@@ -163,13 +163,14 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
 
                 //Allocate Buffer
                 unsafe { 
-                    (heap::allocate( capacity * mem::size_of::<T>(), 4096 ), capacity)
+                    (heap::allocate(capacity * mem::size_of::<T>(), 4096), capacity)
                 }
             };
 
       
         //Return
-        Hierarch{ y_views: y_views, x_views: x_views,
+        Hierarch{ alpha: T::one(),
+                  y_views: y_views, x_views: x_views,
                   y_hierarchy: y_hierarchy, x_hierarchy: x_hierarchy,
                   yh_index: yh_index, xh_index: xh_index,  
                   buffer: ptr as *mut _, capacity: capacity,
@@ -179,14 +180,14 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
     }
 /*
     #[inline(always)]
-    pub unsafe fn get_buffer( &self ) -> *const T { 
+    pub unsafe fn get_buffer(&self) -> *const T { 
         let y_off = self.y_views.last().unwrap().offset;
         let x_off = self.x_views.last().unwrap().offset;
         self.buffer.offset((y_off + x_off) as isize) 
     }   
 
     #[inline(always)]
-    pub unsafe fn get_mut_buffer( &mut self ) -> *mut T { 
+    pub unsafe fn get_mut_buffer(&mut self) -> *mut T { 
         let y_off = self.y_views.last().unwrap().offset;
         let x_off = self.x_views.last().unwrap().offset;
         self.buffer.offset((y_off + x_off) as isize) 
@@ -252,23 +253,23 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
 
     //Used to save and restore offsets
     #[inline(always)]
-    fn off_y( &self ) -> usize { 
+    fn off_y(&self) -> usize { 
         self.y_views.last().unwrap().offset
     }
     #[inline(always)]
-    fn off_x( &self ) -> usize { 
+    fn off_x(&self) -> usize { 
         self.x_views.last().unwrap().offset
     }
 
     #[inline(always)]
-    fn set_off_y( &mut self, off_y: usize ) {
+    fn set_off_y(&mut self, off_y: usize) {
         debug_assert!(off_y % self.y_hierarchy[self.yh_index].blksz == 0);
         
         let mut y_view = self.y_views.last_mut().unwrap();
         y_view.offset = off_y;
     }
     #[inline(always)]
-    fn set_off_x( &mut self, off_x: usize ) {
+    fn set_off_x(&mut self, off_x: usize) {
         debug_assert!(off_x % self.x_hierarchy[self.xh_index].blksz == 0);
 
         let mut x_view = self.x_views.last_mut().unwrap();
@@ -276,7 +277,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
     }
 
     #[inline(always)]
-    fn add_off_y( &mut self, start: usize ) {
+    fn add_off_y(&mut self, start: usize) {
         debug_assert!(start % self.y_hierarchy[self.yh_index].blksz == 0);
 
         let n_blocks = start / self.y_hierarchy[self.yh_index].blksz;
@@ -284,7 +285,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         y_view.offset += n_blocks * self.y_hierarchy[self.yh_index].stride;
     }
     #[inline(always)]
-    fn add_off_x( &mut self, start: usize ) {
+    fn add_off_x(&mut self, start: usize) {
         debug_assert!(start % self.x_hierarchy[self.xh_index].blksz == 0);
 
         let n_blocks = start / self.x_hierarchy[self.xh_index].blksz;
@@ -293,49 +294,57 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
     }
 
     #[inline(always)]
-    fn iter_height( &self ) -> usize {
+    fn iter_height(&self) -> usize {
         let y_view = self.y_views.last().unwrap();
         y_view.iter_size
     }
     #[inline(always)]
-    fn iter_width( &self ) -> usize {
+    fn iter_width(&self) -> usize {
         let x_view = self.x_views.last().unwrap();
         x_view.iter_size
     }
     #[inline(always)]
-    fn set_iter_height( &mut self, iter_h: usize ) {
+    fn set_iter_height(&mut self, iter_h: usize) {
         let mut y_view = self.y_views.last_mut().unwrap();
         y_view.iter_size = iter_h;
     }
     #[inline(always)]
-    fn set_iter_width( &mut self, iter_w: usize ) {
+    fn set_iter_width(&mut self, iter_w: usize) {
         let mut x_view = self.x_views.last_mut().unwrap();
         x_view.iter_size = iter_w;
     }
 
     #[inline(always)]
-    fn logical_h_padding( &self ) -> usize {
+    fn logical_h_padding(&self) -> usize {
         let y_view = self.y_views.last().unwrap();
         y_view.padding
     }
     #[inline(always)]
-    fn logical_w_padding( &self ) -> usize {
+    fn logical_w_padding(&self) -> usize {
         let x_view = self.x_views.last().unwrap();
         x_view.padding
     }
     #[inline(always)]
-    fn set_logical_h_padding( &mut self, h_pad: usize ) {
+    fn set_logical_h_padding(&mut self, h_pad: usize) {
         let mut y_view = self.y_views.last_mut().unwrap();
         y_view.padding = h_pad
     }
 
     #[inline(always)]
-    fn set_logical_w_padding( &mut self, w_pad: usize ) {
+    fn set_logical_w_padding(&mut self, w_pad: usize) {
         let mut x_view = self.x_views.last_mut().unwrap();
         x_view.padding = w_pad
     }
+    #[inline(always)]
+    fn set_scalar(&mut self, alpha: T) {
+        self.alpha = alpha;
+    }
+    #[inline(always)]
+    fn get_scalar(&self) -> T {
+        self.alpha
+    }
 
-    fn push_y_view( &mut self, blksz: usize ) -> usize{
+    fn push_y_view(&mut self, blksz: usize) -> usize{
         let iota = self.y_hierarchy[self.yh_index].blksz;
         debug_assert!(iota == blksz, "iota {}, blksz {} {} ", iota, blksz, self.yh_index);
 
@@ -349,7 +358,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         uz_iter_size
     }
     
-    fn push_x_view( &mut self, blksz: usize ) -> usize {
+    fn push_x_view(&mut self, blksz: usize) -> usize {
         let iota = self.x_hierarchy[self.xh_index].blksz;
         debug_assert!(iota == blksz);
 
@@ -364,23 +373,23 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
     }
 
     #[inline(always)]
-    fn pop_y_view( &mut self ) {
-        debug_assert!( self.y_views.len() >= 2 );
+    fn pop_y_view(&mut self) {
+        debug_assert!(self.y_views.len() >= 2);
         self.y_views.pop();
         self.yh_index -= 1;
     }
     #[inline(always)]
-    fn pop_x_view( &mut self ) {
-        debug_assert!( self.x_views.len() >= 2 );
+    fn pop_x_view(&mut self) {
+        debug_assert!(self.x_views.len() >= 2);
         self.x_views.pop();
         self.xh_index -= 1;
     }
     
-    fn slide_y_view_to( &mut self, y: usize, blksz: usize ) {
+    fn slide_y_view_to(&mut self, y: usize, blksz: usize) {
         let view_len = self.y_views.len();
-        debug_assert!( view_len >= 2 );
+        debug_assert!(view_len >= 2);
         let iota = self.y_hierarchy[self.yh_index-1].blksz;
-        debug_assert!( y % iota == 0 );
+        debug_assert!(y % iota == 0);
 
         let uz_view = self.y_views[view_len-2];
         let(z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(y, blksz);
@@ -391,11 +400,11 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         z_view.offset = uz_view.offset + (y / iota) * self.y_hierarchy[self.yh_index-1].stride;
     }
 
-    fn slide_x_view_to( &mut self, x: usize, blksz: usize ) {
+    fn slide_x_view_to(&mut self, x: usize, blksz: usize) {
         let view_len = self.x_views.len();
-        debug_assert!( view_len >= 2 );
+        debug_assert!(view_len >= 2);
         let iota = self.x_hierarchy[self.xh_index-1].blksz;
-        debug_assert!( x % iota == 0 );
+        debug_assert!(x % iota == 0);
 
         let uz_view = self.x_views[view_len-2];
         let(z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(x, blksz);
@@ -407,13 +416,13 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
     }
 
     #[inline(always)]
-    unsafe fn make_alias( &self ) -> Self {
+    unsafe fn make_alias(&self) -> Self {
         //Setup alias's view
         let x_view = self.x_views.last().unwrap();
         let y_view = self.y_views.last().unwrap();
 
-        let mut x_views_alias : Vec<MatrixView> = Vec::with_capacity( 16 );
-        let mut y_views_alias : Vec<MatrixView> = Vec::with_capacity( 16 );
+        let mut x_views_alias : Vec<MatrixView> = Vec::with_capacity(16);
+        let mut y_views_alias : Vec<MatrixView> = Vec::with_capacity(16);
         x_views_alias.push(MatrixView{ offset: x_view.offset, padding: x_view.offset, iter_size: x_view.iter_size });
         y_views_alias.push(MatrixView{ offset: y_view.offset, padding: y_view.offset, iter_size: y_view.iter_size });
 
@@ -421,7 +430,8 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         let x_hierarchy = self.x_hierarchy.clone();
         let y_hierarchy = self.y_hierarchy.clone();
 
-        Hierarch{ y_views: y_views_alias, x_views: x_views_alias,
+        Hierarch{ alpha: T::one(),
+                  y_views: y_views_alias, x_views: x_views_alias,
                   y_hierarchy: y_hierarchy, x_hierarchy: x_hierarchy,
                   yh_index: self.yh_index, xh_index: self.xh_index,  
                   buffer: self.buffer,
@@ -432,8 +442,8 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
     }
 
     #[inline(always)]
-    unsafe fn send_alias( &mut self, thr: &ThreadInfo<T> ) {
-        let buf = thr.broadcast( self.buffer );
+    unsafe fn send_alias(&mut self, thr: &ThreadInfo<T>) {
+        let buf = thr.broadcast(self.buffer);
         self.is_alias = true;
         self.buffer = buf;
     }
@@ -452,7 +462,7 @@ unsafe impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned>
 impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> ResizableBuffer<T>
      for Hierarch<T, LH, LW, LRS, LCS> {
     #[inline(always)]
-    fn empty( y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep> ) -> Self {
+    fn empty(y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep>) -> Self {
         Hierarch::new(0,0, hier, y_hier_label, x_hier_label)
     }
     #[inline(always)]
@@ -460,7 +470,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
     #[inline(always)]
     fn set_capacity(&mut self, capacity: usize) { self.capacity = capacity; }
     #[inline(always)]
-    fn capacity_for(other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep> ) -> usize {
+    fn capacity_for(other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep>) -> usize {
         if other.height() <= 0 || other.width() <= 0 {
             0
         } else {
@@ -487,7 +497,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
         if req_padded_capacity > self.capacity {
             unsafe {
                 heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
-                self.buffer = heap::allocate( req_padded_capacity * mem::size_of::<T>(), 4096 ) as *mut _;
+                self.buffer = heap::allocate(req_padded_capacity * mem::size_of::<T>(), 4096) as *mut _;
                 self.capacity = req_padded_capacity;
             }
         }
@@ -495,8 +505,8 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
 
     //(But maybe only need to change y_hierarchy[self.yh_index] and x_hierarchy[self.xh_index])
     #[inline(always)]
-    fn resize_to( &mut self, other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep> ) {
-		debug_assert!( self.y_views.len() == 1, "Can't resize a submatrix!");
+    fn resize_to(&mut self, other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep>) {
+		debug_assert!(self.y_views.len() == 1, "Can't resize a submatrix!");
 
         let mut y_view = self.y_views.last_mut().unwrap();
         let mut x_view = self.x_views.last_mut().unwrap();
@@ -516,7 +526,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
         let w_padded = n_blocks_x * x_tlds;
 		
 		//Need to rebuild the hierarchy to adjust the strides, since the dimensions changed. 
-        let (y_hierarchy, x_hierarchy) = Self::parse_input_hierarchy( h_padded, w_padded, &hier, y_hier_label, x_hier_label );
+        let (y_hierarchy, x_hierarchy) = Self::parse_input_hierarchy(h_padded, w_padded, &hier, y_hier_label, x_hier_label);
 		self.y_hierarchy = y_hierarchy;
 		self.x_hierarchy = x_hierarchy;
         self.yh_index = 0;
@@ -549,7 +559,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> RoCM<T
     }
 
     #[inline(always)]
-    unsafe fn get_mut_buffer( &mut self ) -> *mut T {
+    unsafe fn get_mut_buffer(&mut self) -> *mut T {
         let y_off = self.y_views.last().unwrap().offset;
         let x_off = self.x_views.last().unwrap().offset;
         self.buffer.offset((y_off + x_off) as isize) 
@@ -571,7 +581,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> RoCM<T
             LCS::to_usize()
         } else {
             let index = self.x_hierarchy.len() - lvl - 1;
-            debug_assert!( self.x_hierarchy[index].blksz == blksz);
+            debug_assert!(self.x_hierarchy[index].blksz == blksz);
             self.x_hierarchy[index].stride
         }
     }

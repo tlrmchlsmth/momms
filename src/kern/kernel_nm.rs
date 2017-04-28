@@ -32,8 +32,8 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
         let n = c.width() as isize;
         let k = a.width() as isize;
 
-        let mut alpha = T::one();
-        let mut beta = T::one();
+        let mut alpha = a.get_scalar() * b.get_scalar();
+        let mut beta = c.get_scalar();
 
         let c_leaf_rs = c.get_leaf_rs() as isize;
         let c_leaf_cs = c.get_leaf_cs() as isize;

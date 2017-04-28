@@ -8,9 +8,9 @@ use composables::AlgorithmStep;
 //Trait Definitions
 pub trait ScalarConstants {
     #[inline(always)]
-    fn one( ) -> Self;
+    fn one() -> Self;
     #[inline(always)]
-    fn zero( ) -> Self;
+    fn zero() -> Self;
 }
 pub trait Scalar where
     Self: Add<Self, Output=Self>,
@@ -35,39 +35,39 @@ pub trait Scalar where
 
 impl ScalarConstants for f64 {
     #[inline(always)]
-    fn one( ) -> Self { 1.0 as f64 }
+    fn one() -> Self { 1.0 as f64 }
     #[inline(always)]
-    fn zero( ) -> Self { 0.0 as f64 }
+    fn zero() -> Self { 0.0 as f64 }
 }
 impl Scalar for f64 {
     #[inline(always)]
-    fn max( self, other: f64) -> f64 { self.max(other) }
+    fn max(self, other: f64) -> f64 { self.max(other) }
     #[inline(always)]
-    fn min( self, other: f64) -> f64 { self.min(other) }
+    fn min(self, other: f64) -> f64 { self.min(other) }
 }
 
 impl ScalarConstants for f32 {
     #[inline(always)]
-    fn one( ) -> Self { 1.0 as f32 }
+    fn one() -> Self { 1.0 as f32 }
     #[inline(always)]
-    fn zero( ) -> Self { 0.0 as f32 }
+    fn zero() -> Self { 0.0 as f32 }
 }
 impl Scalar for f32 {
     #[inline(always)]
-    fn max( self, other: f32) -> f32 { self.max(other) }
-    fn min( self, other: f32) -> f32 { self.min(other) }
+    fn max(self, other: f32) -> f32 { self.max(other) }
+    fn min(self, other: f32) -> f32 { self.min(other) }
 }
 
 /* Mat trait and its implementors */
 pub trait Mat<T: Scalar> where Self: Send {
     #[inline(always)]
-    fn get( &self, y: usize, x: usize) -> T;
+    fn get(&self, y: usize, x: usize) -> T;
     #[inline(always)]
-    fn set( &mut self, y: usize, x: usize, alpha: T) 
+    fn set(&mut self, y: usize, x: usize, alpha: T) 
             where T: Sized;
 
     #[inline(always)]
-    fn height( &self ) -> usize {
+    fn height(&self) -> usize {
         if self.iter_height() < self.logical_h_padding() {
             0
         } else {
@@ -75,7 +75,7 @@ pub trait Mat<T: Scalar> where Self: Send {
         }
     }
     #[inline(always)]
-    fn width( &self ) -> usize {
+    fn width(&self) -> usize {
         if self.iter_width() < self.logical_w_padding() {
             0
         } else {
@@ -84,52 +84,59 @@ pub trait Mat<T: Scalar> where Self: Send {
     }
 
     #[inline(always)]
-    fn off_y( &self ) -> usize;
+    fn off_y(&self) -> usize;
     #[inline(always)]
-    fn off_x( &self ) -> usize;
+    fn off_x(&self) -> usize;
 
     #[inline(always)]
-    fn iter_height( &self ) -> usize;
+    fn iter_height(&self) -> usize;
     #[inline(always)]
-    fn iter_width( &self ) -> usize;
+    fn iter_width(&self) -> usize;
 
     #[inline(always)]
-    fn set_iter_height( &mut self, h: usize );
+    fn set_iter_height(&mut self, h: usize);
     #[inline(always)]
-    fn set_iter_width( &mut self, w: usize );
+    fn set_iter_width(&mut self, w: usize);
 
     #[inline(always)]
-    fn set_off_y( &mut self, off_y: usize );
+    fn set_off_y(&mut self, off_y: usize);
     #[inline(always)]
-    fn set_off_x( &mut self, off_x: usize );
+    fn set_off_x(&mut self, off_x: usize);
 
     #[inline(always)]
-    fn add_off_y( &mut self, start: usize );
+    fn add_off_y(&mut self, start: usize);
     #[inline(always)]
-    fn add_off_x( &mut self, start: usize );
+    fn add_off_x(&mut self, start: usize);
 
     #[inline(always)]
-    fn set_logical_h_padding( &mut self, iter_h: usize );
+    fn set_logical_h_padding(&mut self, iter_h: usize);
     #[inline(always)]
-    fn logical_h_padding( &self ) -> usize;
+    fn logical_h_padding(&self) -> usize;
     #[inline(always)]
-    fn set_logical_w_padding( &mut self, iter_h: usize );
+    fn set_logical_w_padding(&mut self, iter_h: usize);
     #[inline(always)]
-    fn logical_w_padding( &self ) -> usize;
+    fn logical_w_padding(&self) -> usize;
     
     #[inline(always)]
-    unsafe fn make_alias( &self ) -> Self where Self: Sized;
+    unsafe fn make_alias(&self) -> Self where Self: Sized;
     #[inline(always)]
-    unsafe fn send_alias( &mut self, thr: &ThreadInfo<T> ); 
+    unsafe fn send_alias(&mut self, thr: &ThreadInfo<T>); 
 
-    fn push_x_view( &mut self, blksz: usize ) -> usize;
-    fn push_y_view( &mut self, blksz: usize ) -> usize;
-    fn pop_x_view( &mut self );
-    fn pop_y_view( &mut self );
-    fn slide_x_view_to( &mut self, x: usize, blksz: usize );
-    fn slide_y_view_to( &mut self, y: usize, blksz: usize );
+    #[inline(always)]
+    fn set_scalar(&mut self, alpha: T);
+    #[inline(always)]
+    fn get_scalar(&self) -> T;
 
-    fn print_wolfram( &self ) {
+    //Functions for partitioning matrices.
+    fn push_x_view(&mut self, blksz: usize) -> usize;
+    fn push_y_view(&mut self, blksz: usize) -> usize;
+    fn pop_x_view(&mut self);
+    fn pop_y_view(&mut self);
+    fn slide_x_view_to(&mut self, x: usize, blksz: usize);
+    fn slide_y_view_to(&mut self, y: usize, blksz: usize);
+
+    //Print the matrix so it can be pasted into wolframalpha
+    fn print_wolfram(&self) {
         print!("{{");
         for y in 0..self.height() {
             print!("{{");
@@ -148,7 +155,8 @@ pub trait Mat<T: Scalar> where Self: Send {
         print!("}}");
     }
 
-    fn print_matlab( &self ) {
+    //Print the matrix so it can be pasted into matlab 
+    fn print_matlab(&self) {
         print!("[");
         for y in 0..self.height() {
             for x in 0..self.width() {
@@ -160,7 +168,7 @@ pub trait Mat<T: Scalar> where Self: Send {
         print!("]");
     }
 
-    fn print( &self ) {
+    fn print(&self) {
         for y in 0..self.height() {
             for x in 0..self.width() {
                 let formatted_number = format!("{:.*}", 3, self.get(y,x));
@@ -170,7 +178,7 @@ pub trait Mat<T: Scalar> where Self: Send {
         }
     }
 
-    fn fill_rand( &mut self ) {
+    fn fill_rand(&mut self) {
         for x in 0..self.width() {
             for y in 0..self.height() {
                 self.set(y,x,rand::random::<T>());
@@ -178,7 +186,7 @@ pub trait Mat<T: Scalar> where Self: Send {
         }
     }
 
-    fn fill_zero( &mut self ) {
+    fn fill_zero(&mut self) {
         for x in 0..self.width() {
             for y in 0..self.height() {
                 self.set(y,x,T::zero());
@@ -186,7 +194,7 @@ pub trait Mat<T: Scalar> where Self: Send {
         }
     }
 
-    fn frosqr( &self ) -> T {
+    fn frosqr(&self) -> T {
         let mut norm:T = T::zero();
         for x in 0..self.width() {
             for y in 0..self.height() {
@@ -196,16 +204,16 @@ pub trait Mat<T: Scalar> where Self: Send {
         norm
     }
     
-    fn copy_from( &mut self, other: &Mat<T>  ) {
-        self.axpby( T::one(), other, T::zero() );
+    fn copy_from(&mut self, other: &Mat<T> ) {
+        self.axpby(T::one(), other, T::zero());
     }
 
-    fn axpy( &mut self, alpha: T, other: &Mat<T> ) {
-        self.axpby( alpha, other, T::one() );
+    fn axpy(&mut self, alpha: T, other: &Mat<T>) {
+        self.axpby(alpha, other, T::one());
     }
 
-    fn axpby_base( &mut self, alpha: T, other: &Mat<T>, beta: T, 
-                  off_y: usize, off_x: usize, h: usize, w: usize ) {
+    fn axpby_base(&mut self, alpha: T, other: &Mat<T>, beta: T, 
+                  off_y: usize, off_x: usize, h: usize, w: usize) {
         for x in off_x..off_x+w {
             for y in off_y..off_y+h { 
                 let t = alpha * other.get(y,x) + beta * self.get(y,x);
@@ -215,20 +223,20 @@ pub trait Mat<T: Scalar> where Self: Send {
     }
 
     //Split into quarters recursivly for cache oblivious axpby
-    fn axpby_rec( &mut self, alpha: T, other: &Mat<T>, beta: T, 
-                  off_y: usize, off_x: usize, h: usize, w: usize ) {
-        if h < 32 || w < 32 { self.axpby_base( alpha, other, beta, off_y, off_x, h, w); }
+    fn axpby_rec(&mut self, alpha: T, other: &Mat<T>, beta: T, 
+                  off_y: usize, off_x: usize, h: usize, w: usize) {
+        if h < 32 || w < 32 { self.axpby_base(alpha, other, beta, off_y, off_x, h, w); }
         else{
             let half_h = h / 2;
             let half_w = w / 2;
-            self.axpby_rec(alpha, other, beta, off_y, off_x, half_h, half_w );
-            self.axpby_rec(alpha, other, beta, off_y + half_h, off_x, h - half_h, half_w );
-            self.axpby_rec(alpha, other, beta, off_y, off_x + half_w, half_h, w - half_w );
-            self.axpby_rec(alpha, other, beta, off_y + half_h, off_x + half_w, h - half_h, w - half_w );
+            self.axpby_rec(alpha, other, beta, off_y, off_x, half_h, half_w);
+            self.axpby_rec(alpha, other, beta, off_y + half_h, off_x, h - half_h, half_w);
+            self.axpby_rec(alpha, other, beta, off_y, off_x + half_w, half_h, w - half_w);
+            self.axpby_rec(alpha, other, beta, off_y + half_h, off_x + half_w, h - half_h, w - half_w);
         }
     }
     
-    fn axpby( &mut self, alpha: T, other: &Mat<T>, beta: T ) {
+    fn axpby(&mut self, alpha: T, other: &Mat<T>, beta: T) {
         if self.width() != other.width() || self.height() != other.height() {
             panic!("Cannot operate on nonconformal matrices!");
         }
@@ -237,7 +245,7 @@ pub trait Mat<T: Scalar> where Self: Send {
         self.axpby_rec(alpha, other, beta, 0, 0, h, w); 
     }
 
-    fn axpby_small( &mut self, alpha: T, other: &Mat<T>, beta: T ) {
+    fn axpby_small(&mut self, alpha: T, other: &Mat<T>, beta: T) {
         if self.width() != other.width() || self.height() != other.height() {
             panic!("Cannot operate on nonconformal matrices!");
         }
@@ -255,8 +263,8 @@ pub trait ResizableBuffer<T: Scalar> {
     fn capacity(&self) -> usize;
     fn set_capacity(&mut self, capacity: usize); 
     fn capacity_for(other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep>) -> usize;
-    fn aquire_buffer_for(&mut self, capacity: usize );
-    fn resize_to( &mut self, other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep> ); 
+    fn aquire_buffer_for(&mut self, capacity: usize);
+    fn resize_to(&mut self, other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep>); 
 }
 
 //Trait indicating that the matrix can be partitioned down into row or column major form.
