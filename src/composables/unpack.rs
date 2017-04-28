@@ -248,7 +248,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, CPt: Mat<T>, S: GemmNode<T, 
         //Logically resize the c_pack matrix
         self.c_pack.resize_to(c, y_marker, x_marker, &algo_desc);
         //thr.barrier();
-        c_pack.set_scalar(T::zero());
+        self.c_pack.set_scalar(T::zero());
         self.child.run(a, b, &mut self.c_pack, thr);
         thr.barrier();
         <Unpacker<T,Ct,CPt>>::add(c, &mut self.c_pack, thr);
