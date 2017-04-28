@@ -6,17 +6,17 @@ use typenum::Unsigned;
 
 //Some helper types so we can specify how the parallelizers decide how many threads to use
 pub trait Nwayer{
-    fn get_n_way( usize ) -> usize;
+    fn get_n_way(usize) -> usize;
 }
 pub struct Target<Nthr: Unsigned> { _nthr: PhantomData<Nthr> }
 impl<Nthr: Unsigned> Nwayer for Target<Nthr> {
-    fn get_n_way( n_threads: usize ) -> usize {
+    fn get_n_way(n_threads: usize) -> usize {
         if n_threads % Nthr::to_usize() == 0 { Nthr::to_usize() } else { 1 }
     }
 }
 pub struct TheRest { }
 impl Nwayer for TheRest {
-    fn get_n_way( n_threads: usize ) -> usize {
+    fn get_n_way(n_threads: usize) -> usize {
         n_threads
     }
 }
@@ -48,7 +48,7 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>,
     #[inline(always)]
     fn make_subinfo(&mut self, info: &ThreadInfo<T>) -> ParallelInfo<T>{
         //First figure out how many ways to split into
-        let n_way = Nthr::get_n_way( info.num_threads() );
+        let n_way = Nthr::get_n_way(info.num_threads());
         let subcomm_n_threads = info.num_threads() / n_way;
 
         //Figure out new thread IDs
@@ -64,8 +64,8 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>,
         //Split the thread communicator and create new thread infos
         let parallel_info = match self.par_inf {
             Some(ref x) => { x },
-            None => { let new_par_inf = self.make_subinfo( thr );
-                      self.par_inf = Option::Some( new_par_inf );
+            None => { let new_par_inf = self.make_subinfo(thr);
+                      self.par_inf = Option::Some(new_par_inf);
                       self.par_inf.as_ref().unwrap()
             }, 
         };
@@ -107,7 +107,7 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>,
             _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData,
             _iotat: PhantomData, _nthr: PhantomData }
     }
-    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+    fn hierarchy_description() -> Vec<AlgorithmStep> {
         S::hierarchy_description()
     } 
 }
@@ -132,7 +132,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Iota: Unsigned, Nthr: Nwayer
     #[inline(always)]
     fn make_subinfo(&mut self, info: &ThreadInfo<T>) -> ParallelInfo<T>{
         //First figure out how many ways to split into
-        let n_way = Nthr::get_n_way( info.num_threads() );
+        let n_way = Nthr::get_n_way(info.num_threads());
         let subcomm_n_threads = info.num_threads() / n_way;
 
         //Figure out new thread IDs
@@ -148,8 +148,8 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>,
         //Split the thread communicator and create new thread infos
         let parallel_info = match self.par_inf {
             Some(ref x) => { x },
-            None => { let new_par_inf = self.make_subinfo( thr );
-                      self.par_inf = Option::Some( new_par_inf );
+            None => { let new_par_inf = self.make_subinfo(thr);
+                      self.par_inf = Option::Some(new_par_inf);
                       self.par_inf.as_ref().unwrap()
             }, 
         };
@@ -191,7 +191,7 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>,
             _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData,
             _iotat: PhantomData, _nthr: PhantomData }
     }
-    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+    fn hierarchy_description() -> Vec<AlgorithmStep> {
         S::hierarchy_description()
     }
 }

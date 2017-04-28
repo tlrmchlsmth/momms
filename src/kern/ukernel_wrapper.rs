@@ -4,7 +4,7 @@ use typenum::{Unsigned};
 
 
 pub trait GenericUkernelWrapper<Mr: Unsigned, Nr: Unsigned, T: Scalar> {
-    unsafe fn run(  k: isize, alpha: *mut T, a: *mut T, b: *mut T, beta: *mut T, c: *mut T, rs_c: isize, cs_c: isize ) -> (); 
+    unsafe fn run( k: isize, alpha: *mut T, a: *mut T, b: *mut T, beta: *mut T, c: *mut T, rs_c: isize, cs_c: isize) -> (); 
 }
 
 pub struct UkernelWrapper<Mr: Unsigned, Nr: Unsigned, T: Scalar> {
@@ -16,7 +16,7 @@ impl<Mr: Unsigned, Nr: Unsigned, T: Scalar> UkernelWrapper<Mr, Nr, T> {
 }
 impl<Mr: Unsigned, Nr: Unsigned, T: Scalar> GenericUkernelWrapper<Mr, Nr, T> for UkernelWrapper<Mr, Nr, T> {
     #[inline(always)]
-    default unsafe fn run(  _: isize, _: *mut T, _: *mut T, _: *mut T, _: *mut T, _: *mut T, _: isize, _: isize ) {
+    default unsafe fn run( _: isize, _: *mut T, _: *mut T, _: *mut T, _: *mut T, _: *mut T, _: isize, _: isize) {
         panic!("Ukernel Wrapper not implemented for Mr {} Nr {} and this datatype!", Mr::to_usize(), Nr::to_usize());
     }
 }
@@ -31,34 +31,34 @@ pub mod hsw
 
     //Haswell ukernels
     extern{
-        fn bli_dgemm_asm_6x8 ( k: int64_t,
+        fn bli_dgemm_asm_6x8 (k: int64_t,
             alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
-            c: *mut f64, rs_c: int64_t, cs_c: int64_t ) -> (); 
-        fn bli_dgemm_asm_4x12 ( k: int64_t,
+            c: *mut f64, rs_c: int64_t, cs_c: int64_t) -> (); 
+        fn bli_dgemm_asm_4x12 (k: int64_t,
             alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
-            c: *mut f64, rs_c: int64_t, cs_c: int64_t ) -> (); 
-        fn bli_dgemm_asm_12x4 ( k: int64_t,
+            c: *mut f64, rs_c: int64_t, cs_c: int64_t) -> (); 
+        fn bli_dgemm_asm_12x4 (k: int64_t,
             alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
-            c: *mut f64, rs_c: int64_t, cs_c: int64_t ) -> (); 
+            c: *mut f64, rs_c: int64_t, cs_c: int64_t) -> (); 
     }
 
     impl GenericUkernelWrapper<U4, U12, f64> for UkernelWrapper<U4, U12, f64> {
         #[inline(always)]
-        unsafe fn run(  k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize ) {
+        unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
             bli_dgemm_asm_4x12(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
                               beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t);
         }
     }
     impl GenericUkernelWrapper<U6, U8, f64> for UkernelWrapper<U6, U8, f64> {
         #[inline(always)]
-        unsafe fn run(  k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize ) {
+        unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
             bli_dgemm_asm_6x8(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
                               beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t);
         }
     }
     impl GenericUkernelWrapper<U12, U4, f64> for UkernelWrapper<U12, U4, f64> {
         #[inline(always)]
-        unsafe fn run(  k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize ) {
+        unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
             bli_dgemm_asm_12x4(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
                               beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t);
         }
@@ -75,14 +75,14 @@ pub mod snb
 
     //Haswell ukernels
     extern{
-        fn bli_dgemm_int_8x4 ( k: int64_t,
+        fn bli_dgemm_int_8x4 (k: int64_t,
             alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
-            c: *mut f64, rs_c: int64_t, cs_c: int64_t ) -> (); 
+            c: *mut f64, rs_c: int64_t, cs_c: int64_t) -> (); 
     }
 
     impl GenericUkernelWrapper<U8, U4, f64> for UkernelWrapper<U8, U4, f64> {
         #[inline(always)]
-        unsafe fn run(  k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize ) {
+        unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
             bli_dgemm_int_8x4(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
                               beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t);
         }

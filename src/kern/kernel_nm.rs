@@ -19,7 +19,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
     where At: RoCM<T>, Bt: RoCM<T>, Ct: RoCM<T>
 {
     #[inline(always)]
-    default unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T> ) -> () {
+    default unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T>) -> () {
         //A must be column major and B must be row major 
         debug_assert!(a.get_leaf_rs() == 1 && a.get_leaf_cs() == Mr::to_usize());
         debug_assert!(b.get_leaf_cs() == 1 && b.get_leaf_rs() == Nr::to_usize());
@@ -53,7 +53,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
             let mut a_ir = ap;
             let mut c_ir = c_jr;
             while ir < m {
-                <UkernelWrapper<Mr, Nr, T>>::run( k, &mut alpha, a_ir, b_jr, &mut beta, c_ir, c_leaf_rs, c_leaf_cs);
+                <UkernelWrapper<Mr, Nr, T>>::run(k, &mut alpha, a_ir, b_jr, &mut beta, c_ir, c_leaf_rs, c_leaf_cs);
 
                 ir += Mr::to_isize();
                 a_ir = a_ir.offset(a_mr_stride);
@@ -65,10 +65,10 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
         }
 
     }
-    fn new( ) -> KernelNM<T, At, Bt, Ct, Nr, Mr> { 
+    fn new() -> KernelNM<T, At, Bt, Ct, Nr, Mr> { 
         KernelNM{ _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _t: PhantomData, _nrt: PhantomData, _mrt: PhantomData } 
     }
-    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+    fn hierarchy_description() -> Vec<AlgorithmStep> {
         let mut desc = Vec::new();
         desc.push(AlgorithmStep::M{bsz: Mr::to_usize()});
         desc.push(AlgorithmStep::N{bsz: Nr::to_usize()});

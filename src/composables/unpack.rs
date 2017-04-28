@@ -8,7 +8,7 @@ use thread_comm::ThreadInfo;
 use composables::{GemmNode,AlgorithmStep};
 
 pub trait Adder <T: Scalar, At: Mat<T>, Apt: Mat<T>> {
-    fn add( a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T> );
+    fn add(a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T>);
 }
 
 //Adds Apt to At.
@@ -21,7 +21,7 @@ pub struct Unpacker<T: Scalar, At: Mat<T>, Apt: Mat<T>> {
 //Default implementation of Unpacker. Uses the getters and setters of Mat<T>
 impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Adder<T, At, Apt> 
     for Unpacker<T, At, Apt> {
-    default fn add( a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T> ) {
+    default fn add(a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T>) {
         if a_pack.width() <= 0 || a_pack.height() <= 0 {
             return;
         }
@@ -39,7 +39,7 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Adder<T, At, Apt>
 }
 
 //returns the depth and score of the level with best parallelizability
-fn score_parallelizability(m: usize, y_hier: &[HierarchyNode] ) -> (usize, f64)  {
+fn score_parallelizability(m: usize, y_hier: &[HierarchyNode]) -> (usize, f64)  {
     let mut best_depth = 0;
     let mut best_score = 0.0;
     let mut m_tracker = m;
@@ -166,7 +166,7 @@ fn unpack_hier_x<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsi
 impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> 
     Adder<T, Matrix<T>, Hierarch<T, LH, LW, LRS, LCS>> 
     for Unpacker<T, Matrix<T>, Hierarch<T, LH, LW, LRS, LCS>> {
-    default fn add( a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>, thr: &ThreadInfo<T> ) {
+    default fn add(a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>, thr: &ThreadInfo<T>) {
         if a_pack.width() <= 0 || a_pack.height() <= 0 {
             return;
         }
@@ -226,7 +226,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, CPt: Mat<T>, S: GemmNode<T, 
     GemmNode<T, At, Bt, Ct> for UnpackC<T, At, Bt, Ct, CPt, S>
     where CPt: ResizableBuffer<T> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T> ) -> () {
+    unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T>) -> () {
         let algo_desc = S::hierarchy_description();
         let y_marker = AlgorithmStep::M{bsz: 0};
         let x_marker = AlgorithmStep::N{bsz: 0};
@@ -240,13 +240,13 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, CPt: Mat<T>, S: GemmNode<T, 
                 self.c_pack.aquire_buffer_for(capacity_for_cpt);
             }
             else {
-                self.c_pack.set_capacity( capacity_for_cpt );
+                self.c_pack.set_capacity(capacity_for_cpt);
             }
-            self.c_pack.send_alias( thr );
+            self.c_pack.send_alias(thr);
         }
 
         //Logically resize the c_pack matrix
-        self.c_pack.resize_to( c, y_marker, x_marker, &algo_desc );
+        self.c_pack.resize_to(c, y_marker, x_marker, &algo_desc);
         //thr.barrier();
         c_pack.set_scalar(T::zero());
         self.child.run(a, b, &mut self.c_pack, thr);
@@ -254,7 +254,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, CPt: Mat<T>, S: GemmNode<T, 
         <Unpacker<T,Ct,CPt>>::add(c, &mut self.c_pack, thr);
         thr.barrier();
     }
-    fn new( ) -> UnpackC<T, At, Bt, Ct, CPt, S>{
+    fn new() -> UnpackC<T, At, Bt, Ct, CPt, S>{
         let algo_desc = S::hierarchy_description();
         let y_marker = AlgorithmStep::M{bsz: 0};
         let x_marker = AlgorithmStep::N{bsz: 0};
@@ -263,7 +263,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, CPt: Mat<T>, S: GemmNode<T, 
                c_pack: CPt::empty(y_marker, x_marker, &algo_desc),
                _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
-    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+    fn hierarchy_description() -> Vec<AlgorithmStep> {
         S::hierarchy_description()
     } 
 }

@@ -14,14 +14,14 @@ pub struct Barrier<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T,
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     GemmNode<T, At, Bt, Ct> for Barrier<T,At,Bt,Ct,S> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T> ) -> () {
+    unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c: &mut Ct, thr: &ThreadInfo<T>) -> () {
         thr.barrier();
         self.child.run(a, b, c, thr);
     }
-    fn new( ) -> Barrier<T,At,Bt,Ct,S>{
+    fn new() -> Barrier<T,At,Bt,Ct,S>{
             Barrier{ child: S::new(), _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
-    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+    fn hierarchy_description() -> Vec<AlgorithmStep> {
         S::hierarchy_description()
     }
 }

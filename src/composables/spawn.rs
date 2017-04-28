@@ -57,7 +57,7 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         self.pool.scoped(|scope| {
             for id in 0..nthr {
                 let child_topo = topo.clone();
-                scope.execute( move || {
+                scope.execute(move || {
                     let tid = unsafe { libc::pthread_self() };
                     {
                     let mut locked_topo = child_topo.lock().unwrap();
@@ -96,7 +96,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
                 let my_comm  = global_comm.clone();
                 let my_cache = cache.clone();
 
-                scope.execute( move || {
+                scope.execute(move || {
                     //Make this thread's communicator holder
                     let thr = ThreadInfo::new(id, my_comm);
 
@@ -117,7 +117,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
                  cntl_cache: Arc::new(ThreadLocal::new()),
                  _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
-    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+    fn hierarchy_description() -> Vec<AlgorithmStep> {
         S::hierarchy_description()
     }
 }

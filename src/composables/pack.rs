@@ -10,7 +10,7 @@ use composables::{GemmNode,AlgorithmStep};
 //This trait exists so that Packer has a type to specialize over.
 //Yes this is stupid.
 pub trait Copier <T: Scalar, At: Mat<T>, Apt: Mat<T>> {
-    fn pack( a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T> );
+    fn pack( a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T>);
 }
 
 
@@ -22,7 +22,7 @@ pub struct Packer<T: Scalar, At: Mat<T>, Apt: Mat<T>> {
 //Default implementation of Packer. Uses the getters and setters of Mat<T>
 impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Copier<T, At, Apt> 
     for Packer<T, At, Apt> {
-    default fn pack( a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T> ) {
+    default fn pack( a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T>) {
         if a_pack.width() <= 0 || a_pack.height() <= 0 {
             return;
         }
@@ -42,7 +42,7 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Copier<T, At, Apt>
 //matrices
 impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>> 
     for Packer<T, Matrix<T>, ColumnPanelMatrix<T, PW>> {
-    fn pack( a: &mut Matrix<T>, a_pack: &mut ColumnPanelMatrix<T, PW>, thr: &ThreadInfo<T> ) {
+    fn pack( a: &mut Matrix<T>, a_pack: &mut ColumnPanelMatrix<T, PW>, thr: &ThreadInfo<T>) {
         if a_pack.width() <= 0 || a_pack.height() <= 0 {
             return;
         }
@@ -63,7 +63,7 @@ impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>>
                 for y in 0..a_pack.height() {
                     for i in 0..PW::to_usize() {
                         let alpha = ptr::read(ap1.offset((y*rs_a + i*cs_a) as isize));
-                        ptr::write( p.offset((y*PW::to_usize() + i) as isize), alpha );
+                        ptr::write( p.offset((y*PW::to_usize() + i) as isize), alpha);
                     }
                 }
             }
@@ -78,7 +78,7 @@ impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>>
             for y in 0..a_pack.height() {
                 for i in 0..last_panel_w {
                     let alpha = ptr::read(ap1.offset((y*rs_a + i*cs_a)as isize));
-                    ptr::write( p.offset((y*PW::to_usize() + i) as isize), alpha );
+                    ptr::write( p.offset((y*PW::to_usize() + i) as isize), alpha);
                 }
             }
         }
@@ -89,7 +89,7 @@ impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>>
 //matrices
 impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>> 
     for Packer<T, Matrix<T>, RowPanelMatrix<T, PH>> {
-    fn pack( a: &mut Matrix<T>, a_pack: &mut RowPanelMatrix<T, PH>, thr: &ThreadInfo<T> ) {
+    fn pack( a: &mut Matrix<T>, a_pack: &mut RowPanelMatrix<T, PH>, thr: &ThreadInfo<T>) {
         if a_pack.width() <= 0 || a_pack.height() <= 0 {
             return;
         }
@@ -110,7 +110,7 @@ impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>>
                 for x in 0..a_pack.width() {
                     for i in 0..PH::to_usize() {
                         let alpha = ptr::read(ap1.offset((x*cs_a + i*rs_a) as isize));
-                        ptr::write( p.offset((x*PH::to_usize() + i) as isize), alpha );
+                        ptr::write( p.offset((x*PH::to_usize() + i) as isize), alpha);
                     }
                 }
             }
@@ -125,7 +125,7 @@ impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>>
             for x in 0..a_pack.width() {
                 for i in 0..last_panel_h {
                     let alpha = ptr::read(ap1.offset((x*cs_a + i*rs_a)as isize));
-                    ptr::write( p.offset((x*PH::to_usize() + i) as isize), alpha );
+                    ptr::write( p.offset((x*PH::to_usize() + i) as isize), alpha);
                 }
             }
         }
@@ -133,7 +133,7 @@ impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>>
 }
 
 //returns the depth and score of the level with best parallelizability
-fn score_parallelizability(m: usize, y_hier: &[HierarchyNode] ) -> (usize, f64)  {
+fn score_parallelizability(m: usize, y_hier: &[HierarchyNode]) -> (usize, f64)  {
     let mut best_depth = 0;
     let mut best_score = 0.0;
     let mut m_tracker = m;
@@ -181,7 +181,7 @@ fn pack_hier_leaf<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Uns
         for y in ystart..yend {
             for x in xstart..xend {
                 let alpha = ptr::read(ap.offset((y*rs_a + x*cs_a) as isize));
-                ptr::write( a_pack_p.offset((y*LRS::to_usize() + x*LCS::to_usize()) as isize), alpha );
+                ptr::write( a_pack_p.offset((y*LRS::to_usize() + x*LCS::to_usize()) as isize), alpha);
             }
         }
     }
@@ -259,7 +259,7 @@ fn pack_hier_x<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsign
 impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> 
     Copier<T, Matrix<T>, Hierarch<T, LH, LW, LRS, LCS>> 
     for Packer<T, Matrix<T>, Hierarch<T, LH, LW, LRS, LCS>> {
-    default fn pack( a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>, thr: &ThreadInfo<T> ) {
+    default fn pack( a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>, thr: &ThreadInfo<T>) {
         if a_pack.width() <= 0 || a_pack.height() <= 0 {
             return;
         }
@@ -319,7 +319,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, 
     GemmNode<T, At, Bt, Ct> for PackA<T, At, Bt, Ct, APt, S>
     where APt: ResizableBuffer<T> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T> ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T>) -> () {
         let algo_desc = S::hierarchy_description();
         let y_marker = AlgorithmStep::M{bsz: 0};
         let x_marker = AlgorithmStep::K{bsz: 0};
@@ -333,18 +333,18 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, 
                 self.a_pack.aquire_buffer_for(capacity_for_apt);
             }
             else {
-                self.a_pack.set_capacity( capacity_for_apt );
+                self.a_pack.set_capacity( capacity_for_apt);
             }
-            self.a_pack.send_alias( thr );
+            self.a_pack.send_alias( thr);
         }
 
         //Logically resize the c_pack matrix
-        self.a_pack.resize_to( a, y_marker, x_marker, &algo_desc );
+        self.a_pack.resize_to( a, y_marker, x_marker, &algo_desc);
         <Packer<T, At, APt>>::pack(a, &mut self.a_pack, thr);
         thr.barrier();
         self.child.run(&mut self.a_pack, b, c, thr);
     }
-    fn new( ) -> PackA<T, At, Bt, Ct, APt, S>{
+    fn new() -> PackA<T, At, Bt, Ct, APt, S>{
         let algo_desc = S::hierarchy_description();
         let y_marker = AlgorithmStep::M{bsz: 0};
         let x_marker = AlgorithmStep::K{bsz: 0};
@@ -353,7 +353,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, 
                a_pack: APt::empty(y_marker, x_marker, &algo_desc),
                _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
-    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+    fn hierarchy_description() -> Vec<AlgorithmStep> {
         S::hierarchy_description()
     } 
 }
@@ -374,7 +374,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, 
     GemmNode<T, At, Bt, Ct> for PackB<T, At, Bt, Ct, BPt, S>
     where BPt: ResizableBuffer<T> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T> ) -> () {
+    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T>) -> () {
         let algo_desc = S::hierarchy_description();
         let y_marker = AlgorithmStep::K{bsz: 0};
         let x_marker = AlgorithmStep::N{bsz: 0};
@@ -390,7 +390,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, 
             else {
                 self.b_pack.set_capacity(capacity_for_bpt);
             }
-            self.b_pack.send_alias( thr );
+            self.b_pack.send_alias( thr);
         }
 
         //Logically resize the c_pack matrix
@@ -399,7 +399,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, 
         thr.barrier();
         self.child.run(a, &mut self.b_pack, c, thr);
     }
-    fn new( ) -> PackB<T, At, Bt, Ct, BPt, S> {
+    fn new() -> PackB<T, At, Bt, Ct, BPt, S> {
         let algo_desc = S::hierarchy_description();
         let y_marker = AlgorithmStep::K{bsz: 0};
         let x_marker = AlgorithmStep::N{bsz: 0};
@@ -408,7 +408,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, 
                b_pack: BPt::empty(y_marker, x_marker, &algo_desc),
                _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
-    fn hierarchy_description( ) -> Vec<AlgorithmStep> {
+    fn hierarchy_description() -> Vec<AlgorithmStep> {
         S::hierarchy_description()
     } 
 }
