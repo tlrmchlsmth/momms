@@ -369,6 +369,6 @@ impl<T: Scalar, PH: Unsigned> RoCM<T> for RowPanelMatrix<T,PH> {
 
 	#[inline(always)]
     fn get_block_cs(&self, _: usize, blksz: usize) -> usize {
-		PH::to_usize()
+		blksz * PH::to_usize()
     }
 }

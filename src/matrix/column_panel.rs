@@ -360,7 +360,7 @@ impl<T: Scalar, PW: Unsigned> RoCM<T> for ColumnPanelMatrix<T, PW> {
 
 	#[inline(always)]
     fn get_block_rs(&self, _: usize, blksz: usize) -> usize {
-		PW::to_usize()
+		blksz * PW::to_usize()
     }
 
 	#[inline(always)]

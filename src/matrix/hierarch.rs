@@ -177,7 +177,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
                   _lht: PhantomData, _lwt: PhantomData,
                   _lrst: PhantomData, _lcst: PhantomData }
     }
-
+/*
     #[inline(always)]
     pub unsafe fn get_buffer( &self ) -> *const T { 
         let y_off = self.y_views.last().unwrap().offset;
@@ -191,7 +191,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         let x_off = self.x_views.last().unwrap().offset;
         self.buffer.offset((y_off + x_off) as isize) 
     }
-
+*/
     #[inline(always)]
     pub fn block_stride_x(&self, level: usize) -> usize {
         self.x_hierarchy[self.xh_index + level].stride
@@ -561,7 +561,6 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> RoCM<T
             LRS::to_usize()
         } else {
             let index = self.y_hierarchy.len() - lvl - 1;
-            println!("{} {}", self.y_hierarchy[index].blksz, blksz);
             debug_assert!(self.y_hierarchy[index].blksz == blksz);
             self.y_hierarchy[index].stride
         }
@@ -572,7 +571,6 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> RoCM<T
             LCS::to_usize()
         } else {
             let index = self.x_hierarchy.len() - lvl - 1;
-            println!("{} {}", self.x_hierarchy[index].blksz, blksz);
             debug_assert!( self.x_hierarchy[index].blksz == blksz);
             self.x_hierarchy[index].stride
         }
