@@ -34,3 +34,7 @@ path = "src/exper/l3.rs"
 [[bin]]
 name = "exper_l3_shapes"
 path = "src/exper/l3_shapes.rs"
+
+[features]
+hsw = []
+snb = []
