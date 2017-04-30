@@ -10,8 +10,8 @@ pub struct KernelMN<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
     _t: PhantomData<T>,
-    _nrt: PhantomData<Nr>,
-    _mrt: PhantomData<Mr>,
+    _mrt: PhantomData<Nr>,
+    _nrt: PhantomData<Mr>,
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned> 
     GemmNode<T, At, Bt, Ct> for 
@@ -31,17 +31,17 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>
         let n = c.width() as isize;
         let k = a.width() as isize;
 
-        let mut alpha : T = T::one();
-        let mut beta : T = T::one();
+        let mut alpha = T::one();
+        let mut beta = T::one();
 
         let c_leaf_rs = c.get_leaf_rs() as isize;
         let c_leaf_cs = c.get_leaf_cs() as isize;
 
-        let c_nr_stride = c.get_block_cs(1, Nr::to_usize()) as isize;
-        let b_nr_stride = b.get_block_cs(1, Nr::to_usize()) as isize;
-
         let c_mr_stride = c.get_block_rs(1, Mr::to_usize()) as isize;
         let a_mr_stride = a.get_block_rs(1, Mr::to_usize()) as isize;
+
+        let c_nr_stride = c.get_block_cs(1, Nr::to_usize()) as isize;
+        let b_nr_stride = b.get_block_cs(1, Nr::to_usize()) as isize;
 
         let mut ir : isize = 0;
         let mut a_ir = ap;
@@ -52,7 +52,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>
             let mut b_jr = bp;
             let mut jr : isize = 0;
             while jr < n {
-                <UkernelWrapper<Mr, Nr, T>>::run( k, &mut alpha, a_ir, b_jr, &mut beta, c_ir, c_leaf_rs, c_leaf_cs);
+                <UkernelWrapper<Mr, Nr, T>>::run( k, &mut alpha, a_ir, b_jr, &mut beta, c_jr, c_leaf_rs, c_leaf_cs);
 
                 jr += Nr::to_isize();
                 c_jr = c_jr.offset(c_nr_stride);
