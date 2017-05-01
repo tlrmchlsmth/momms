@@ -1,6 +1,5 @@
-use core::ptr::{self};
+use core::{ptr,cmp};
 use core::marker::PhantomData;
-use core::cmp;
 
 use matrix::{Scalar,Mat,ColumnPanelMatrix,RowPanelMatrix,Hierarch,Matrix,ResizableBuffer,HierarchyNode,RoCM};
 use typenum::Unsigned;
@@ -19,7 +18,7 @@ fn decompose(nt: usize) -> (usize, usize) {
 //This trait exists so that Packer has a type to specialize over.
 //Yes this is stupid.
 pub trait Copier <T: Scalar, At: Mat<T>, Apt: Mat<T>> {
-    fn pack( a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T>);
+    fn pack(a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T>);
 }
 
 
@@ -31,7 +30,7 @@ pub struct Packer<T: Scalar, At: Mat<T>, Apt: Mat<T>> {
 //Default implementation of Packer. Uses the getters and setters of Mat<T>
 impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Copier<T, At, Apt> 
     for Packer<T, At, Apt> {
-    default fn pack( a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T>) {
+    default fn pack(a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T>) {
         if a_pack.width() <= 0 || a_pack.height() <= 0 {
             return;
         }
@@ -46,12 +45,12 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Copier<T, At, Apt>
         }
     }
 }
- 
+/* 
 //Specialized implementation of Packer for packing from general strided matrices into column panel
 //matrices
 impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>> 
     for Packer<T, Matrix<T>, ColumnPanelMatrix<T, PW>> {
-    fn pack( a: &mut Matrix<T>, a_pack: &mut ColumnPanelMatrix<T, PW>, thr: &ThreadInfo<T>) {
+    fn pack(a: &mut Matrix<T>, a_pack: &mut ColumnPanelMatrix<T, PW>, thr: &ThreadInfo<T>) {
         if a_pack.width() <= 0 || a_pack.height() <= 0 {
             return;
         }
@@ -83,7 +82,7 @@ impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>>
                 for y in start_row..end_row {
                     for i in 0..PW::to_usize() {
                         let alpha = ptr::read(ap1.offset((y*rs_a + i*cs_a) as isize));
-                        ptr::write( p.offset((y*PW::to_usize() + i) as isize), alpha);
+                        ptr::write(p.offset((y*PW::to_usize() + i) as isize), alpha);
                     }
                 }
             }
@@ -95,7 +94,7 @@ impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>>
 //matrices
 impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>> 
     for Packer<T, Matrix<T>, RowPanelMatrix<T, PH>> {
-    fn pack( a: &mut Matrix<T>, a_pack: &mut RowPanelMatrix<T, PH>, thr: &ThreadInfo<T>) {
+    fn pack(a: &mut Matrix<T>, a_pack: &mut RowPanelMatrix<T, PH>, thr: &ThreadInfo<T>) {
         if a_pack.width() <= 0 || a_pack.height() <= 0 {
             return;
         }
@@ -118,7 +117,7 @@ impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>>
             let cols_per_thread = (a_pack.width()-1) / x_nt + 1;
             let start_col = cols_per_thread * x_tid;
             let end_col = cmp::min(a_pack.width(), start_col+cols_per_thread);
-            
+
             //TODO: handle last panel separately
             for panel in start_panel..end_panel {
                 let p = a_pack.get_panel(panel); 
@@ -127,14 +126,14 @@ impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>>
                 for x in start_col..end_col {
                     for i in 0..PH::to_usize() {
                         let alpha = ptr::read(ap1.offset((x*cs_a + i*rs_a) as isize));
-                        ptr::write( p.offset((x*PH::to_usize() + i) as isize), alpha);
+                        ptr::write(p.offset((x*PH::to_usize() + i) as isize), alpha);
                     }
                 }
             }
         }
     }
 }
-
+*/
 //returns the depth and score of the level with best parallelizability
 fn score_parallelizability(m: usize, y_hier: &[HierarchyNode]) -> (usize, f64)  {
     let mut best_depth = 0;
@@ -184,7 +183,7 @@ fn pack_hier_leaf<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Uns
         for y in ystart..yend {
             for x in xstart..xend {
                 let alpha = ptr::read(ap.offset((y*rs_a + x*cs_a) as isize));
-                ptr::write( a_pack_p.offset((y*LRS::to_usize() + x*LCS::to_usize()) as isize), alpha);
+                ptr::write(a_pack_p.offset((y*LRS::to_usize() + x*LCS::to_usize()) as isize), alpha);
             }
         }
     }
@@ -257,12 +256,12 @@ fn pack_hier_x<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsign
         a_pack.pop_x_view();
     }
 }
-
+/*
 //Specialized implementation of Packer for packing from Matrix<T> into Hierarch<T>
 impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> 
     Copier<T, Matrix<T>, Hierarch<T, LH, LW, LRS, LCS>> 
     for Packer<T, Matrix<T>, Hierarch<T, LH, LW, LRS, LCS>> {
-    default fn pack( a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>, thr: &ThreadInfo<T>) {
+    default fn pack(a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>, thr: &ThreadInfo<T>) {
         if a_pack.width() <= 0 || a_pack.height() <= 0 {
             return;
         }
@@ -288,7 +287,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned>
         let (x_depth, x_score) = score_parallelizability(a.width(), &x_hier);
 
 		//Figure out x and y num threads
-        let (rnt1, rnt2) = decompose( thr.num_threads());
+        let (rnt1, rnt2) = decompose(thr.num_threads());
         let (y_nt, x_nt) = if y_score > x_score {(rnt1,rnt2)} else {(rnt2,rnt1)};
         
         let x_tid = thr.thread_id() / y_nt;
@@ -296,7 +295,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned>
 
         pack_hier_x(a, a_pack, &x_hier, &y_hier, x_depth as isize, x_nt, x_tid, y_depth as isize, y_nt, y_tid);
     }
-}
+}*/
 
 pub struct PackA<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, 
     S: GemmNode<T, APt, Bt, Ct>> {
@@ -315,7 +314,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, 
     GemmNode<T, At, Bt, Ct> for PackA<T, At, Bt, Ct, APt, S>
     where APt: ResizableBuffer<T> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T>) -> () {
+    unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T>) -> () {
         let y_marker = AlgorithmStep::M{bsz: 0};
         let x_marker = AlgorithmStep::K{bsz: 0};
 
@@ -328,13 +327,13 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, 
                 self.a_pack.aquire_buffer_for(capacity_for_apt);
             }
             else {
-                self.a_pack.set_capacity( capacity_for_apt);
+                self.a_pack.set_capacity(capacity_for_apt);
             }
-            self.a_pack.send_alias( thr);
+            self.a_pack.send_alias(thr);
         }
 
-        //Logically resize the c_pack matrix
-        self.a_pack.resize_to( a, y_marker, x_marker, &self.algo_desc);
+        //Logically resize the a_pack matrix
+        self.a_pack.resize_to(a, y_marker, x_marker, &self.algo_desc);
         <Packer<T, At, APt>>::pack(a, &mut self.a_pack, thr);
         thr.barrier();
         self.child.run(&mut self.a_pack, b, c, thr);
@@ -370,7 +369,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, 
     GemmNode<T, At, Bt, Ct> for PackB<T, At, Bt, Ct, BPt, S>
     where BPt: ResizableBuffer<T> {
     #[inline(always)]
-    unsafe fn run( &mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T>) -> () {
+    unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T>) -> () {
         let y_marker = AlgorithmStep::K{bsz: 0};
         let x_marker = AlgorithmStep::N{bsz: 0};
         let capacity_for_bpt = BPt:: capacity_for(b, y_marker, x_marker, &self.algo_desc);
@@ -385,7 +384,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, 
             else {
                 self.b_pack.set_capacity(capacity_for_bpt);
             }
-            self.b_pack.send_alias( thr);
+            self.b_pack.send_alias(thr);
         }
 
         //Logically resize the c_pack matrix

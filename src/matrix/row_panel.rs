@@ -7,8 +7,7 @@ use matrix::{Scalar,Mat,ResizableBuffer,RoCM};
 use super::view::{MatrixView};
 
 use core::marker::PhantomData;
-use core::{mem};
-use core::ptr::{self};
+use core::{mem,ptr};
 
 use composables::{AlgorithmStep};
 

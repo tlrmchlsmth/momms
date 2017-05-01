@@ -4,8 +4,7 @@ use thread_comm::ThreadInfo;
 use self::alloc::heap;
 use matrix::{Scalar,Mat,RoCM};
 use super::view::{MatrixView};
-use core::{mem};
-use core::ptr::{self};
+use core::{mem,ptr};
 
 
 pub struct Matrix<T: Scalar> {

@@ -1,5 +1,5 @@
 extern crate alloc;
-use std::ptr::{self};
+use core::ptr::{self};
 use std::sync::{Arc,RwLock};
 //use std::sync::{Barrier};
 use std::sync::atomic::{AtomicPtr,AtomicUsize,AtomicBool,Ordering};

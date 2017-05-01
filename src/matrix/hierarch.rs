@@ -8,8 +8,7 @@ use super::view::{MatrixView};
 use composables::AlgorithmStep;
 
 use core::marker::PhantomData;
-use core::mem;
-use core::ptr::{self};
+use core::{mem,ptr};
 
 /*Notes:
  * This file is for implementing hierarchical matrices
