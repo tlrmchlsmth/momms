@@ -7,6 +7,15 @@ use typenum::Unsigned;
 use thread_comm::ThreadInfo;
 use composables::{GemmNode,AlgorithmStep};
 
+//returns (a,b)
+//a*b = nt such that a >= b
+fn decompose(nt: usize) -> (usize, usize) {
+    let mut index = f64::sqrt(nt as f64) as usize;
+    while (nt % index) != 0 { index = index - 1; }
+    (nt / index, index)
+}
+
+
 //This trait exists so that Packer has a type to specialize over.
 //Yes this is stupid.
 pub trait Copier <T: Scalar, At: Mat<T>, Apt: Mat<T>> {
@@ -50,35 +59,32 @@ impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>>
             let ap = a.get_buffer();
             let cs_a = a.get_column_stride();
             let rs_a = a.get_row_stride();
-            
-            let n_panels = (a_pack.width()-1) / PW::to_usize() + 1;
-            let panels_per_thread = (n_panels-1) / thr.num_threads() + 1;
-            let start = panels_per_thread * thr.thread_id();
-            let end = cmp::min(n_panels, start+panels_per_thread);
 
-            for panel in start..end-1 {
+            let (y_nt, x_nt) = decompose(thr.num_threads());
+            let x_tid = thr.thread_id() / y_nt;
+            let y_tid = thr.thread_id() % y_nt;
+
+            //Figure out this thread's work in x direction
+            let n_panels = (a_pack.width()-1) / PW::to_usize() + 1;
+            let panels_per_thread = (n_panels-1) / x_nt + 1;
+            let start_panel = panels_per_thread * x_tid;
+            let end_panel = cmp::min(n_panels, start_panel+panels_per_thread);
+
+            //Figure out this thread's work in y direction
+            let rows_per_thread = (a_pack.height()-1) / y_nt + 1;
+            let start_row = rows_per_thread * y_tid;
+            let end_row = cmp::min(a_pack.height(), start_row+rows_per_thread);
+
+            //TODO: handle last panel separately
+            for panel in start_panel..end_panel {
                 let p = a_pack.get_panel(panel);
                 let ap1 = ap.offset((panel * PW::to_usize() * cs_a) as isize);
 
-                for y in 0..a_pack.height() {
+                for y in start_row..end_row {
                     for i in 0..PW::to_usize() {
                         let alpha = ptr::read(ap1.offset((y*rs_a + i*cs_a) as isize));
                         ptr::write( p.offset((y*PW::to_usize() + i) as isize), alpha);
                     }
-                }
-            }
-            //Handle the last panel separately, since it might have fewer than panel width number of columns
-            let last_panel_w = if end * PW::to_usize() > a_pack.width() {
-                a_pack.width() - (end-1)*PW::to_usize()
-            } else {
-                PW::to_usize()
-            };
-            let p = a_pack.get_panel(end-1); 
-            let ap1 = ap.offset(((end-1) * PW::to_usize() * cs_a) as isize);
-            for y in 0..a_pack.height() {
-                for i in 0..last_panel_w {
-                    let alpha = ptr::read(ap1.offset((y*rs_a + i*cs_a)as isize));
-                    ptr::write( p.offset((y*PW::to_usize() + i) as isize), alpha);
                 }
             }
         }
@@ -98,34 +104,31 @@ impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>>
             let cs_a = a.get_column_stride();
             let rs_a = a.get_row_stride();
 
-            let n_panels = (a_pack.height()-1) / PH::to_usize() + 1;
-            let panels_per_thread = (n_panels-1) / thr.num_threads() + 1;
-            let start = panels_per_thread * thr.thread_id();
-            let end = cmp::min(n_panels, start+panels_per_thread);
+            let (y_nt, x_nt) = decompose(thr.num_threads());
+            let x_tid = thr.thread_id() / y_nt;
+            let y_tid = thr.thread_id() % y_nt;
 
-            for panel in start..end-1 {
+            //Figure out this thread's work in y direction
+            let n_panels = (a_pack.height()-1) / PH::to_usize() + 1;
+            let panels_per_thread = (n_panels-1) / y_nt + 1;
+            let start_panel = panels_per_thread * y_tid;
+            let end_panel = cmp::min(n_panels, start_panel+panels_per_thread);
+
+            //Figure out this thread's work in x direction
+            let cols_per_thread = (a_pack.width()-1) / x_nt + 1;
+            let start_col = cols_per_thread * x_tid;
+            let end_col = cmp::min(a_pack.width(), start_col+cols_per_thread);
+            
+            //TODO: handle last panel separately
+            for panel in start_panel..end_panel {
                 let p = a_pack.get_panel(panel); 
                 let ap1 = ap.offset((panel * PH::to_usize() * rs_a) as isize); 
 
-                for x in 0..a_pack.width() {
+                for x in start_col..end_col {
                     for i in 0..PH::to_usize() {
                         let alpha = ptr::read(ap1.offset((x*cs_a + i*rs_a) as isize));
                         ptr::write( p.offset((x*PH::to_usize() + i) as isize), alpha);
                     }
-                }
-            }
-            //Handle the last panel separately, since it might have fewer than panel width number of columns
-            let last_panel_h = if end * PH::to_usize() > a_pack.height() {
-                a_pack.height() - (end-1)*PH::to_usize()
-            } else {
-                PH::to_usize()
-            };
-            let p = a_pack.get_panel(end-1); 
-            let ap1 = ap.offset(((end-1) * PH::to_usize() * rs_a) as isize); 
-            for x in 0..a_pack.width() {
-                for i in 0..last_panel_h {
-                    let alpha = ptr::read(ap1.offset((x*cs_a + i*rs_a)as isize));
-                    ptr::write( p.offset((x*PH::to_usize() + i) as isize), alpha);
                 }
             }
         }
@@ -285,16 +288,8 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned>
         let (x_depth, x_score) = score_parallelizability(a.width(), &x_hier);
 
 		//Figure out x and y num threads
-		let mut index = f64::sqrt(thr.num_threads() as f64) as usize;
-        while (thr.num_threads() % index) != 0 {
-            index = index - 1;
-        }
-        let (y_nt, x_nt) = (4,1);
-            if y_score < x_score {
-                (index, thr.num_threads() / index)
-            } else {
-                (thr.num_threads() / index, index)
-            };
+        let (rnt1, rnt2) = decompose( thr.num_threads());
+        let (y_nt, x_nt) = if y_score > x_score {(rnt1,rnt2)} else {(rnt2,rnt1)};
         
         let x_tid = thr.thread_id() / y_nt;
         let y_tid = thr.thread_id() % y_nt;
