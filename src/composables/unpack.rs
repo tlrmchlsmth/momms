@@ -214,6 +214,7 @@ pub struct UnpackC<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, CPt: Mat<T>,
     S: GemmNode<T, At, Bt, CPt>> {
     child: S,
     c_pack: CPt,
+    algo_desc: Vec<AlgorithmStep>,
     _t: PhantomData<T>,
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
@@ -227,10 +228,9 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, CPt: Mat<T>, S: GemmNode<T, 
     where CPt: ResizableBuffer<T> {
     #[inline(always)]
     unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c:&mut Ct, thr: &ThreadInfo<T>) -> () {
-        let algo_desc = S::hierarchy_description();
         let y_marker = AlgorithmStep::M{bsz: 0};
         let x_marker = AlgorithmStep::N{bsz: 0};
-        let capacity_for_cpt = CPt:: capacity_for(c, y_marker, x_marker, &algo_desc);
+        let capacity_for_cpt = CPt:: capacity_for(c, y_marker, x_marker, &self.algo_desc);
 
         thr.barrier();
 
@@ -246,7 +246,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, CPt: Mat<T>, S: GemmNode<T, 
         }
 
         //Logically resize the c_pack matrix
-        self.c_pack.resize_to(c, y_marker, x_marker, &algo_desc);
+        self.c_pack.resize_to(c, y_marker, x_marker, &self.algo_desc);
         //thr.barrier();
         self.c_pack.set_scalar(T::zero());
         self.child.run(a, b, &mut self.c_pack, thr);
@@ -260,7 +260,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, CPt: Mat<T>, S: GemmNode<T, 
         let x_marker = AlgorithmStep::N{bsz: 0};
 
         UnpackC{ child: S::new(), 
-               c_pack: CPt::empty(y_marker, x_marker, &algo_desc),
+               c_pack: CPt::empty(y_marker, x_marker, &algo_desc), algo_desc: algo_desc,
                _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
     fn hierarchy_description() -> Vec<AlgorithmStep> {
