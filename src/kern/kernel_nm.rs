@@ -1,12 +1,12 @@
-use matrix::{Scalar,Mat,RoCM};
+use matrix::{Scalar,Mat,RoCM,Matrix};
+use core::ptr;
 use core::marker::{PhantomData};
 use composables::{GemmNode,AlgorithmStep};
 use thread_comm::{ThreadInfo};
 use typenum::Unsigned;
 use super::ukernel_wrapper::{UkernelWrapper,GenericUkernelWrapper};
 
-pub struct KernelNM<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
-{
+pub struct KernelNM<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned> {
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
@@ -53,7 +53,28 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
             let mut a_ir = ap;
             let mut c_ir = c_jr;
             while ir < m {
-                <UkernelWrapper<Mr, Nr, T>>::run(k, &mut alpha, a_ir, b_jr, &mut beta, c_ir, c_leaf_rs, c_leaf_cs);
+                if (n - jr >= Nr::to_isize()) && (m - ir >= Mr::to_isize()) {
+                    <UkernelWrapper<Mr, Nr, T>>::run(k, &mut alpha, a_ir, b_jr, &mut beta, c_ir, c_leaf_rs, c_leaf_cs);
+                } else {
+					let mut t : Matrix<T> = Matrix::new(2*Mr::to_usize(), 2*Nr::to_usize());
+					let tp = t.get_mut_buffer();
+					let mut t_scalar = T::zero();
+                    let t_rs = t.get_row_stride() as isize;
+                    let t_cs = t.get_column_stride() as isize;
+					<UkernelWrapper<Mr,Nr,T>>::run(k, &mut alpha, a_ir, b_jr, &mut t_scalar, tp, t_rs, t_cs);
+                    
+                    let local_m = if m-ir >= Mr::to_isize() { Mr::to_isize() } else { m-ir };
+                    let local_n = if n-jr >= Nr::to_isize() { Nr::to_isize() } else { n-jr };
+
+					//Copy t to c
+                    for ii in 0..(local_m) {
+                        for jj in 0..(local_n){
+                            let tau = ptr::read(tp.offset(ii * t_rs + jj * t_cs));
+                            let chi = ptr::read(c_ir.offset(ii * c_leaf_rs + jj * c_leaf_cs));
+                            ptr::write(c_ir.offset(ii * c_leaf_rs + jj * c_leaf_cs), tau+chi);
+                        }
+                    }
+                }
 
                 ir += Mr::to_isize();
                 a_ir = a_ir.offset(a_mr_stride);

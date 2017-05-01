@@ -1,4 +1,5 @@
-use matrix::{Scalar,Mat,RoCM};
+use matrix::{Scalar,Mat,RoCM,Matrix};
+use core::ptr;
 use core::marker::{PhantomData};
 use composables::{GemmNode,AlgorithmStep};
 use thread_comm::{ThreadInfo};
@@ -10,12 +11,11 @@ pub struct KernelMN<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
     _t: PhantomData<T>,
-    _mrt: PhantomData<Nr>,
-    _nrt: PhantomData<Mr>,
+    _mrt: PhantomData<Mr>,
+    _nrt: PhantomData<Nr>,
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned> 
-    GemmNode<T, At, Bt, Ct> for 
-    KernelMN<T, At, Bt, Ct, Mr, Nr> 
+    GemmNode<T, At, Bt, Ct> for KernelMN<T, At, Bt, Ct, Mr, Nr> 
     where At: RoCM<T>, Bt: RoCM<T>, Ct: RoCM<T> {
     #[inline(always)]
     default unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T>) -> () {
@@ -52,7 +52,28 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>
             let mut b_jr = bp;
             let mut jr : isize = 0;
             while jr < n {
-                <UkernelWrapper<Mr, Nr, T>>::run(k, &mut alpha, a_ir, b_jr, &mut beta, c_jr, c_leaf_rs, c_leaf_cs);
+                if (n - jr >= Nr::to_isize()) && (m - ir >= Mr::to_isize()) {
+                    <UkernelWrapper<Mr, Nr, T>>::run(k, &mut alpha, a_ir, b_jr, &mut beta, c_jr, c_leaf_rs, c_leaf_cs);
+                } else {
+					let mut t : Matrix<T> = Matrix::new(Mr::to_usize(), Nr::to_usize());
+					let tp = t.get_mut_buffer();
+					let mut t_scalar = T::zero();
+                    let t_rs = t.get_row_stride() as isize;
+                    let t_cs = t.get_column_stride() as isize;
+					<UkernelWrapper<Mr, Nr, T>>::run(k, &mut alpha, a_ir, b_jr, &mut t_scalar, tp, t_rs, t_cs);
+
+                    let local_m = if m-ir >= Mr::to_isize() { Mr::to_isize() } else { m-ir };
+                    let local_n = if n-jr >= Nr::to_isize() { Nr::to_isize() } else { n-jr };
+
+					//Copy t to c
+                    for ii in 0..(local_m) {
+                        for jj in 0..(local_n){
+                            let tau = ptr::read(tp.offset(ii * t_rs + jj * t_cs));
+                            let chi = ptr::read(c_jr.offset(ii * c_leaf_rs + jj * c_leaf_cs));
+                            ptr::write(c_jr.offset(ii * c_leaf_rs + jj * c_leaf_cs), tau+chi);
+                        }
+                    }
+                }
 
                 jr += Nr::to_isize();
                 c_jr = c_jr.offset(c_nr_stride);
