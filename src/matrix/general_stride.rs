@@ -184,7 +184,7 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
         uz_iter_size
     }
     
-    fn push_y_view(&mut self, blksz: usize) -> usize{
+    fn push_y_view(&mut self, blksz: usize) -> usize {
         let (zoomed_view, uz_iter_size) = { 
             let uz_view = self.y_views.last().unwrap();
             let (z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(0, blksz);

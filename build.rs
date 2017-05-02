@@ -4,15 +4,18 @@ use std::io::Write;
 use std::path::Path;*/
 
 fn main() -> () {
+    //Link with BLIS assuming it is installed to the default location:
     println!("cargo:rustc-link-search=native={}/blis/lib", std::env::home_dir().unwrap().to_str().unwrap() );
     println!("cargo:rustc-link-search=native=/usr/local/lib");
     println!("cargo:rustc-link-lib=static=blis");
-// 
-//    println!("cargo:rustc-link-search=native=/usr/lib/gcc/x86_64-linux-gnu/5");
-//    println!("cargo:rustc-link-lib=static=gomp");
+    
+    //Needed when BLIS is compiled with GCC and OpenMP:
     println!("cargo:rustc-link-search=native=/usr/lib/gcc/x86_64-linux-gnu/5");
     println!("cargo:rustc-link-lib=dylib=gomp");
+    
 
-//  The following is needed for compiling with mkl
-//    println!("cargo:rustc-link-lib=static=irc");
+    //Needed for linking with BLIS when it was compiled with icc
+    /*
+    println!("cargo:rustc-link-lib=static=irc");
+    */
 }

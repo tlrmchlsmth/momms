@@ -74,7 +74,6 @@ impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>>
             let start_row = rows_per_thread * y_tid;
             let end_row = cmp::min(a_pack.height(), start_row+rows_per_thread);
 
-            //TODO: handle last panel separately
             for panel in start_panel..end_panel {
                 let p = a_pack.get_panel(panel);
                 let ap1 = ap.offset((panel * PW::to_usize() * cs_a) as isize);
@@ -118,7 +117,6 @@ impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>>
             let start_col = cols_per_thread * x_tid;
             let end_col = cmp::min(a_pack.width(), start_col+cols_per_thread);
 
-            //TODO: handle last panel separately
             for panel in start_panel..end_panel {
                 let p = a_pack.get_panel(panel); 
                 let ap1 = ap.offset((panel * PH::to_usize() * rs_a) as isize); 
