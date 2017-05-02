@@ -123,7 +123,7 @@ fn test(m_selector: isize, n_selector: isize, k_selector: isize) {
         flusher.push(0.0);
     }
 
-    println!("m\tn\tk\tgoto\t\tl3a\t\tl3b\t\tl3c\t\tgoto\t\tl3a\t\tl3b\t\tl3c");
+    println!("m\tn\tk\t{: <13}{: <13}{: <13}{: <13}{: <15}{: <15}{: <15}{: <15}", "goto", "l3a", "l3b", "l3c", "goto", "l3a", "l3b", "l3c");
     for index in 01..129 {
         let size = index*32;
 //        let (m, n, k) = (size, size, size);
@@ -137,7 +137,7 @@ fn test(m_selector: isize, n_selector: isize, k_selector: isize) {
         let (l3b_time, l3b_err) = test_algorithm(m, n, k, &mut l3b, &mut flusher, n_reps);
         let (l3c_time, l3c_err) = test_algorithm(m, n, k, &mut l3c, &mut flusher, n_reps);
 
-        println!("{}\t{}\t{}\t{} {} {} {} {} {} {} {}", 
+        println!("{}\t{}\t{}\t{}{}{}{}{}{}{}{}", 
                  m, n, k,
                  format!("{: <13.5}", util::gflops(m,n,k,goto_time)), 
                  format!("{: <13.5}", util::gflops(m,n,k,l3a_time)), 

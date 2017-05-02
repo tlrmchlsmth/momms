@@ -90,6 +90,7 @@ fn test() {
         flusher.push(0.0);
     }
 
+    println!("m\tn\tk\t{: <13}{: <13}{: <15}{: <15}", "goto", "l4c", "goto", "l4c");
     for index in 01..100 {
         let size = index*512;
         let (m, n, k) = (size, size, size);
@@ -98,7 +99,7 @@ fn test() {
         let (goto_time, goto_err) = test_algorithm(m, n, k, &mut goto, &mut flusher, n_reps);
         let (l4c_time, l4c_err) = test_algorithm(m, n, k, &mut l4c, &mut flusher, n_reps);
 
-        println!("{}\t{}\t{}\t{}\t{}\t{}\t{}", 
+        println!("{}\t{}\t{}\t{}{}{}{}", 
                  m, n, k,
                  format!("{: <13.5}", util::gflops(m,n,k,goto_time)), 
                  format!("{: <13.5}", util::gflops(m,n,k,l4c_time)), 

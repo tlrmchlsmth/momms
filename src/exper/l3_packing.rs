@@ -124,6 +124,7 @@ fn test() {
     let mut flusher : Vec<f64> = Vec::with_capacity(flusher_len);
     for _ in 0..flusher_len { flusher.push(0.0); }
 
+    println!("m\tn\tk\t{: <13}{: <13}{: <13}{: <15}{: <15}", "goto", "l3b", "blis", "goto", "l3b");
     for index in 01..129 {
         let size = index*32;
         let (m, n, k) = (size, size, size);
@@ -133,7 +134,7 @@ fn test() {
         let (l3b_time, l3b_err) = test_algorithm_flat(m, n, k, &mut l3b, &mut flusher, n_reps);
         let (blis_time, _) = test_blas_dgemm(m, n, k, &mut flusher, n_reps);
 
-        println!("{}\t{}\t{}\t{}\t{}\t{}\t{}", 
+        println!("{}\t{}\t{}\t{}{}{}{}{}", 
                  m, n, k,
                  format!("{: <13.5}", util::gflops(m,n,k,goto_time)), 
                  format!("{: <13.5}", util::gflops(m,n,k,l3b_time)), 

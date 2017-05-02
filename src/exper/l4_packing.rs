@@ -5,7 +5,6 @@
 
 #![allow(unused_imports)]
 
-extern crate core;
 extern crate typenum;
 extern crate momms;
 
@@ -14,10 +13,10 @@ use typenum::{Unsigned,U1};
 
 use momms::kern::KernelNM;
 use momms::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
-use momms::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, TheRest};
+use momms::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, UnpackC, SpawnThreads, ParallelM, ParallelN, TheRest};
 use momms::thread_comm::ThreadInfo;
 use momms::util;
-/*
+
 fn test_blas_dgemm ( m:usize, n: usize, k: usize, flusher: &mut Vec<f64>, n_reps: usize ) -> (f64, f64) 
 {
     let mut best_time: f64 = 9999999999.0;
@@ -43,21 +42,22 @@ fn test_blas_dgemm ( m:usize, n: usize, k: usize, flusher: &mut Vec<f64>, n_reps
         worst_err = worst_err.max(err);
     }
     (best_time, worst_err)
-}*/
+}
 
-fn test_algorithm<T: Scalar, Mr: Unsigned, Nr: Unsigned, Kc:Unsigned, 
-    S: GemmNode<T, Hierarch<T, Mr, Kc, U1, Mr>, Hierarch<T, Kc, Nr, Nr, U1>, Hierarch<T, Mr, Nr, Nr, U1>>>
+fn test_algorithm_flat<T: Scalar, S: GemmNode<T, Matrix<T>, Matrix<T>, Matrix<T>>>
     ( m:usize, n: usize, k: usize, algo: &mut S, flusher: &mut Vec<f64>, n_reps: usize ) -> (f64, T) 
 {
-    let algo_desc = S::hierarchy_description();
     let mut best_time: f64 = 9999999999.0;
     let mut worst_err: T = T::zero();
 
     for _ in 0..n_reps {
         //Create matrices.
-        let mut a : Hierarch<T, Mr, Kc, U1, Mr> = Hierarch::new(m, k, &algo_desc, AlgorithmStep::M{bsz: 0}, AlgorithmStep::K{bsz: 0});
-        let mut b : Hierarch<T, Kc, Nr, Nr, U1> = Hierarch::new(k, n, &algo_desc, AlgorithmStep::K{bsz: 0}, AlgorithmStep::N{bsz: 0});
-        let mut c : Hierarch<T, Mr, Nr, Nr, U1> = Hierarch::new(m, n, &algo_desc, AlgorithmStep::M{bsz: 0}, AlgorithmStep::N{bsz: 0});
+        let mut a = <Matrix<T>>::new(m, k);
+        let mut b = <Matrix<T>>::new(k, n);
+
+        //The micro-kernel used is more efficient with row-major C.
+        let mut c = <Matrix<T>>::new(n, m);
+        c.transpose();
 
         //Fill the matrices
         a.fill_rand(); c.fill_zero(); b.fill_rand();
@@ -76,66 +76,70 @@ fn test_algorithm<T: Scalar, Mr: Unsigned, Nr: Unsigned, Kc:Unsigned,
 }
 
 fn test() {
-    use typenum::{UInt, UTerm, B0, B1, Unsigned};
+    use typenum::{UInt, B0};
     type U3000 = UInt<UInt<typenum::U750, B0>, B0>;
-    type NC = U3000;
-    type KC = typenum::U192; 
-    type MC = typenum::U120; 
-    type MR = typenum::U4;
-    type NR = typenum::U12;
-    type GotoA<T> = Hierarch<T, MR, KC, U1, MR>;
-    type GotoB<T> = Hierarch<T, KC, NR, NR, U1>;
-    type GotoC<T> = Hierarch<T, MR, NR, NR, U1>;
+    type Nc = U3000;
+    type Kc = typenum::U192; 
+    type Mc = typenum::U120; 
+    type Mr = typenum::U4;
+    type Nr = typenum::U12;
+    type HA<T> = Hierarch<T, Mr, Kc, U1, Mr>;
+    type HB<T> = Hierarch<T, Kc, Nr, Nr, U1>;
+    type HC<T> = Hierarch<T, Mr, Nr, Nr, U1>;
+
     type Goto<T,MTA,MTB,MTC> 
         = SpawnThreads<T, MTA, MTB, MTC,
-          PartN<T, MTA, MTB, MTC, NC,
-          PartK<T, MTA, MTB, MTC, KC,
-          PartM<T, MTA, MTB, MTC, MC,
-          ParallelN<T, MTA, MTB, MTC, NR, TheRest,
-          KernelNM<T, MTA, MTB, MTC, NR, MR>>>>>>;
+          PartN<T, MTA, MTB, MTC, Nc,
+          PartK<T, MTA, MTB, MTC, Kc,
+          PackB<T, MTA, MTB, MTC, ColumnPanelMatrix<T,Nr>,
+          PartM<T, MTA, ColumnPanelMatrix<T,Nr>, MTC, Mc,
+          PackA<T, MTA, ColumnPanelMatrix<T,Nr>, MTC, RowPanelMatrix<T,Mr>,
+          ParallelN<T, RowPanelMatrix<T,Mr>, ColumnPanelMatrix<T,Nr>, MTC, Nr, TheRest,
+          KernelNM<T, RowPanelMatrix<T,Mr>, ColumnPanelMatrix<T,Nr>, MTC, Nr, Mr>>>>>>>>;
 
-    type NcL3 = typenum::U768;
-    type KcL3 = typenum::U768;
-    type McL2 = typenum::U120;
-    type KcL2 = typenum::U192;
-    type L3bA<T> = Hierarch<T, MR, KcL2, U1, MR>;
-    type L3bB<T> = Hierarch<T, KcL2, NR, NR, U1>;
-    type L3bC<T> = Hierarch<T, MR, NR, NR, U1>;
-    type L3B<T,MTA,MTB,MTC> 
+    type U3600 = UInt<UInt<typenum::U900, B0>, B0>;
+    type NcL4 = U3600;
+    type McL4 = U3600;
+    type L4C<T,MTA,MTB,MTC> 
         = SpawnThreads<T, MTA, MTB, MTC,
-          PartN<T, MTA, MTB, MTC, NcL3,
-          PartK<T, MTA, MTB, MTC, KcL3,
-          PartM<T, MTA, MTB, MTC, McL2,
-          PartK<T, MTA, MTB, MTC, KcL2,
-          ParallelN<T, MTA, MTB, MTC, NR, TheRest,
-          KernelNM<T, MTA, MTB, MTC, NR, MR>>>>>>>;
+          PartM<T, MTA, MTB, MTC, McL4,
+          PartN<T, MTA, MTB, MTC, NcL4,
+          UnpackC<T, MTA, MTB, MTC, HC<T>, 
+          PartK<T, MTA, MTB, HC<T>, Kc,
+          PackB<T, MTA, MTB, HC<T>, HB<T>, 
+          PartM<T, MTA, HB<T>, HC<T>, Mc,
+          PackA<T, MTA, HB<T>, HC<T>, HA<T>, 
+          ParallelN<T, HA<T>, HB<T>, HC<T>, Nr, TheRest,
+          KernelNM<T, HA<T>, HB<T>, HC<T>, Nr, Mr>>>>>>>>>>;
 
-    let mut goto = <Goto<f64, GotoA<f64>, GotoB<f64>, GotoC<f64>>>::new();
-    let mut l3b = <L3B<f64, L3bA<f64>, L3bB<f64>, L3bC<f64>>>::new();
+    let mut goto = <Goto<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>>>::new();
+    let mut l4c = <L4C<f64, Matrix<f64>, Matrix<f64>, Matrix<f64>>>::new();
     goto.set_n_threads(4);
-    l3b.set_n_threads(4);
+    l4c.set_n_threads(4);
 
-    //Initialize array to flush cache with
-    let flusher_len = 2*1024*1024; //16MB
+    let flusher_len = 32*1024*1024; //256MB
     let mut flusher : Vec<f64> = Vec::with_capacity(flusher_len);
-    for _ in 0..flusher_len { flusher.push(0.0); }
+    for _ in 0..flusher_len {
+        flusher.push(0.0);
+    }
 
-    println!("m\tn\tk\t{: <13}{: <13}{: <15}{: <15}", "goto", "l3b", "goto", "l3b");
-    for index in 01..129 {
-        let size = index*32;
+    println!("m\tn\tk\t{: <13}{: <13}{: <13}{: <15}{: <15}", "goto", "l4c", "blis", "goto", "l4c");
+    for index in 01..100 {
+        let size = index*512;
         let (m, n, k) = (size, size, size);
 
         let n_reps = 5;
-        let (goto_time, goto_err) = test_algorithm(m, n, k, &mut goto, &mut flusher, n_reps);
-        let (l3b_time, l3b_err) = test_algorithm(m, n, k, &mut l3b, &mut flusher, n_reps);
+        let (goto_time, goto_err) = test_algorithm_flat(m, n, k, &mut goto, &mut flusher, n_reps);
+        let (l4c_time, l4c_err) = test_algorithm_flat(m, n, k, &mut l4c, &mut flusher, n_reps);
+        let (blis_time, _) = test_blas_dgemm(m, n, k, &mut flusher, n_reps);
 
-        println!("{}\t{}\t{}\t{}{}{}{}", 
+        println!("{}\t{}\t{}\t{}{}{}{}{}", 
                  m, n, k,
                  format!("{: <13.5}", util::gflops(m,n,k,goto_time)), 
-                 format!("{: <13.5}", util::gflops(m,n,k,l3b_time)), 
+                 format!("{: <13.5}", util::gflops(m,n,k,l4c_time)), 
+                 format!("{: <13.5}", util::gflops(m,n,k,blis_time)), 
                  format!("{: <15.5e}", goto_err.sqrt()),
-                 format!("{: <15.5e}", l3b_err.sqrt()));
-
+                 format!("{: <15.5e}", l4c_err.sqrt()));
     }
 
     let mut sum = 0.0;
