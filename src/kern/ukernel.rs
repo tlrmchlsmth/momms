@@ -62,13 +62,13 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>
             let rs_t = t.get_row_stride() as isize;
             let cs_t = t.get_column_stride() as isize;
 
-            beta = T::zero();
-            <UkernelWrapper<Mr,Nr,T>>::run(k, &mut alpha, ap, bp, &mut beta, tp, rs_t, cs_t);
+            let mut zero = T::zero();
+            <UkernelWrapper<Mr,Nr,T>>::run(k, &mut alpha, ap, bp, &mut zero, tp, rs_t, cs_t);
 
             //Copy t to c
             t.push_y_view(c.height());
             t.push_x_view(c.width());
-            c.axpby_small(T::one(), &t, T::one());
+            c.axpby_small(T::one(), &t, beta);
         }
     }   
 }

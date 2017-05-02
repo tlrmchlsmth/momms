@@ -71,7 +71,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
                         for jj in 0..(local_n){
                             let tau = ptr::read(tp.offset(ii * t_rs + jj * t_cs));
                             let chi = ptr::read(c_ir.offset(ii * c_leaf_rs + jj * c_leaf_cs));
-                            ptr::write(c_ir.offset(ii * c_leaf_rs + jj * c_leaf_cs), tau+chi);
+                            ptr::write(c_ir.offset(ii * c_leaf_rs + jj * c_leaf_cs), tau+beta*chi);
                         }
                     }
                 }
