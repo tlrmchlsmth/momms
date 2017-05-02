@@ -45,7 +45,7 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Copier<T, At, Apt>
         }
     }
 }
-/* 
+ 
 //Specialized implementation of Packer for packing from general strided matrices into column panel
 //matrices
 impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>> 
@@ -133,7 +133,7 @@ impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>>
         }
     }
 }
-*/
+
 //returns the depth and score of the level with best parallelizability
 fn score_parallelizability(m: usize, y_hier: &[HierarchyNode]) -> (usize, f64)  {
     let mut best_depth = 0;
@@ -256,7 +256,7 @@ fn pack_hier_x<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsign
         a_pack.pop_x_view();
     }
 }
-/*
+
 //Specialized implementation of Packer for packing from Matrix<T> into Hierarch<T>
 impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> 
     Copier<T, Matrix<T>, Hierarch<T, LH, LW, LRS, LCS>> 
@@ -295,7 +295,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned>
 
         pack_hier_x(a, a_pack, &x_hier, &y_hier, x_depth as isize, x_nt, x_tid, y_depth as isize, y_nt, y_tid);
     }
-}*/
+}
 
 pub struct PackA<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, 
     S: GemmNode<T, APt, Bt, Ct>> {
