@@ -2,7 +2,6 @@
 #![feature(conservative_impl_trait)]
 #![feature(cfg_target_feature)]
 #![feature(asm)] 
-
 #![allow(unused_imports)]
 
 extern crate core;
@@ -45,7 +44,7 @@ fn test_blas_dgemm ( m:usize, n: usize, k: usize, flusher: &mut Vec<f64>, n_reps
     (best_time, worst_err)
 }
 
-fn test_algorithm<T: Scalar, S: GemmNode<T, Matrix<T>, Matrix<T>, Matrix<T>>>
+fn test_algorithm_flat<T: Scalar, S: GemmNode<T, Matrix<T>, Matrix<T>, Matrix<T>>>
     ( m:usize, n: usize, k: usize, algo: &mut S, flusher: &mut Vec<f64>, n_reps: usize ) -> (f64, T) 
 {
     let mut best_time: f64 = 9999999999.0;
@@ -55,7 +54,10 @@ fn test_algorithm<T: Scalar, S: GemmNode<T, Matrix<T>, Matrix<T>, Matrix<T>>>
         //Create matrices.
         let mut a = <Matrix<T>>::new(m, k);
         let mut b = <Matrix<T>>::new(k, n);
-        let mut c = <Matrix<T>>::new(m, n);
+
+        //The micro-kernel used is more efficient with row-major C.
+        let mut c = <Matrix<T>>::new(n, m);
+        c.transpose();
 
         //Fill the matrices
         a.fill_rand(); c.fill_zero(); b.fill_rand();
@@ -82,9 +84,6 @@ fn test() {
     type MR = typenum::U4;
     type NR = typenum::U12;
 
-//    type GotoA<T> = Hierarch<T, MR, KC, U1, MR>;
-//    type GotoB<T> = Hierarch<T, KC, NR, NR, U1>;
-//    type GotoC<T> = Hierarch<T, MR, NR, NR, U1>;
     type Goto<T,MTA,MTB,MTC> 
         = SpawnThreads<T, MTA, MTB, MTC,
           PartN<T, MTA, MTB, MTC, NC,
@@ -129,18 +128,18 @@ fn test() {
         let size = index*64;
         let (m, n, k) = (size, size, size);
 
-        let n_reps = 6;
-        let (goto_time, goto_err) = test_algorithm(m, n, k, &mut goto, &mut flusher, n_reps);
-        let (l3b_time, l3b_err) = test_algorithm(m, n, k, &mut l3b, &mut flusher, n_reps);
+        let n_reps = 5;
+        let (goto_time, goto_err) = test_algorithm_flat(m, n, k, &mut goto, &mut flusher, n_reps);
+        let (l3b_time, l3b_err) = test_algorithm_flat(m, n, k, &mut l3b, &mut flusher, n_reps);
         let (blis_time, _) = test_blas_dgemm(m, n, k, &mut flusher, n_reps);
 
-        println!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", 
+        println!("{}\t{}\t{}\t{}\t{}\t{}\t{}", 
                  m, n, k,
-                 util::gflops(m,n,k,goto_time), 
-                 util::gflops(m,n,k,l3b_time), 
-                 util::gflops(m,n,k,blis_time),
-                 format!("{:e}", goto_err.sqrt()),
-                 format!("{:e}", l3b_err.sqrt()));
+                 format!("{:5.5}", util::gflops(m,n,k,goto_time)), 
+                 format!("{:5.5}", util::gflops(m,n,k,l3b_time)), 
+                 format!("{:5.5}", util::gflops(m,n,k,blis_time)), 
+                 format!("{:5.5e}", goto_err.sqrt()),
+                 format!("{:5.5e}", l3b_err.sqrt()));
 
     }
 

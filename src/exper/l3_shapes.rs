@@ -48,7 +48,7 @@ fn test_algorithm<T: Scalar, Mr: Unsigned, Nr: Unsigned, Kc:Unsigned, CLRS: Unsi
     (best_time, worst_err)
 }
 
-fn test() {
+fn test(m_selector: isize, n_selector: isize, k_selector: isize) {
     //Goto's algorithm
     type U3000 = UInt<UInt<typenum::U750, B0>, B0>;
     type Nc = U3000;
@@ -127,9 +127,12 @@ fn test() {
     //TODO: change this to take arguments specifying problem sizes??
     for index in 01..50 {
         let size = index*64;
-        let (m, n, k) = (size, size, size);
+//        let (m, n, k) = (size, size, size);
+        let m = if m_selector < 0 { size * isize::abs(m_selector) } else { m_selector };
+        let n = if n_selector < 0 { size * isize::abs(n_selector) } else { n_selector };
+        let k = if k_selector < 0 { size * isize::abs(k_selector) } else { k_selector };
 
-        let n_reps = 6;
+        let n_reps = 5;
         let (goto_time, goto_err) = test_algorithm(m, n, k, &mut goto, &mut flusher, n_reps);
         let (l3a_time, l3a_err) = test_algorithm(m, n, k, &mut l3a, &mut flusher, n_reps);
         let (l3b_time, l3b_err) = test_algorithm(m, n, k, &mut l3b, &mut flusher, n_reps);
@@ -155,7 +158,10 @@ fn test() {
 }
 
 fn main() {
-//    test_gemv_kernel();
-//    compare_gotos( );
-    test( );
+    //Best for Resident A
+    test(768,-1,768);
+    //Best for Resident B
+    test(-1,768,768);
+    //Best for Resident C
+    test(768,768,-1);
 }

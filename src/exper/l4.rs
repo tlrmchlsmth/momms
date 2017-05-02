@@ -94,7 +94,7 @@ fn test() {
         let size = index*512;
         let (m, n, k) = (size, size, size);
 
-        let n_reps = 6;
+        let n_reps = 5;
         let (goto_time, goto_err) = test_algorithm(m, n, k, &mut goto, &mut flusher, n_reps);
         let (l4c_time, l4c_err) = test_algorithm(m, n, k, &mut l4c, &mut flusher, n_reps);
 

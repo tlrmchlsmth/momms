@@ -17,7 +17,7 @@ use momms::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hier
 use momms::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, TheRest};
 use momms::thread_comm::ThreadInfo;
 use momms::util;
-
+/*
 fn test_blas_dgemm ( m:usize, n: usize, k: usize, flusher: &mut Vec<f64>, n_reps: usize ) -> (f64, f64) 
 {
     let mut best_time: f64 = 9999999999.0;
@@ -43,7 +43,7 @@ fn test_blas_dgemm ( m:usize, n: usize, k: usize, flusher: &mut Vec<f64>, n_reps
         worst_err = worst_err.max(err);
     }
     (best_time, worst_err)
-}
+}*/
 
 fn test_algorithm<T: Scalar, Mr: Unsigned, Nr: Unsigned, Kc:Unsigned, 
     S: GemmNode<T, Hierarch<T, Mr, Kc, U1, Mr>, Hierarch<T, Kc, Nr, Nr, U1>, Hierarch<T, Mr, Nr, Nr, U1>>>
@@ -124,18 +124,16 @@ fn test() {
         let size = index*64;
         let (m, n, k) = (size, size, size);
 
-        let n_reps = 6;
+        let n_reps = 5;
         let (goto_time, goto_err) = test_algorithm(m, n, k, &mut goto, &mut flusher, n_reps);
         let (l3b_time, l3b_err) = test_algorithm(m, n, k, &mut l3b, &mut flusher, n_reps);
-        let (blis_time, _) = test_blas_dgemm(m, n, k, &mut flusher, n_reps);
 
-        println!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", 
+        println!("{}\t{}\t{}\t{}\t{}\t{}\t{}", 
                  m, n, k,
-                 util::gflops(m,n,k,goto_time), 
-                 util::gflops(m,n,k,l3b_time), 
-                 util::gflops(m,n,k,blis_time),
-                 format!("{:e}", goto_err.sqrt()),
-                 format!("{:e}", l3b_err.sqrt()));
+                 format!("{:5.5}", util::gflops(m,n,k,goto_time)), 
+                 format!("{:5.5}", util::gflops(m,n,k,l3b_time)), 
+                 format!("{:5.5e}", goto_err.sqrt()),
+                 format!("{:5.5e}", l3b_err.sqrt()));
 
     }
 
