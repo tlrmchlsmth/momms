@@ -124,13 +124,12 @@ fn test(m_selector: isize, n_selector: isize, k_selector: isize) {
     }
 
     println!("m\tn\tk\tgoto\t\tl3a\t\tl3b\t\tl3c\t\tgoto\t\tl3a\t\tl3b\t\tl3c");
-    //TODO: change this to take arguments specifying problem sizes??
-    for index in 01..50 {
-        let size = index*64;
+    for index in 01..129 {
+        let size = index*32;
 //        let (m, n, k) = (size, size, size);
-        let m = if m_selector < 0 { size * isize::abs(m_selector) } else { m_selector };
-        let n = if n_selector < 0 { size * isize::abs(n_selector) } else { n_selector };
-        let k = if k_selector < 0 { size * isize::abs(k_selector) } else { k_selector };
+        let m = if m_selector < 0 { size * isize::abs(m_selector) } else { m_selector } as usize;
+        let n = if n_selector < 0 { size * isize::abs(n_selector) } else { n_selector } as usize;
+        let k = if k_selector < 0 { size * isize::abs(k_selector) } else { k_selector } as usize;
 
         let n_reps = 5;
         let (goto_time, goto_err) = test_algorithm(m, n, k, &mut goto, &mut flusher, n_reps);
@@ -138,16 +137,16 @@ fn test(m_selector: isize, n_selector: isize, k_selector: isize) {
         let (l3b_time, l3b_err) = test_algorithm(m, n, k, &mut l3b, &mut flusher, n_reps);
         let (l3c_time, l3c_err) = test_algorithm(m, n, k, &mut l3c, &mut flusher, n_reps);
 
-        println!("{}\t{}\t{}\t{} \t{} \t{} \t{} \t{} \t{} \t{} \t{}", 
+        println!("{}\t{}\t{}\t{} {} {} {} {} {} {} {}", 
                  m, n, k,
-                 format!("{:5.5}", util::gflops(m,n,k,goto_time)), 
-                 format!("{:5.5}", util::gflops(m,n,k,l3a_time)), 
-                 format!("{:5.5}", util::gflops(m,n,k,l3b_time)), 
-                 format!("{:5.5}", util::gflops(m,n,k,l3c_time)), 
-                 format!("{:5.5e}", goto_err.sqrt()),
-                 format!("{:5.5e}", l3a_err.sqrt()),
-                 format!("{:5.5e}", l3b_err.sqrt()),
-                 format!("{:5.5e}", l3c_err.sqrt()));
+                 format!("{: <13.5}", util::gflops(m,n,k,goto_time)), 
+                 format!("{: <13.5}", util::gflops(m,n,k,l3a_time)), 
+                 format!("{: <13.5}", util::gflops(m,n,k,l3b_time)), 
+                 format!("{: <13.5}", util::gflops(m,n,k,l3c_time)), 
+                 format!("{: <15.5e}", goto_err.sqrt()),
+                 format!("{: <15.5e}", l3a_err.sqrt()),
+                 format!("{: <15.5e}", l3b_err.sqrt()),
+                 format!("{: <15.5e}", l3c_err.sqrt()));
     }
 
     let mut sum = 0.0;

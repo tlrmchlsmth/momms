@@ -100,10 +100,10 @@ fn test() {
 
         println!("{}\t{}\t{}\t{}\t{}\t{}\t{}", 
                  m, n, k,
-                 format!("{:5.5}", util::gflops(m,n,k,goto_time)), 
-                 format!("{:5.5}", util::gflops(m,n,k,l4c_time)), 
-                 format!("{:5.5e}", goto_err.sqrt()),
-                 format!("{:5.5e}", l4c_err.sqrt()));
+                 format!("{: <13.5}", util::gflops(m,n,k,goto_time)), 
+                 format!("{: <13.5}", util::gflops(m,n,k,l4c_time)), 
+                 format!("{: <15.5e}", goto_err.sqrt()),
+                 format!("{: <15.5e}", l4c_err.sqrt()));
     }
 
     let mut sum = 0.0;

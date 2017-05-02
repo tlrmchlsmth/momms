@@ -124,8 +124,8 @@ fn test() {
     let mut flusher : Vec<f64> = Vec::with_capacity(flusher_len);
     for _ in 0..flusher_len { flusher.push(0.0); }
 
-    for index in 01..50 {
-        let size = index*64;
+    for index in 01..129 {
+        let size = index*32;
         let (m, n, k) = (size, size, size);
 
         let n_reps = 5;
@@ -135,11 +135,11 @@ fn test() {
 
         println!("{}\t{}\t{}\t{}\t{}\t{}\t{}", 
                  m, n, k,
-                 format!("{:5.5}", util::gflops(m,n,k,goto_time)), 
-                 format!("{:5.5}", util::gflops(m,n,k,l3b_time)), 
-                 format!("{:5.5}", util::gflops(m,n,k,blis_time)), 
-                 format!("{:5.5e}", goto_err.sqrt()),
-                 format!("{:5.5e}", l3b_err.sqrt()));
+                 format!("{: <13.5}", util::gflops(m,n,k,goto_time)), 
+                 format!("{: <13.5}", util::gflops(m,n,k,l3b_time)), 
+                 format!("{: <13.5}", util::gflops(m,n,k,blis_time)), 
+                 format!("{: <15.5e}", goto_err.sqrt()),
+                 format!("{: <15.5e}", l3b_err.sqrt()));
 
     }
 
