@@ -53,7 +53,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
             let mut a_ir = ap;
             let mut c_ir = c_jr;
             while ir < m {
-                if (n - jr >= Nr::to_isize()) && (m - ir >= Mr::to_isize()) {
+                if Ct::full_leaves() || (n - jr >= Nr::to_isize()) && (m - ir >= Mr::to_isize()) {
                     <UkernelWrapper<Mr, Nr, T>>::run(k, &mut alpha, a_ir, b_jr, &mut beta, c_ir, c_leaf_rs, c_leaf_cs);
                 } else {
 					let mut t : Matrix<T> = Matrix::new(2*Mr::to_usize(), 2*Nr::to_usize());

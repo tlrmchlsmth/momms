@@ -382,4 +382,8 @@ impl<T: Scalar, PH: Unsigned> RoCM<T> for RowPanelMatrix<T,PH> {
     fn get_block_cs(&self, _: usize, blksz: usize) -> usize {
 		blksz * PH::to_usize()
     }
+    #[inline(always)]
+    fn full_leaves() -> bool {
+        false
+    }
 }

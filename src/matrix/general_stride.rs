@@ -301,4 +301,8 @@ impl<T: Scalar> RoCM<T> for Matrix<T> {
     fn get_block_cs(&self, _: usize, blksz: usize) -> usize {
         blksz * self.column_stride
     }
+    #[inline(always)]
+    fn full_leaves() -> bool {
+        false
+    }
 }

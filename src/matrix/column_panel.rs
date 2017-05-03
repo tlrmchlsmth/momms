@@ -383,4 +383,8 @@ impl<T: Scalar, PW: Unsigned> RoCM<T> for ColumnPanelMatrix<T, PW> {
 			self.panel_stride * blksz / PW::to_usize()
         }
     }
+    #[inline(always)]
+    fn full_leaves() -> bool {
+        false
+    }
 }

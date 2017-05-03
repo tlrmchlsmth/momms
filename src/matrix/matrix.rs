@@ -277,4 +277,5 @@ pub trait RoCM<T: Scalar> {
     unsafe fn get_mut_buffer(&mut self) -> *mut T;
     fn get_block_rs(&self, lvl: usize, blksz: usize) -> usize;
     fn get_block_cs(&self, lvl: usize, blksz: usize) -> usize;
+    fn full_leaves() -> bool;
 }

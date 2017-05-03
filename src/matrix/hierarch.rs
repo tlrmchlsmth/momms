@@ -584,4 +584,8 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> RoCM<T
             self.x_hierarchy[index].stride
         }
     }
+    #[inline(always)]
+    fn full_leaves() -> bool {
+        true 
+    }
 }
