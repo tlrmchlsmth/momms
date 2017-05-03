@@ -124,8 +124,8 @@ fn test(m_selector: isize, n_selector: isize, k_selector: isize) {
     }
 
     println!("m\tn\tk\t{: <13}{: <13}{: <13}{: <13}{: <15}{: <15}{: <15}{: <15}", "goto", "l3a", "l3b", "l3c", "goto", "l3a", "l3b", "l3c");
-    for index in 01..129 {
-        let size = index*32;
+    for index in 01..81 {
+        let size = index*50;
 //        let (m, n, k) = (size, size, size);
         let m = if m_selector < 0 { size * isize::abs(m_selector) } else { m_selector } as usize;
         let n = if n_selector < 0 { size * isize::abs(n_selector) } else { n_selector } as usize;
