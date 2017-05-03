@@ -88,13 +88,16 @@ fn test(m_selector: isize, n_selector: isize, k_selector: isize) {
           ParallelN<T, MTA, MTB, MTC, Nr, TheRest,
           KernelNM<T, MTA, MTB, MTC, Nr, Mr>>>>>>>;
 
+    type L3CNc = typenum::U780;
+    type L3CKc = typenum::U156;
+    type L3CMc = typenum::U156;
     //Resident C algorithm
     type L3C<T,MTA,MTB,MTC> 
         = SpawnThreads<T, MTA, MTB, MTC,
-          PartN<T, MTA, MTB, MTC, RootS3,
-          PartM<T, MTA, MTB, MTC, typenum::U720, //Use 720 as blocksize as it is divisible by Mc=120
-          PartK<T, MTA, MTB, MTC, Kc,
-          PartM<T, MTA, MTB, MTC, McL2,
+          PartN<T, MTA, MTB, MTC, L3CNc,
+          PartM<T, MTA, MTB, MTC, L3CKc,
+          PartK<T, MTA, MTB, MTC, L3CKc,
+          PartM<T, MTA, MTB, MTC, L3CMc,
           ParallelN<T, MTA, MTB, MTC, Nr, TheRest,
           KernelNM<T, MTA, MTB, MTC, Nr, Mr>>>>>>>;
 
@@ -107,10 +110,14 @@ fn test(m_selector: isize, n_selector: isize, k_selector: isize) {
     type HierBL3a<T> = Hierarch<T, Kc, Mr, Mr, U1>;
     type HierCL3a<T> = Hierarch<T, Nr, Mr, U1, Nr>;
 
+    type HierAL3c<T> = Hierarch<T, Mr, L3CKc, U1, Mr>;
+    type HierBL3c<T> = Hierarch<T, L3CKc, Nr, Nr, U1>;
+    type HierCL3c<T> = Hierarch<T, Mr, Nr, Nr, U1>;
+
     let mut goto = <Goto<f64, HierA<f64>, HierB<f64>, HierC<f64>>>::new();
     let mut l3a = <L3A<f64, HierAL3a<f64>, HierBL3a<f64>, HierCL3a<f64>>>::new();
     let mut l3b = <L3B<f64, HierA<f64>, HierB<f64>, HierC<f64>>>::new();
-    let mut l3c = <L3C<f64, HierA<f64>, HierB<f64>, HierC<f64>>>::new();
+    let mut l3c = <L3C<f64, HierAL3c<f64>, HierBL3c<f64>, HierCL3c<f64>>>::new();
 
     goto.set_n_threads(4);
     l3a.set_n_threads(4);
