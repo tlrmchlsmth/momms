@@ -1,4 +1,5 @@
-extern crate scoped_threadpool;
+//extern crate scoped_threadpool;
+extern crate threadpool;
 extern crate thread_local;
 extern crate hwloc;
 
@@ -9,7 +10,7 @@ use composables::{GemmNode,AlgorithmStep};
 
 use std::sync::{Arc,Mutex};
 use std::cell::{RefCell};
-use self::scoped_threadpool::Pool;
+use self::threadpool::ThreadPool;
 use self::thread_local::ThreadLocal;
 use self::hwloc::{Topology, ObjectType, CPUBIND_THREAD, CpuSet};
 use libc;
@@ -23,9 +24,9 @@ fn cpuset_for_core(topology: &Topology, idx: usize) -> CpuSet {
 }
 
 pub struct SpawnThreads<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>> 
-    where S: Send {
+    where S: Send, T: 'static, S: 'static, At: 'static, Bt: 'static, Ct: 'static {
     n_threads: usize,
-    pool: Pool,
+    pool: ThreadPool,
 
     cntl_cache: Arc<ThreadLocal<RefCell<S>>>,
 
@@ -38,39 +39,49 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     SpawnThreads <T,At,Bt,Ct,S> 
     where S: Send {
     pub fn set_n_threads(&mut self, n_threads: usize){ 
+        //Create new thread pool
         self.n_threads = n_threads;
-        self.pool = Pool::new(n_threads as u32);
+        self.pool = ThreadPool::new(n_threads-1);
 
-        //TODO: Clear control cache more robustly
+        //Clear the control tree cache
         Arc::get_mut(&mut self.cntl_cache).expect("").clear();
+        
+        //Bind threads to cores
         self.bind_threads();
     }
     fn bind_threads(&mut self) {
         //Get topology
         let topo = Arc::new(Mutex::new(Topology::new()));
-/*        let num_cores = {
-            let topo_rc = topo.clone();
-            let topo_locked = topo_rc.lock().unwrap();
-            (*topo_locked).objects_with_type(&ObjectType::Core).unwrap().len()
-        };*/
-        let nthr = self.n_threads;
-        self.pool.scoped(|scope| {
-            for id in 0..nthr {
-                let child_topo = topo.clone();
-                scope.execute(move || {
-                    let tid = unsafe { libc::pthread_self() };
-                    {
-                    let mut locked_topo = child_topo.lock().unwrap();
-//                    let before = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
+        let comm : Arc<ThreadComm<T>> = Arc::new(ThreadComm::new(self.n_threads));
+
+        //Bind workers to cores.
+        for id in 1..self.n_threads {
+            let my_topo = topo.clone();
+            let my_comm  = comm.clone();
+            self.pool.execute(move || {
+                let tid = unsafe { libc::pthread_self() };
+                {
+                    let mut locked_topo = my_topo.lock().unwrap();
+                    //let before = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
                     let bind_to = cpuset_for_core(&*locked_topo, id);
-                    //Doesn't matter if it worked or not
                     let _ = locked_topo.set_cpubind_for_thread(tid, bind_to, CPUBIND_THREAD);
-//                    let after = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
-//                    println!("Thread {}: Before {:?}, After {:?}", id, before, after);
-                    }
-                });
-            }
-        });
+                    //let after = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
+                }
+                //Barrier to make sure therad binding is done.
+                let thr = ThreadInfo::new(id, my_comm);
+                thr.barrier()
+            });
+        }
+        
+        //Bind parent to a core.
+        let tid = unsafe { libc::pthread_self() };
+        {
+            let mut locked_topo = topo.lock().unwrap();
+            let bind_to = cpuset_for_core(&*locked_topo, 0);
+            let _ = locked_topo.set_cpubind_for_thread(tid, bind_to, CPUBIND_THREAD);
+        }
+        let thr = ThreadInfo::new(0, comm);
+        thr.barrier();
     }
 }
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
@@ -78,42 +89,43 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     where S: Send {
     #[inline(always)]
     unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c:&mut Ct, _thr: &ThreadInfo<T>) -> () {
-        //Should the thread communicator be cached???
-        //Probably this is cheap so don't worry about it
-        let global_comm : Arc<ThreadComm<T>> = Arc::new(ThreadComm::new(self.n_threads));
+        //Create global thread communicator
+        let comm : Arc<ThreadComm<T>> = Arc::new(ThreadComm::new(self.n_threads));
 
         //Make some shallow copies here to pass into the scoped,
         //because self.pool borrows self as mutable
-        let num_threads = self.n_threads;
-        let cache = self.cntl_cache.clone();
+        //let cache = self.cntl_cache.clone();
     
-        self.pool.scoped(|scope| {
-            for id in 0..num_threads {
-                //Make some shallow copies because of borrow rules
-                let mut my_a = a.make_alias();
-                let mut my_b = b.make_alias();
-                let mut my_c = c.make_alias();
-                let my_comm  = global_comm.clone();
-                let my_cache = cache.clone();
+        //Spawn n-1 workers since head thread will do work too.
+        for id in 1..self.n_threads {
+            //Make some shallow copies because of borrow rules
+            let mut my_a = a.make_alias();
+            let mut my_b = b.make_alias();
+            let mut my_c = c.make_alias();
+            let my_comm  = comm.clone();
+            let my_cache = self.cntl_cache.clone();
 
-                scope.execute(move || {
-                    //Make this thread's communicator holder
-                    let thr = ThreadInfo::new(id, my_comm);
+            self.pool.execute(move || {
+                //Make this thread's communicator holder
+                let thr = ThreadInfo::new(id, my_comm);
 
-                    //We need to have a barrier here to force multiple threads to actually spawn.
-                    thr.barrier();
-                    
-                    //Read this thread's cached control tree
-                    let cntl_tree_cell = my_cache.get_or(|| Box::new(RefCell::new(S::new())));
+                //Read this thread's cached control tree
+                let cntl_tree_cell = my_cache.get_or(|| Box::new(RefCell::new(S::new())));
 
-                    //Run subproblem
-                    cntl_tree_cell.borrow_mut().run(&mut my_a, &mut my_b, &mut my_c, &thr);
-                });
-            }
-        });
+                //Run subproblem
+                cntl_tree_cell.borrow_mut().run(&mut my_a, &mut my_b, &mut my_c, &thr);
+                thr.barrier();
+            });
+        }
+
+        //Do parent thread's work
+        let thr = ThreadInfo::new(0, comm);
+        let cntl_tree_cell = self.cntl_cache.get_or(|| Box::new(RefCell::new(S::new())));
+        cntl_tree_cell.borrow_mut().run(a, b, c, &thr);
+        thr.barrier();
     }
     fn new() -> SpawnThreads<T, At, Bt, Ct, S>{
-        SpawnThreads{ n_threads : 1, pool: Pool::new(1),
+        SpawnThreads{ n_threads : 1, pool: ThreadPool::new(1),
                  cntl_cache: Arc::new(ThreadLocal::new()),
                  _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
