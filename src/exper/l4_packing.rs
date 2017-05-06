@@ -124,8 +124,8 @@ fn test() {
     }
 
     println!("m\tn\tk\t{: <13}{: <13}{: <13}{: <15}{: <15}", "goto", "l4c", "blis", "goto", "l4c");
-    for index in 01..100 {
-        let size = index*512;
+    for index in 01..51 {
+        let size = index*500;
         let (m, n, k) = (size, size, size);
 
         let n_reps = 5;
