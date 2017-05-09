@@ -161,7 +161,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
                 //Allocate Buffer
                 unsafe {
                     let ptr = heap::allocate(capacity * mem::size_of::<T>(), 4096);
-                    assert!(!ptr.is_null());
+                    assert!(!ptr.is_null(), "Could not allocate buffer for matrix!");
                     (ptr, capacity)
                 }
             };
@@ -497,6 +497,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
             unsafe {
                 heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
                 self.buffer = heap::allocate(req_padded_capacity * mem::size_of::<T>(), 4096) as *mut _;
+                assert!(!self.buffer.is_null(), "Could not allocate buffer for matrix!");
                 self.capacity = req_padded_capacity;
             }
         }

@@ -31,7 +31,7 @@ impl<T: Scalar> Matrix<T> {
             } else {
                 unsafe {
                     let ptr = heap::allocate(h*w * mem::size_of::<T>(), 4096);
-                    assert!(!ptr.is_null());
+                    assert!(!ptr.is_null(), "Could not allocate buffer for matrix!");
                     ptr
                 }
             };
