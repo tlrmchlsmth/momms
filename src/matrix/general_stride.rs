@@ -26,14 +26,10 @@ impl<T: Scalar> Matrix<T> {
     pub fn new(h: usize, w: usize) -> Matrix<T> {
         assert!(mem::size_of::<T>() != 0, "Matrix can't handle ZSTs");
         let buf = 
-            if h == 0 || w == 0 {
-                heap::EMPTY as *mut u8
-            } else {
-                unsafe {
-                    let ptr = heap::allocate(h*w * mem::size_of::<T>(), 4096);
-                    assert!(!ptr.is_null(), "Could not allocate buffer for matrix!");
-                    ptr
-                }
+            unsafe {
+                let ptr = heap::allocate(h*w * mem::size_of::<T>(), 4096);
+                assert!(!ptr.is_null(), "Could not allocate buffer for matrix!");
+                ptr
             };
 
         let mut y_views : Vec<MatrixView> = Vec::with_capacity(16);

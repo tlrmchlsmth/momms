@@ -41,16 +41,10 @@ impl<T: Scalar, PW: Unsigned> ColumnPanelMatrix<T,PW> {
         x_views.push(MatrixView{ offset: 0, padding: 0, iter_size: w }); 
 
         //Figure out buffer and capacity
-        let buf = 
-            if h == 0 || w == 0 {
-                heap::EMPTY as *mut u8
-            } else {
-                //Allocate Buffer
-                unsafe {
-                    let ptr = heap::allocate(capacity * mem::size_of::<T>(), 4096);
-                    assert!(!ptr.is_null(), "Could not allocate buffer for matrix!");
-                    ptr
-                }
+        let buf = unsafe {
+            let ptr = heap::allocate(capacity * mem::size_of::<T>(), 4096);
+            assert!(!ptr.is_null(), "Could not allocate buffer for matrix!");
+            ptr
         };
 
         ColumnPanelMatrix{ alpha: T::one(),

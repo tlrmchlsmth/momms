@@ -151,20 +151,17 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         let xh_index = 0;
 
         //Figure out buffer and capacity
-        let (ptr, capacity) = 
-            if h == 0 || w == 0 {
-                (heap::EMPTY as *mut u8, 0)
-            } else {
-                //Figure out the number of top-level blocks in each direction
-                let capacity = (n_blocks_y + 1) * y_tlds * (n_blocks_x + 1) * x_tlds;
+        let (ptr, capacity) = {
+            //Figure out the number of top-level blocks in each direction
+            let capacity = (n_blocks_y + 1) * y_tlds * (n_blocks_x + 1) * x_tlds;
 
-                //Allocate Buffer
-                unsafe {
-                    let ptr = heap::allocate(capacity * mem::size_of::<T>(), 4096);
-                    assert!(!ptr.is_null(), "Could not allocate buffer for matrix!");
-                    (ptr, capacity)
-                }
-            };
+            //Allocate Buffer
+            unsafe {
+                let ptr = heap::allocate(capacity * mem::size_of::<T>(), 4096);
+                assert!(!ptr.is_null(), "Could not allocate buffer for matrix!");
+                (ptr, capacity)
+            }
+        };
 
       
         //Return
