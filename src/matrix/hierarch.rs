@@ -153,7 +153,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         //Figure out buffer and capacity
         let (ptr, capacity) = {
             //Figure out the number of top-level blocks in each direction
-            let capacity = (n_blocks_y + 1) * y_tlds * (n_blocks_x + 1) * x_tlds;
+            let capacity = n_blocks_y * y_tlds * n_blocks_x * x_tlds;
 
             //Allocate Buffer
             unsafe {
@@ -481,7 +481,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
 
              let n_blocks_y = (other.height()-1) / y_tlds + 1;
              let n_blocks_x = (other.width()-1) / x_tlds + 1;
-             let other_capacity = (n_blocks_y + 1) * y_tlds * (n_blocks_x + 1) * x_tlds;
+             let other_capacity = n_blocks_y * y_tlds * n_blocks_x * x_tlds;
              other_capacity
         }
     }
