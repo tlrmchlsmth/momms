@@ -10,29 +10,13 @@ use composables::AlgorithmStep;
 use core::marker::PhantomData;
 use core::{mem,ptr};
 
-/*Notes:
- * This file is for implementing hierarchical matrices
- * These are matrices where the data is physically arranged hierarchically for spatial locality.
- * 
- * This hierarchy can be described as a list of directions, blocksizes, and strides
- * At the bottom of this hierarchy there are leaf blocks. 
- * Matrices always get padded s.t. they can be divided into an integer # of rows and columns of leaf blocks.
- */
-
 #[derive(Clone)]
 pub struct HierarchyNode {
     pub stride: usize, //This is the stride between submatrices
     pub blksz: usize,
 }
 
-//I need to be able to specify everything about a hierarch matrix in its type!
-//Otherwise, how does the packer set it up??
-//It can't know to "add to x hierarchy"!
-//This may involve passing a gemm algorithm as a type to generalize over
-//Notice that the type of that algorithm can't be the same type that actually runs the
-//gemm with hierarchiccal matrices! Because that type depends on the type of this and we can't have
-//cyclical types.
-
+//LH is leaf height, LW is leaf width
 //LRS is leaf row stride, LCS is leaf column stride
 pub struct Hierarch<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned>{ 
     alpha: T,
@@ -52,7 +36,7 @@ pub struct Hierarch<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: U
     buffer: *mut T,
     capacity: usize,
     is_alias: bool,
-    //_ht:   PhantomData<H>,
+    
     _lht:  PhantomData<LH>,
     _lwt:  PhantomData<LW>,
     _lrst: PhantomData<LRS>,
@@ -174,21 +158,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
                   _lht: PhantomData, _lwt: PhantomData,
                   _lrst: PhantomData, _lcst: PhantomData }
     }
-/*
-    #[inline(always)]
-    pub unsafe fn get_buffer(&self) -> *const T { 
-        let y_off = self.y_views.last().unwrap().offset;
-        let x_off = self.x_views.last().unwrap().offset;
-        self.buffer.offset((y_off + x_off) as isize) 
-    }   
-
-    #[inline(always)]
-    pub unsafe fn get_mut_buffer(&mut self) -> *mut T { 
-        let y_off = self.y_views.last().unwrap().offset;
-        let x_off = self.x_views.last().unwrap().offset;
-        self.buffer.offset((y_off + x_off) as isize) 
-    }
-*/
+    
     #[inline(always)]
     pub fn block_stride_x(&self, level: usize) -> usize {
         self.x_hierarchy[self.xh_index + level].stride
