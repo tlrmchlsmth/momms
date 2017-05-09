@@ -17,33 +17,6 @@ use momms::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, Pa
 use momms::thread_comm::ThreadInfo;
 use momms::util;
 
-fn test_blas_dgemm ( m:usize, n: usize, k: usize, flusher: &mut Vec<f64>, n_reps: usize ) -> (f64, f64) 
-{
-    let mut best_time: f64 = 9999999999.0;
-    let mut worst_err: f64 = 0.0;
-
-    for _ in 0..n_reps {
-        //Create matrices.
-        let mut a : Matrix<f64> = Matrix::new(m, k);
-        let mut b : Matrix<f64> = Matrix::new(k, n);
-        let mut c : Matrix<f64> = Matrix::new(m, n);
-
-        //Fill the matrices
-        a.fill_rand(); c.fill_zero(); b.fill_rand();
-
-        //Read a buffer so that A, B, and C are cold in cache.
-        for i in flusher.iter_mut() { *i += 1.0; }
-            
-        //Time and run algorithm
-        let start = Instant::now();
-        util::blas_dgemm( &mut a, &mut b, &mut c);
-        best_time = best_time.min(util::dur_seconds(start));
-        let err = util::test_c_eq_a_b( &mut a, &mut b, &mut c);
-        worst_err = worst_err.max(err);
-    }
-    (best_time, worst_err)
-}
-
 fn test_algorithm_flat<T: Scalar, S: GemmNode<T, Matrix<T>, Matrix<T>, Matrix<T>>>
     ( m:usize, n: usize, k: usize, algo: &mut S, flusher: &mut Vec<f64>, n_reps: usize ) -> (f64, T) 
 {
@@ -124,7 +97,7 @@ fn test() {
     let mut flusher : Vec<f64> = Vec::with_capacity(flusher_len);
     for _ in 0..flusher_len { flusher.push(0.0); }
 
-    println!("m\tn\tk\t{: <13}{: <13}{: <13}{: <15}{: <15}", "goto", "l3b", "blis", "goto", "l3b");
+    println!("m\tn\tk\t{: <13}{: <13}{: <15}{: <15}", "goto", "l3b", "goto", "l3b");
     for index in 01..81 {
         let size = index*50;
         let (m, n, k) = (size, size, size);
@@ -132,13 +105,11 @@ fn test() {
         let n_reps = 5;
         let (goto_time, goto_err) = test_algorithm_flat(m, n, k, &mut goto, &mut flusher, n_reps);
         let (l3b_time, l3b_err) = test_algorithm_flat(m, n, k, &mut l3b, &mut flusher, n_reps);
-        let (blis_time, _) = test_blas_dgemm(m, n, k, &mut flusher, n_reps);
 
-        println!("{}\t{}\t{}\t{}{}{}{}{}", 
+        println!("{}\t{}\t{}\t{}{}{}{}", 
                  m, n, k,
                  format!("{: <13.5}", util::gflops(m,n,k,goto_time)), 
                  format!("{: <13.5}", util::gflops(m,n,k,l3b_time)), 
-                 format!("{: <13.5}", util::gflops(m,n,k,blis_time)), 
                  format!("{: <15.5e}", goto_err.sqrt()),
                  format!("{: <15.5e}", l3b_err.sqrt()));
 
