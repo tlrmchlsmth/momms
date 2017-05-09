@@ -25,22 +25,29 @@ pub struct Matrix<T: Scalar> {
 impl<T: Scalar> Matrix<T> {
     pub fn new(h: usize, w: usize) -> Matrix<T> {
         assert!(mem::size_of::<T>() != 0, "Matrix can't handle ZSTs");
-        unsafe { 
-            let buf = heap::allocate((h * w + 256) * mem::size_of::<T>(), 4096);
+        let buf = 
+            if h == 0 || w == 0 {
+                heap::EMPTY as *mut u8
+            } else {
+                unsafe {
+                    let ptr = heap::allocate(h*w * mem::size_of::<T>(), 4096);
+                    assert!(!ptr.is_null());
+                    ptr
+                }
+            };
 
-            let mut y_views : Vec<MatrixView> = Vec::with_capacity(16);
-            let mut x_views : Vec<MatrixView> = Vec::with_capacity(16);
-            y_views.push(MatrixView{ offset: 0, padding: 0, iter_size: h });
-            x_views.push(MatrixView{ offset: 0, padding: 0, iter_size: w });
-        
-            Matrix{ alpha: T::one(),
-                    y_views: y_views,
-                    x_views: x_views, 
-                    row_stride: 1, column_stride: h,
-                    buffer: buf as *mut _,
-                    capacity: h * w,
-                    is_alias: false }
-        }
+        let mut y_views : Vec<MatrixView> = Vec::with_capacity(16);
+        let mut x_views : Vec<MatrixView> = Vec::with_capacity(16);
+        y_views.push(MatrixView{ offset: 0, padding: 0, iter_size: h });
+        x_views.push(MatrixView{ offset: 0, padding: 0, iter_size: w });
+    
+        Matrix{ alpha: T::one(),
+                y_views: y_views,
+                x_views: x_views, 
+                row_stride: 1, column_stride: h,
+                buffer: buf as *mut _,
+                capacity: h * w,
+                is_alias: false }
     }
 
     #[inline(always)] pub fn get_row_stride(&self) -> usize { self.row_stride }

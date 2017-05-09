@@ -41,16 +41,24 @@ impl<T: Scalar, PH: Unsigned> RowPanelMatrix<T,PH> {
         y_views.push(MatrixView{ offset: 0, padding: 0, iter_size: h }); 
         x_views.push(MatrixView{ offset: 0, padding: 0, iter_size: w }); 
 
-        unsafe { 
-            let ptr = heap::allocate(capacity * mem::size_of::<T>(), 4096);
+        let buf = 
+            if h == 0 || w == 0 {
+                heap::EMPTY as *mut u8
+            } else {
+                //Allocate Buffer
+                unsafe {
+                    let ptr = heap::allocate(capacity * mem::size_of::<T>(), 4096);
+                    assert!(!ptr.is_null());
+                    ptr
+                }
+        };
 
-            RowPanelMatrix{ alpha: T::one(),
-                            y_views: y_views, x_views: x_views,
-                            panel_stride: panel_h*w, 
-                            buffer: ptr as *mut _, capacity: capacity,
-                            is_alias: false,
-                            _pht: PhantomData }
-        }
+        RowPanelMatrix{ alpha: T::one(),
+                        y_views: y_views, x_views: x_views,
+                        panel_stride: panel_h*w, 
+                        buffer: buf as *mut _, capacity: capacity,
+                        is_alias: false,
+                        _pht: PhantomData }
     }
     
 
