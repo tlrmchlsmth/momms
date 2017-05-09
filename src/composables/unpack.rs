@@ -67,15 +67,15 @@ fn unpack_hier_leaf<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: U
     if y_parallelize_level == 0 {
 		let rows_per_thread = (a.height()-1) / y_threads + 1; // micro-panels per thread
 		ystart = rows_per_thread*y_id;
-		yend   = ystart+rows_per_thread;
+		yend   = cmp::min(a.height(), ystart+rows_per_thread);
     }
     //Parallelize X direction
     let mut xstart = 0;
     let mut xend = a.width();
     if x_parallelize_level == 0 {
-		let rows_per_thread = (a.width()-1) / x_threads + 1; // micro-panels per thread
-		xstart = rows_per_thread*x_id;
-		xend   = xstart+rows_per_thread;
+		let cols_per_thread = (a.width()-1) / x_threads + 1; // micro-panels per thread
+		xstart = cols_per_thread*x_id;
+		xend   = cmp::min(a.width(), xstart+cols_per_thread);
     }
     unsafe{
         let cs_a = a.get_column_stride();
@@ -111,7 +111,7 @@ fn unpack_hier_y<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsi
 			let n_blocks = (range-1) / blksz + 1;         
 			let blocks_per_thread = (n_blocks-1) / y_threads + 1; // micro-panels per thread
 			start = blksz*blocks_per_thread*y_id;
-			end   = start+blksz*blocks_per_thread;
+			end   = cmp::min(m_save, start+blksz*blocks_per_thread);
         }
         let mut i = start;
         while i < end {
@@ -146,7 +146,7 @@ fn unpack_hier_x<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsi
 			let n_blocks = (range-1) / blksz + 1;         
 			let blocks_per_thread = (n_blocks-1) / x_threads + 1; // micro-panels per thread
 			start = blksz*blocks_per_thread*x_id;
-			end   = start+blksz*blocks_per_thread;
+			end   = cmp::min(n_save, start+blksz*blocks_per_thread);
         }
         let mut j = start;
         while j < end  {
