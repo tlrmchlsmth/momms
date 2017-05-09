@@ -39,6 +39,10 @@ path = "src/exper/l4.rs"
 name = "exper_l4_packing"
 path = "src/exper/l4_packing.rs"
 
+[[bin]]
+name = "exper_out_of_core"
+path = "src/exper/out_of_core.rs"
+
 [features]
 hsw = []
 snb = []
