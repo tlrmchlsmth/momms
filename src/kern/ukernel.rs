@@ -1,4 +1,5 @@
 use matrix::{Scalar,Mat,RoCM,Matrix};
+use core::ptr;
 use core::marker::{PhantomData};
 use composables::{GemmNode,AlgorithmStep};
 use thread_comm::{ThreadInfo};
@@ -6,10 +7,10 @@ use typenum::Unsigned;
 use super::ukernel_wrapper::{UkernelWrapper,GenericUkernelWrapper};
 
 pub struct Ukernel<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>{
+    tmp: Matrix<T>,
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
-    _t: PhantomData<T>,
     _mrt: PhantomData<Mr>,
     _nrt: PhantomData<Nr>,
 }
@@ -27,7 +28,9 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>
         }   
     }   
     fn new() -> Ukernel<T, At, Bt, Ct, Mr, Nr> { 
-        Ukernel{ _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _t: PhantomData, _mrt: PhantomData, _nrt: PhantomData } 
+        let mut tmp = <Matrix<T>>::new(Nr::to_usize(), Mr::to_usize());
+        tmp.transpose();
+        Ukernel{ tmp: tmp, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _mrt: PhantomData, _nrt: PhantomData } 
     }   
     fn hierarchy_description() -> Vec<AlgorithmStep> {
         Vec::new()
@@ -53,22 +56,24 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>
 
         let k = a.width() as isize;
 
-        if c.height() == Mr::to_usize() && c.width() == Nr::to_usize() {
+        if Ct::full_leaves() || (c.height() == Mr::to_usize() && c.width() == Nr::to_usize()) {
             <UkernelWrapper<Mr,Nr,T>>::run(k, &mut alpha, ap, bp, &mut beta, cp, c_leaf_rs, c_leaf_cs);
         }
         else {
-            let mut t : Matrix<T> = Matrix::new(Mr::to_usize(), Nr::to_usize());
-            let tp = t.get_mut_buffer();
-            let rs_t = t.get_row_stride() as isize;
-            let cs_t = t.get_column_stride() as isize;
-
+            let tp = self.tmp.get_mut_buffer();
+            let t_rs = self.tmp.get_row_stride() as isize;
+            let t_cs = self.tmp.get_column_stride() as isize;
             let mut zero = T::zero();
-            <UkernelWrapper<Mr,Nr,T>>::run(k, &mut alpha, ap, bp, &mut zero, tp, rs_t, cs_t);
+            <UkernelWrapper<Mr,Nr,T>>::run(k, &mut alpha, ap, bp, &mut zero, tp, t_rs, t_cs);
 
-            //Copy t to c
-            t.push_y_view(c.height());
-            t.push_x_view(c.width());
-            c.axpby_small(T::one(), &t, beta);
+            //Add t to c
+            for ii in 0..c.height() as isize {
+                for jj in 0..c.width() as isize {
+                    let tau = ptr::read(tp.offset(ii * t_rs + jj * t_cs));
+                    let chi = ptr::read(cp.offset(ii * c_leaf_rs + jj * c_leaf_cs));
+                    ptr::write(cp.offset(ii * c_leaf_rs + jj * c_leaf_cs), tau+beta*chi);
+                }
+            }
         }
     }   
 }
