@@ -89,13 +89,14 @@ fn test(m_selector: isize, n_selector: isize, k_selector: isize) {
           KernelNM<T, MTA, MTB, MTC, Nr, Mr>>>>>>>;
 
     type L3CNc = typenum::U780;
+    type L3CMc = typenum::U780;
     type L3CKc = typenum::U156;
     type L3CMc = typenum::U156;
     //Resident C algorithm
     type L3C<T,MTA,MTB,MTC> 
         = SpawnThreads<T, MTA, MTB, MTC,
           PartN<T, MTA, MTB, MTC, L3CNc,
-          PartM<T, MTA, MTB, MTC, L3CKc,
+          PartM<T, MTA, MTB, MTC, L3CMc,
           PartK<T, MTA, MTB, MTC, L3CKc,
           PartM<T, MTA, MTB, MTC, L3CMc,
           ParallelN<T, MTA, MTB, MTC, Nr, TheRest,
