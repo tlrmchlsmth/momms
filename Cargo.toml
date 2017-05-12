@@ -44,5 +44,6 @@ name = "exper_out_of_core"
 path = "src/exper/out_of_core.rs"
 
 [features]
+blis = []
 hsw = []
 snb = []

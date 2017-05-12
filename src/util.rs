@@ -1,14 +1,17 @@
-extern crate libc;
-extern crate hwloc;
+#[allow(unused_imports)]
 
-use self::libc::{c_double, int64_t, c_char};
+extern crate hwloc;
+extern crate libc;
+
 use std::time::Instant;
+use libc::{c_double, int64_t, c_char};
 use std::ffi::{CString};
 
 use thread_comm::ThreadInfo;
 use matrix::{Scalar, Mat, Matrix, RoCM};
 use composables::{GemmNode, TripleLoop};
 
+#[cfg(feature="blis")]
 extern{
     fn dgemm_( transa: *const c_char, transb: *const c_char,
                m: *const int64_t, n: *const int64_t, k: *const int64_t,
@@ -19,6 +22,7 @@ extern{
                c: *mut c_double, ldc: *const int64_t );
 }
 
+#[cfg(feature="blis")]
 pub fn blas_dgemm( a: &mut Matrix<f64>, b: &mut Matrix<f64>, c: &mut Matrix<f64> ) 
 {
     unsafe{ 
