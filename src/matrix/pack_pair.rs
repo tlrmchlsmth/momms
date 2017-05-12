@@ -1,15 +1,17 @@
 use thread_comm::ThreadInfo;
-use self::alloc::heap;
 use matrix::{Scalar,Mat,RoCM};
 use super::view::{MatrixView};
 use core::{mem,ptr};
+use core::marker::PhantomData;
 
-pub struct PackPair<T: Scalar, AT: Mat<T>, ApT: Mat<T>> {
-    a: &mut AT,
-    ap: &mut ApT,
+pub struct PackPair<T: Scalar, At: Mat<T>, Apt: Mat<T>> 
+{
+    a: At,
+    ap: Apt,
+    _t: PhantomData<T>,
 }
 
-impl<T: Scalar> Mat<T> for Matrix<T> {
+impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Mat<T> for PackPair<T, At, Apt> {
     #[inline(always)]
     fn get(&self, y: usize, x: usize) -> T { self.a.get(y,x) }
     #[inline(always)]
@@ -106,14 +108,14 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
 
     #[inline(always)]
     fn pop_y_view(&mut self) {
-        self.a.y_views.pop();
-        self.ap.y_views.pop();
+        self.a.pop_y_view();
+        self.ap.pop_y_view();
     }
     
     #[inline(always)]
     fn pop_x_view(&mut self) {
-        self.a.x_views.pop();
-        self.ap.x_views.pop();
+        self.a.pop_x_view();
+        self.ap.pop_x_view();
     }
 
     #[inline(always)]
@@ -134,7 +136,7 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
     unsafe fn make_alias(&self) -> Self {
         let a_alias = self.a.make_alias();
         let ap_alias = self.ap.make_alias();
-        PackPair{ a_alias, ap_alias };
+        PackPair{ a: a_alias, ap: ap_alias, _t: PhantomData }
     }
 
     #[inline(always)]
@@ -143,19 +145,15 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
         self.ap.send_alias(thr);
     }
 }
-impl<T:Scalar> Drop for Matrix<T> {
-    fn drop(&mut self) {
-        self.a.drop();
-        self.ap.drop();
-    }
-}
-unsafe impl<T:Scalar> Send for Matrix<T> {}
+unsafe impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Send for PackPair<T, At, Apt> {}
 
 
-impl<T: Scalar> RoCM<T> for Matrix<T> {
+impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> RoCM<T> for PackPair<T, At, Apt> 
+    where At: RoCM<T>, Apt: RoCM<T>
+{
     #[inline(always)]
     fn partition_is_rocm(&self) -> bool { 
-        a.partition_is_rocm() && ap.partition_is_rcom()
+        self.a.partition_is_rocm() && self.ap.partition_is_rocm()
     }
 
     #[inline(always)]
@@ -181,29 +179,27 @@ impl<T: Scalar> RoCM<T> for Matrix<T> {
 
         for ii in 0..height {
             for jj in 0..width {
-                let alpha = ptr::read(a_buf.offset(ii * self.a.get_leaf_rs() + jj * self.a.get_leaf_cs()));
-                ptr::write(ap_buf.offset(ii * self.ap.get_leaf_rs() + jj * self.ap.get_leaf_cs()), alpha);
+                let alpha = ptr::read(a_buf.offset((ii * self.a.get_leaf_rs() + jj * self.a.get_leaf_cs()) as isize));
+                ptr::write(ap_buf.offset((ii * self.ap.get_leaf_rs() + jj * self.ap.get_leaf_cs()) as isize), alpha);
             }
         }
     }
 
     #[inline(always)]
     unsafe fn get_mut_buffer(&mut self) -> *mut T {
-        let y_view = self.y_views.last().unwrap();
-        let x_view = self.x_views.last().unwrap();
-
-        self.buffer.offset((y_view.offset*self.row_stride + x_view.offset*self.column_stride) as isize)
+        self.ap.get_mut_buffer()
     }
+    
     #[inline(always)]
     fn get_block_rs(&self, lvl: usize, blksz: usize) -> usize {
-        ap.get_block_rs(lvl, blksz)
+        self.ap.get_block_rs(lvl, blksz)
     }
     #[inline(always)]
-    fn get_block_cs(&self, _: usize, blksz: usize) -> usize {
-        ap.get_block_cs(lvl, blksz)
+    fn get_block_cs(&self, lvl: usize, blksz: usize) -> usize {
+        self.ap.get_block_cs(lvl, blksz)
     }
     #[inline(always)]
     fn full_leaves() -> bool {
-        ap.full_leaves()
+        Apt::full_leaves()
     }
 }
