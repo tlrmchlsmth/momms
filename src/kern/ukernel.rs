@@ -41,6 +41,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>
     GemmNode<T, At, Bt, Ct> for Ukernel<T, At, Bt, Ct, Mr, Nr> 
     where At: RoCM<T>, Bt: RoCM<T>, Ct: RoCM<T>
 {
+    #[inline(always)]
     unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T>) -> () {
         debug_assert!(c.height() <= Mr::to_usize());
         debug_assert!(c.width() <= Nr::to_usize());

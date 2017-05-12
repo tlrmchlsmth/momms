@@ -278,4 +278,5 @@ pub trait RoCM<T: Scalar> {
     fn get_block_rs(&self, lvl: usize, blksz: usize) -> usize;
     fn get_block_cs(&self, lvl: usize, blksz: usize) -> usize;
     fn full_leaves() -> bool;
+    unsafe fn establish_leaf(&mut self, _height: usize, _width: usize);
 }

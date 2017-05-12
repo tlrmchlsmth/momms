@@ -391,4 +391,7 @@ impl<T: Scalar, PW: Unsigned> RoCM<T> for ColumnPanelMatrix<T, PW> {
     fn full_leaves() -> bool {
         false
     }
+
+    #[inline(always)]
+    unsafe fn establish_leaf(&mut self, _height: usize, _width: usize) { }
 }

@@ -308,4 +308,7 @@ impl<T: Scalar> RoCM<T> for Matrix<T> {
     fn full_leaves() -> bool {
         false
     }
+
+    #[inline(always)]
+    unsafe fn establish_leaf(&mut self, _height: usize, _width: usize) { }
 }

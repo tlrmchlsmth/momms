@@ -351,6 +351,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         self.xh_index -= 1;
     }
     
+
     fn slide_y_view_to(&mut self, y: usize, blksz: usize) {
         let view_len = self.y_views.len();
         debug_assert!(view_len >= 2);
@@ -556,4 +557,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> RoCM<T
     fn full_leaves() -> bool {
         true 
     }
+
+    #[inline(always)]
+    unsafe fn establish_leaf(&mut self, _height: usize, _width: usize) { }
 }
