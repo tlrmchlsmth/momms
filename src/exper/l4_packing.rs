@@ -17,33 +17,6 @@ use momms::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, Pa
 use momms::thread_comm::ThreadInfo;
 use momms::util;
 
-fn test_blas_dgemm ( m:usize, n: usize, k: usize, flusher: &mut Vec<f64>, n_reps: usize ) -> (f64, f64) 
-{
-    let mut best_time: f64 = 9999999999.0;
-    let mut worst_err: f64 = 0.0;
-
-    for _ in 0..n_reps {
-        //Create matrices.
-        let mut a : Matrix<f64> = Matrix::new(m, k);
-        let mut b : Matrix<f64> = Matrix::new(k, n);
-        let mut c : Matrix<f64> = Matrix::new(m, n);
-
-        //Fill the matrices
-        a.fill_rand(); c.fill_zero(); b.fill_rand();
-
-        //Read a buffer so that A, B, and C are cold in cache.
-        for i in flusher.iter_mut() { *i += 1.0; }
-            
-        //Time and run algorithm
-        let start = Instant::now();
-        util::blas_dgemm( &mut a, &mut b, &mut c);
-        best_time = best_time.min(util::dur_seconds(start));
-        let err = util::test_c_eq_a_b( &mut a, &mut b, &mut c);
-        worst_err = worst_err.max(err);
-    }
-    (best_time, worst_err)
-}
-
 fn test_algorithm_flat<T: Scalar, S: GemmNode<T, Matrix<T>, Matrix<T>, Matrix<T>>>
     ( m:usize, n: usize, k: usize, algo: &mut S, flusher: &mut Vec<f64>, n_reps: usize ) -> (f64, T) 
 {
