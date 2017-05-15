@@ -48,6 +48,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
         let mut b_jr = bp;
         let mut jr : isize = 0;
         while jr < n {
+            b.establish_leaf(0, (jr as usize) / Nr::to_usize(), k as usize, Nr::to_usize());
     
             let mut ir : isize = 0;
             let mut a_ir = ap;

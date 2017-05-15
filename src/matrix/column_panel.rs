@@ -393,5 +393,5 @@ impl<T: Scalar, PW: Unsigned> RoCM<T> for ColumnPanelMatrix<T, PW> {
     }
 
     #[inline(always)]
-    unsafe fn establish_leaf(&mut self, _height: usize, _width: usize) { }
+    unsafe fn establish_leaf(&mut self, _y: usize, _x: usize, _height: usize, _width: usize) { }
 }

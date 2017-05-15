@@ -43,6 +43,10 @@ path = "src/exper/l4_packing.rs"
 name = "exper_out_of_core"
 path = "src/exper/out_of_core.rs"
 
+[[bin]]
+name = "overlap"
+path = "src/exper/overlap.rs"
+
 [features]
 blis = []
 hsw = []

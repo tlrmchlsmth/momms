@@ -178,11 +178,13 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> RoCM<T> for PackPair<T, At, Apt>
     }   
 
     #[inline(always)]
-    unsafe fn establish_leaf(&mut self, height: usize, width: usize)
+    unsafe fn establish_leaf(&mut self, y: usize, x: usize, height: usize, width: usize)
     {
-        let a_buf = self.a.get_buffer();
-        let ap_buf = self.ap.get_mut_buffer();
-
+        let a_buf = self.a.get_buffer().offset((y * self.a.get_block_rs(1,height) 
+            + x * self.a.get_block_cs(1,width)) as isize);
+        let ap_buf = self.ap.get_mut_buffer().offset((y * self.ap.get_block_rs(1,height) 
+            + x * self.ap.get_block_cs(1,width)) as isize);
+        
         for ii in 0..height {
             for jj in 0..width {
                 let alpha = ptr::read(a_buf.offset((ii * self.a.get_leaf_rs() + jj * self.a.get_leaf_cs()) as isize));

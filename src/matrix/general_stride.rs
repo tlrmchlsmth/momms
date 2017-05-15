@@ -310,5 +310,5 @@ impl<T: Scalar> RoCM<T> for Matrix<T> {
     }
 
     #[inline(always)]
-    unsafe fn establish_leaf(&mut self, _height: usize, _width: usize) { }
+    unsafe fn establish_leaf(&mut self, _x: usize, _y: usize, _height: usize, _width: usize) { }
 }

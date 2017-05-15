@@ -559,5 +559,5 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> RoCM<T
     }
 
     #[inline(always)]
-    unsafe fn establish_leaf(&mut self, _height: usize, _width: usize) { }
+    unsafe fn establish_leaf(&mut self, _y: usize, _x: usize, _height: usize, _width: usize) { }
 }
