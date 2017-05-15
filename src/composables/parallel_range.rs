@@ -102,7 +102,7 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>,
         c.set_iter_height(h_iter_save);
         c.set_off_y(cy_off_save);
     }
-    fn new() -> ParallelM<T, At, Bt, Ct, Iota, Nthr, S>{
+    fn new() -> Self {
         ParallelM{ child: S::new(), par_inf: Option::None,
             _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData,
             _iotat: PhantomData, _nthr: PhantomData }
@@ -186,7 +186,7 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>,
         c.set_iter_width(w_iter_save);
         c.set_off_x(cx_off_save);
     }
-    fn new() -> ParallelN<T,At,Bt,Ct,Iota,Nthr,S>{
+    fn new() -> Self {
         ParallelN{ child: S::new(), par_inf: Option::None,
             _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData,
             _iotat: PhantomData, _nthr: PhantomData }

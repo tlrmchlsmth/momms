@@ -6,9 +6,15 @@ use core::marker::PhantomData;
 
 pub struct PackPair<T: Scalar, At: Mat<T>, Apt: Mat<T>> 
 {
-    a: At,
-    ap: Apt,
+    pub a: At,
+    pub ap: Apt,
     _t: PhantomData<T>,
+}
+
+impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> PackPair<T, At, Apt> {
+    pub fn new(a: At, ap: Apt) -> Self {
+        PackPair{ a: a, ap: ap, _t: PhantomData }
+    }
 }
 
 impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Mat<T> for PackPair<T, At, Apt> {

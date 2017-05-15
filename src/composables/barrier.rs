@@ -18,7 +18,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         thr.barrier();
         self.child.run(a, b, c, thr);
     }
-    fn new() -> Barrier<T,At,Bt,Ct,S>{
+    fn new() -> Self {
             Barrier{ child: S::new(), _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
     fn hierarchy_description() -> Vec<AlgorithmStep> {

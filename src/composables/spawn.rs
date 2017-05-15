@@ -124,7 +124,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
         cntl_tree_cell.borrow_mut().run(a, b, c, &thr);
         thr.barrier();
     }
-    fn new() -> SpawnThreads<T, At, Bt, Ct, S>{
+    fn new() -> Self {
         SpawnThreads{ n_threads : 1, pool: ThreadPool::new(1),
                  cntl_cache: Arc::new(ThreadLocal::new()),
                  _t: PhantomData, _at:PhantomData, _bt: PhantomData, _ct: PhantomData }

@@ -254,7 +254,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, CPt: Mat<T>, S: GemmNode<T, 
         <Unpacker<T,Ct,CPt>>::add(c, &mut self.c_pack, thr);
         thr.barrier();
     }
-    fn new() -> UnpackC<T, At, Bt, Ct, CPt, S>{
+    fn new() -> Self {
         let algo_desc = S::hierarchy_description();
         let y_marker = AlgorithmStep::M{bsz: 0};
         let x_marker = AlgorithmStep::N{bsz: 0};

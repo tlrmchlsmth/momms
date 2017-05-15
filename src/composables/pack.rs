@@ -336,7 +336,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, APt: Mat<T>, S: GemmNode<T, 
         thr.barrier();
         self.child.run(&mut self.a_pack, b, c, thr);
     }
-    fn new() -> PackA<T, At, Bt, Ct, APt, S>{
+    fn new() -> Self {
         let algo_desc = S::hierarchy_description();
         let y_marker = AlgorithmStep::M{bsz: 0};
         let x_marker = AlgorithmStep::K{bsz: 0};
@@ -391,7 +391,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, BPt: Mat<T>, S: GemmNode<T, 
         thr.barrier();
         self.child.run(a, &mut self.b_pack, c, thr);
     }
-    fn new() -> PackB<T, At, Bt, Ct, BPt, S> {
+    fn new() -> Self {
         let algo_desc = S::hierarchy_description();
         let y_marker = AlgorithmStep::K{bsz: 0};
         let x_marker = AlgorithmStep::N{bsz: 0};
