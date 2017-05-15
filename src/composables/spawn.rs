@@ -41,7 +41,11 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
     pub fn set_n_threads(&mut self, n_threads: usize){ 
         //Create new thread pool
         self.n_threads = n_threads;
-        self.pool = ThreadPool::new(n_threads-1);
+        if n_threads > 1 {
+            self.pool = ThreadPool::new(n_threads-1);
+        } else {
+            self.pool = ThreadPool::new(1);
+        }
 
         //Clear the control tree cache
         Arc::get_mut(&mut self.cntl_cache).expect("").clear();
