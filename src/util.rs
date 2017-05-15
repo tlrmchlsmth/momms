@@ -1,13 +1,15 @@
-#[allow(unused_imports)]
 
 extern crate hwloc;
 extern crate libc;
 
 use std::time::Instant;
+#[allow(unused_imports)]
 use libc::{c_double, int64_t, c_char};
-use std::ffi::{CString};
 
+#[allow(unused_imports)]
+use std::ffi::{CString};
 use thread_comm::ThreadInfo;
+#[allow(unused_imports)]
 use matrix::{Scalar, Mat, Matrix, RoCM};
 use composables::{GemmNode, TripleLoop};
 

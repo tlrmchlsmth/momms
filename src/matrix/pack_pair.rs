@@ -1,7 +1,6 @@
 use thread_comm::ThreadInfo;
 use matrix::{Scalar,Mat,RoCM};
-use super::view::{MatrixView};
-use core::{mem,ptr};
+use core::ptr;
 use core::marker::PhantomData;
 
 pub struct PackPair<T: Scalar, At: Mat<T>, Apt: Mat<T>> 

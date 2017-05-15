@@ -1,8 +1,6 @@
-use core::{ptr,cmp};
 use core::marker::PhantomData;
-
-use matrix::{Scalar,Mat,PackPair,ColumnPanelMatrix,RowPanelMatrix,Hierarch,Matrix,ResizableBuffer,HierarchyNode,RoCM};
-use typenum::Unsigned;
+use matrix::{Scalar,Mat,PackPair,ResizableBuffer};
+//use typenum::Unsigned;
 use thread_comm::ThreadInfo;
 use composables::{GemmNode,AlgorithmStep};
 
