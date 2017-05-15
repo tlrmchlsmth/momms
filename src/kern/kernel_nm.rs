@@ -49,11 +49,25 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
         let mut jr : isize = 0;
         while jr < n {
             b.establish_leaf(0, (jr as usize) / Nr::to_usize(), k as usize, Nr::to_usize());
-    
             let mut ir : isize = 0;
             let mut a_ir = ap;
             let mut c_ir = c_jr;
             while ir < m {
+                //prefetch next C
+                let next_c_ir = c_ir.offset(c_mr_stride);
+
+                //These prefetches are only correct if C is row major!!!!
+                if cfg!(feature="asm_snippets") {
+                    asm!(" prefetcht2 ($0)
+                           prefetcht2 64($0)" : : "r"(next_c_ir));
+                    asm!(" prefetcht2 ($0)
+                           prefetcht2 64($0)" : : "r"(next_c_ir.offset(c_leaf_rs)));
+                    asm!(" prefetcht2 ($0)
+                           prefetcht2 64($0)" : : "r"(next_c_ir.offset(2*c_leaf_rs)));
+                    asm!(" prefetcht2 ($0)
+                           prefetcht2 64($0)" : : "r"(next_c_ir.offset(3*c_leaf_rs)));
+                }
+
                 if Ct::full_leaves() || (n - jr >= Nr::to_isize()) && (m - ir >= Mr::to_isize()) {
                     <UkernelWrapper<Mr, Nr, T>>::run(k, &mut alpha, a_ir, b_jr, &mut beta, c_ir, c_leaf_rs, c_leaf_cs);
                 } else {
