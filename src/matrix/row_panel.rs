@@ -110,44 +110,6 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
             ptr::write(self.buffer.offset(elem_index as isize), alpha);
         }
     }
-    
-    #[inline(always)]
-    fn off_y(&self) -> usize { 
-        self.y_views.last().unwrap().offset * PH::to_usize()
-    }
-    #[inline(always)]
-    fn off_x(&self) -> usize { 
-        self.x_views.last().unwrap().offset
-    }
-
-    #[inline(always)]
-    fn set_off_y(&mut self, off_y: usize) {
-        let panel_h = PH::to_usize();
-        if off_y % panel_h != 0 {
-            println!("{} {}", off_y, panel_h);
-            panic!("Illegal partitioning within RowPanelMatrix!");
-        }
-
-        let mut y_view = self.y_views.last_mut().unwrap();
-        y_view.offset = off_y / panel_h;
-    }
-    #[inline(always)]
-    fn set_off_x(&mut self, off_x: usize) { 
-        let mut x_view = self.x_views.last_mut().unwrap();
-        x_view.offset = off_x; 
-    }
-    #[inline(always)]
-    fn add_off_y(&mut self, start: usize) { 
-        let off = self.off_y();
-        self.set_off_y(start + off);
-    }   
-    #[inline(always)]
-    fn add_off_x(&mut self, start: usize) { 
-        let off = self.off_x();
-        self.set_off_x(start + off);
-    }
-
-
     #[inline(always)]
     fn iter_height(&self) -> usize {
         let y_view = self.y_views.last().unwrap();
@@ -157,16 +119,6 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
     fn iter_width(&self) -> usize {
         let x_view = self.x_views.last().unwrap();
         x_view.iter_size
-    }
-    #[inline(always)]
-    fn set_iter_height(&mut self, iter_h: usize) {
-        let mut y_view = self.y_views.last_mut().unwrap();
-        y_view.iter_size = iter_h;
-    }
-    #[inline(always)]
-    fn set_iter_width(&mut self, iter_w: usize) {
-        let mut x_view = self.x_views.last_mut().unwrap();
-        x_view.iter_size = iter_w;
     }
 
     #[inline(always)]
@@ -179,16 +131,7 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
         let x_view = self.x_views.last().unwrap();
         x_view.padding
     }
-    #[inline(always)]
-    fn set_logical_h_padding(&mut self, h_pad: usize) {
-        let mut y_view = self.y_views.last_mut().unwrap();
-        y_view.padding = h_pad
-    }
-    #[inline(always)]
-    fn set_logical_w_padding(&mut self, w_pad: usize) {
-        let mut x_view = self.x_views.last_mut().unwrap();
-        x_view.padding = w_pad
-    }
+
     #[inline(always)]
     fn set_scalar(&mut self, alpha: T) {
         self.alpha = alpha;
@@ -198,14 +141,38 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
         self.alpha
     }
 
-    fn push_x_view(&mut self, blksz: usize) -> usize {
-        let (zoomed_view, uz_iter_size) = {
+    fn push_y_split(&mut self, start: usize, end: usize) {
+        debug_assert!(start % PH::to_usize() == 0 && end % PH::to_usize() == 0);
+
+        let zoomed_view = {
+            let uz_view = self.y_views.last().unwrap();
+            let new_padding = if end <= self.height() { 0 } else { end - self.height() };
+            let new_offset = uz_view.offset + start / PH::to_usize();
+            MatrixView{ offset: new_offset, padding: new_padding, iter_size: end-start }
+        };
+        self.y_views.push(zoomed_view);
+    }
+
+    fn push_x_split(&mut self, start: usize, end: usize) {
+        let zoomed_view = {
             let uz_view = self.x_views.last().unwrap();
-            let (z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(0, blksz);
-            (MatrixView{ offset: uz_view.offset, padding: z_padding, iter_size: z_iter_size }, uz_view.iter_size)
+            let new_padding = if end <= self.width() { 0 } else { end - self.width() };
+            let new_offset = uz_view.offset + start;
+            MatrixView{ offset: new_offset, padding: new_padding, iter_size: end-start }
         };
         self.x_views.push(zoomed_view);
-        uz_iter_size
+    }
+    
+    #[inline(always)]
+    fn pop_y_split(&mut self) {
+        debug_assert!(self.y_views.len() >= 2);
+        self.x_views.pop();
+    }
+
+    #[inline(always)]
+    fn pop_x_split(&mut self) {
+        debug_assert!(self.x_views.len() >= 2);
+        self.x_views.pop();
     }
     
     fn push_y_view(&mut self, blksz: usize) -> usize{
@@ -218,15 +185,38 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
         uz_iter_size
     }
 
+    fn push_x_view(&mut self, blksz: usize) -> usize {
+        let (zoomed_view, uz_iter_size) = {
+            let uz_view = self.x_views.last().unwrap();
+            let (z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(0, blksz);
+            (MatrixView{ offset: uz_view.offset, padding: z_padding, iter_size: z_iter_size }, uz_view.iter_size)
+        };
+        self.x_views.push(zoomed_view);
+        uz_iter_size
+    }
+
+    #[inline(always)]
+    fn pop_y_view(&mut self) {
+        debug_assert!(self.y_views.len() >= 2);
+        self.y_views.pop();
+    }
     #[inline(always)]
     fn pop_x_view(&mut self) {
         debug_assert!(self.x_views.len() >= 2);
         self.x_views.pop();
     }
-    #[inline(always)]
-    fn pop_y_view(&mut self) {
-        debug_assert!(self.y_views.len() >= 2);
-        self.y_views.pop();
+    
+    fn slide_y_view_to(&mut self, y: usize, blksz: usize) {
+        let view_len = self.y_views.len();
+        debug_assert!(view_len >= 2);
+
+        let uz_view = self.y_views[view_len-2];
+        let(z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(y, blksz);
+
+        let mut z_view = self.y_views.last_mut().unwrap();
+        z_view.iter_size = z_iter_size;
+        z_view.padding = z_padding;
+        z_view.offset = uz_view.offset + y / PH::to_usize();
     }
 
     fn slide_x_view_to(&mut self, x: usize, blksz: usize) {
@@ -242,28 +232,15 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
         z_view.offset = uz_view.offset + x;
     }
     
-    fn slide_y_view_to(&mut self, y: usize, blksz: usize) {
-        let view_len = self.y_views.len();
-        debug_assert!(view_len >= 2);
-
-        let uz_view = self.y_views[view_len-2];
-        let(z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(y, blksz);
-
-        let mut z_view = self.y_views.last_mut().unwrap();
-        z_view.iter_size = z_iter_size;
-        z_view.padding = z_padding;
-        z_view.offset = uz_view.offset + y / PH::to_usize();
-    }
-    
     #[inline(always)]
     unsafe fn make_alias(&self) -> Self {
-        let x_view = self.x_views.last().unwrap();
         let y_view = self.y_views.last().unwrap();
+        let x_view = self.x_views.last().unwrap();
 
-        let mut x_views_alias : Vec<MatrixView> = Vec::with_capacity(16);
         let mut y_views_alias : Vec<MatrixView> = Vec::with_capacity(16);
-        x_views_alias.push(MatrixView{ offset: x_view.offset, padding: x_view.offset, iter_size: x_view.iter_size });
+        let mut x_views_alias : Vec<MatrixView> = Vec::with_capacity(16);
         y_views_alias.push(MatrixView{ offset: y_view.offset, padding: y_view.offset, iter_size: y_view.iter_size });
+        x_views_alias.push(MatrixView{ offset: x_view.offset, padding: x_view.offset, iter_size: x_view.iter_size });
 
         RowPanelMatrix{ alpha: T::one(),
                         y_views: y_views_alias, x_views: x_views_alias,

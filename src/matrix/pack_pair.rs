@@ -21,36 +21,6 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Mat<T> for PackPair<T, At, Apt> {
     fn get(&self, y: usize, x: usize) -> T { self.a.get(y,x) }
     #[inline(always)]
     fn set(&mut self, y: usize, x: usize, alpha: T) { self.a.set(y,x,alpha); }
-    #[inline(always)]
-    fn off_y(&self) -> usize { 
-        self.a.off_y()
-    }
-    #[inline(always)]
-    fn off_x(&self) -> usize {
-        self.a.off_x()
-    }
-
-    //Still need these for parallel range but it should go away
-    #[inline(always)]
-    fn set_off_y(&mut self, off_y: usize) { 
-        self.a.set_off_y(off_y);
-        self.ap.set_off_y(off_y);
-    }
-    #[inline(always)]
-    fn set_off_x(&mut self, off_x: usize) {
-        self.a.set_off_x(off_x);
-        self.ap.set_off_x(off_x);
-    }
-    #[inline(always)]
-    fn add_off_y(&mut self, start: usize) { 
-        self.a.add_off_y(start);
-        self.ap.add_off_y(start);
-    }   
-    #[inline(always)]
-    fn add_off_x(&mut self, start: usize) { 
-        self.a.add_off_x(start);
-        self.ap.add_off_x(start);
-    } 
 
     #[inline(always)]
     fn iter_height(&self) -> usize {
@@ -61,17 +31,6 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Mat<T> for PackPair<T, At, Apt> {
         self.a.iter_width()
     }
     #[inline(always)]
-    fn set_iter_height(&mut self, iter_h: usize) {
-        self.a.set_iter_height(iter_h);
-        self.ap.set_iter_height(iter_h);
-    }
-    #[inline(always)]
-    fn set_iter_width(&mut self, iter_w: usize) {
-        self.a.set_iter_width(iter_w);
-        self.ap.set_iter_width(iter_w);
-    }
-
-    #[inline(always)]
     fn logical_h_padding(&self) -> usize { 
         self.a.logical_h_padding()
     }
@@ -79,16 +38,7 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Mat<T> for PackPair<T, At, Apt> {
     fn logical_w_padding(&self) -> usize { 
         self.a.logical_w_padding()
     }
-    #[inline(always)]
-    fn set_logical_h_padding(&mut self, h_pad: usize) { 
-        self.a.set_logical_h_padding(h_pad);
-        self.ap.set_logical_h_padding(h_pad);
-    }
-    #[inline(always)]
-    fn set_logical_w_padding(&mut self, w_pad: usize) {
-        self.a.set_logical_w_padding(w_pad);
-        self.ap.set_logical_w_padding(w_pad);
-    }
+
     #[inline(always)]
     fn set_scalar(&mut self, alpha: T) {
         self.a.set_scalar(alpha);
@@ -97,6 +47,27 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Mat<T> for PackPair<T, At, Apt> {
     #[inline(always)]
     fn get_scalar(&self) -> T {
         self.a.get_scalar()
+    }
+
+    #[inline(always)]
+    fn push_y_split(&mut self, start: usize, end: usize) {
+        self.a.push_y_split(start, end);
+        self.ap.push_y_split(start, end);
+    }
+    #[inline(always)]
+    fn push_x_split(&mut self, start: usize, end: usize) {
+        self.a.push_x_split(start, end);
+        self.ap.push_x_split(start, end);
+    }
+    #[inline(always)]
+    fn pop_y_split(&mut self) {
+        self.a.pop_y_split();
+        self.ap.pop_y_split();
+    }
+    #[inline(always)]
+    fn pop_x_split(&mut self) {
+        self.a.pop_x_split();
+        self.ap.pop_x_split();
     }
 
     #[inline(always)]

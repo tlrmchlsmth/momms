@@ -216,49 +216,6 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
             ptr::write(self.buffer.offset(self.get_offset(y,x)), alpha);
         }
     }
-
-    //Used to save and restore offsets
-    #[inline(always)]
-    fn off_y(&self) -> usize { 
-        self.y_views.last().unwrap().offset
-    }
-    #[inline(always)]
-    fn off_x(&self) -> usize { 
-        self.x_views.last().unwrap().offset
-    }
-
-    #[inline(always)]
-    fn set_off_y(&mut self, off_y: usize) {
-        debug_assert!(off_y % self.y_hierarchy[self.yh_index].blksz == 0);
-        
-        let mut y_view = self.y_views.last_mut().unwrap();
-        y_view.offset = off_y;
-    }
-    #[inline(always)]
-    fn set_off_x(&mut self, off_x: usize) {
-        debug_assert!(off_x % self.x_hierarchy[self.xh_index].blksz == 0);
-
-        let mut x_view = self.x_views.last_mut().unwrap();
-        x_view.offset = off_x;
-    }
-
-    #[inline(always)]
-    fn add_off_y(&mut self, start: usize) {
-        debug_assert!(start % self.y_hierarchy[self.yh_index].blksz == 0);
-
-        let n_blocks = start / self.y_hierarchy[self.yh_index].blksz;
-        let mut y_view = self.y_views.last_mut().unwrap();
-        y_view.offset += n_blocks * self.y_hierarchy[self.yh_index].stride;
-    }
-    #[inline(always)]
-    fn add_off_x(&mut self, start: usize) {
-        debug_assert!(start % self.x_hierarchy[self.xh_index].blksz == 0);
-
-        let n_blocks = start / self.x_hierarchy[self.xh_index].blksz;
-        let mut x_view = self.x_views.last_mut().unwrap();
-        x_view.offset += n_blocks * self.x_hierarchy[self.xh_index].stride;
-    }
-
     #[inline(always)]
     fn iter_height(&self) -> usize {
         let y_view = self.y_views.last().unwrap();
@@ -270,17 +227,6 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         x_view.iter_size
     }
     #[inline(always)]
-    fn set_iter_height(&mut self, iter_h: usize) {
-        let mut y_view = self.y_views.last_mut().unwrap();
-        y_view.iter_size = iter_h;
-    }
-    #[inline(always)]
-    fn set_iter_width(&mut self, iter_w: usize) {
-        let mut x_view = self.x_views.last_mut().unwrap();
-        x_view.iter_size = iter_w;
-    }
-
-    #[inline(always)]
     fn logical_h_padding(&self) -> usize {
         let y_view = self.y_views.last().unwrap();
         y_view.padding
@@ -290,17 +236,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         let x_view = self.x_views.last().unwrap();
         x_view.padding
     }
-    #[inline(always)]
-    fn set_logical_h_padding(&mut self, h_pad: usize) {
-        let mut y_view = self.y_views.last_mut().unwrap();
-        y_view.padding = h_pad
-    }
 
-    #[inline(always)]
-    fn set_logical_w_padding(&mut self, w_pad: usize) {
-        let mut x_view = self.x_views.last_mut().unwrap();
-        x_view.padding = w_pad
-    }
     #[inline(always)]
     fn set_scalar(&mut self, alpha: T) {
         self.alpha = alpha;
@@ -308,6 +244,55 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
     #[inline(always)]
     fn get_scalar(&self) -> T {
         self.alpha
+    }
+
+    fn push_y_split(&mut self, start: usize, end: usize) {
+        let iota = self.y_hierarchy[self.yh_index].blksz;
+        debug_assert!((start % iota == 0) && (end % iota == 0));
+
+        let zoomed_view = {
+            let uz_view = self.y_views.last().unwrap();
+
+            //Determine new padding.
+            let new_padding = if end <= self.height() { 0 } else { end - self.height() };
+
+            //Determine out new offset
+            let n_blocks_offset = start / self.y_hierarchy[self.yh_index].blksz;
+            let new_offset = uz_view.offset + n_blocks_offset * self.y_hierarchy[self.yh_index].stride;
+            
+            MatrixView{ offset: new_offset, padding: new_padding, iter_size: end-start }
+        };
+        self.y_views.push(zoomed_view);
+    }
+
+    fn push_x_split(&mut self, start: usize, end: usize) {
+        let iota = self.x_hierarchy[self.xh_index].blksz;
+        debug_assert!((start % iota == 0) && (end % iota == 0));
+
+        let zoomed_view = {
+            let uz_view = self.x_views.last().unwrap();
+            //Determine new padding.
+            let new_padding = if end <= self.width() { 0 } else { end - self.width() };
+
+            //Determine out new offset
+            let n_blocks_offset = start / self.x_hierarchy[self.xh_index].blksz;
+            let new_offset = uz_view.offset + n_blocks_offset * self.x_hierarchy[self.xh_index].stride;
+            
+            MatrixView{ offset: new_offset, padding: new_padding, iter_size: end-start }
+        };
+        self.x_views.push(zoomed_view);
+    }
+    
+    #[inline(always)]
+    fn pop_y_split(&mut self) {
+        debug_assert!(self.y_views.len() >= 2);
+        self.x_views.pop();
+    }
+
+    #[inline(always)]
+    fn pop_x_split(&mut self) {
+        debug_assert!(self.x_views.len() >= 2);
+        self.x_views.pop();
     }
 
     fn push_y_view(&mut self, blksz: usize) -> usize{

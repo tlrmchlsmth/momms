@@ -84,39 +84,15 @@ pub trait Mat<T: Scalar> where Self: Send {
     }
 
     #[inline(always)]
-    fn off_y(&self) -> usize;
-    #[inline(always)]
-    fn off_x(&self) -> usize;
-
-    #[inline(always)]
     fn iter_height(&self) -> usize;
     #[inline(always)]
     fn iter_width(&self) -> usize;
 
     #[inline(always)]
-    fn set_iter_height(&mut self, h: usize);
-    #[inline(always)]
-    fn set_iter_width(&mut self, w: usize);
-
-    #[inline(always)]
-    fn set_off_y(&mut self, off_y: usize);
-    #[inline(always)]
-    fn set_off_x(&mut self, off_x: usize);
-
-    #[inline(always)]
-    fn add_off_y(&mut self, start: usize);
-    #[inline(always)]
-    fn add_off_x(&mut self, start: usize);
-
-    #[inline(always)]
-    fn set_logical_h_padding(&mut self, iter_h: usize);
-    #[inline(always)]
     fn logical_h_padding(&self) -> usize;
     #[inline(always)]
-    fn set_logical_w_padding(&mut self, iter_h: usize);
-    #[inline(always)]
     fn logical_w_padding(&self) -> usize;
-    
+
     #[inline(always)]
     unsafe fn make_alias(&self) -> Self where Self: Sized;
     #[inline(always)]
@@ -128,12 +104,17 @@ pub trait Mat<T: Scalar> where Self: Send {
     fn get_scalar(&self) -> T;
 
     //Functions for partitioning matrices.
-    fn push_x_view(&mut self, blksz: usize) -> usize;
     fn push_y_view(&mut self, blksz: usize) -> usize;
-    fn pop_x_view(&mut self);
+    fn push_x_view(&mut self, blksz: usize) -> usize;
     fn pop_y_view(&mut self);
-    fn slide_x_view_to(&mut self, x: usize, blksz: usize);
+    fn pop_x_view(&mut self);
     fn slide_y_view_to(&mut self, y: usize, blksz: usize);
+    fn slide_x_view_to(&mut self, x: usize, blksz: usize);
+
+    fn push_y_split(&mut self, start: usize, end: usize);
+    fn push_x_split(&mut self, start: usize, end: usize);
+    fn pop_y_split(&mut self);
+    fn pop_x_split(&mut self);
 
     //Print the matrix so it can be pasted into wolframalpha
     fn print_wolfram(&self) {
@@ -258,6 +239,7 @@ pub trait Mat<T: Scalar> where Self: Send {
     }
 }
 
+//Matrix that can be resized to be used as a packing buffer.
 pub trait ResizableBuffer<T: Scalar> {
     fn empty(y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep>) -> Self;
     fn capacity(&self) -> usize;
@@ -268,6 +250,7 @@ pub trait ResizableBuffer<T: Scalar> {
 }
 
 //Trait indicating that the matrix can be partitioned down into row or column major form.
+//Functions are utilities for operating on raw matrices
 //BUT is not necessarily always in row or column major form
 pub trait RoCM<T: Scalar> {
     fn partition_is_rocm(&self) -> bool;
