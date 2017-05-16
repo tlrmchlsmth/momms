@@ -100,7 +100,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
         }
 
     }
-    fn new() -> KernelNM<T, At, Bt, Ct, Nr, Mr> { 
+    fn new() -> Self {
         let mut tmp = <Matrix<T>>::new(Nr::to_usize(), Mr::to_usize());
         tmp.transpose();
         KernelNM{ tmp: tmp, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _nrt: PhantomData, _mrt: PhantomData } 

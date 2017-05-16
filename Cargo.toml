@@ -47,8 +47,13 @@ path = "src/exper/out_of_core.rs"
 name = "overlap"
 path = "src/exper/overlap.rs"
 
+[[bin]]
+name = "xsmm"
+path = "src/exper/xsmm.rs"
+
 [features]
 blis = []
 hsw = []
 snb = []
 asm_snippets = []
+libxsmm = []

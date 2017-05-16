@@ -5,9 +5,7 @@ pub use thread_comm::ThreadInfo;
 pub struct TripleLoop{}
 impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> 
     GemmNode<T, At, Bt, Ct> for TripleLoop {
-    #[inline(always)]
     unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T>) -> () {
-        //For now, let's do an axpy based gemm
         for x in 0..c.width() {
             for z in 0..a.width() {
                 for y in 0..c.height() {
@@ -17,10 +15,6 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
             }
         }
     }
-    fn new() -> Self {
-        TripleLoop{}
-    }
-    fn hierarchy_description() -> Vec<AlgorithmStep> {
-        Vec::new()
-    }  
+    fn new() -> Self { TripleLoop{} }
+    fn hierarchy_description() -> Vec<AlgorithmStep> { Vec::new() }  
 }

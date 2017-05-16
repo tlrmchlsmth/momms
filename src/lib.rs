@@ -3,9 +3,6 @@
 #![feature(conservative_impl_trait)]
 #![feature(cfg_target_feature)]
 #![feature(asm)]
-#![feature(step_by)]
-
-#![allow(dead_code)]
 
 extern crate core;
 extern crate typenum;

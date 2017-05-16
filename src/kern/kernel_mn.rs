@@ -83,7 +83,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>
             c_ir = c_ir.offset(c_mr_stride);
         }
     }
-    fn new() -> KernelMN<T, At, Bt, Ct, Mr, Nr> { 
+    fn new() -> Self {
         let mut tmp = <Matrix<T>>::new(Nr::to_usize(), Mr::to_usize());
         tmp.transpose();
         KernelMN{ tmp: tmp, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _nrt: PhantomData, _mrt: PhantomData } 

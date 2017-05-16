@@ -21,4 +21,9 @@ fn main() -> () {
         println!("cargo:rustc-link-lib=static=irc");
         */
     }
+
+    if cfg!(feature="libxsmm"){
+        println!("cargo:rustc-link-search=native={}/libxsmm/lib", std::env::home_dir().unwrap().to_str().unwrap() );
+        println!("cargo:rustc-link-lib=static=xsmm");
+    }
 }
