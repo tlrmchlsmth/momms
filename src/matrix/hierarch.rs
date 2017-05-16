@@ -98,8 +98,8 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
                 _ => {},
             };
         }
-        y_hierarchy.push(HierarchyNode{stride:1, blksz:1});
-        x_hierarchy.push(HierarchyNode{stride:1, blksz:1});
+        y_hierarchy.push(HierarchyNode{stride:LRS::to_usize(), blksz:1});
+        x_hierarchy.push(HierarchyNode{stride:LCS::to_usize(), blksz:1});
 
         (y_hierarchy, x_hierarchy)
 
@@ -286,7 +286,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
     #[inline(always)]
     fn pop_y_split(&mut self) {
         debug_assert!(self.y_views.len() >= 2);
-        self.x_views.pop();
+        self.y_views.pop();
     }
 
     #[inline(always)]

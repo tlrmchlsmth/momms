@@ -165,7 +165,7 @@ impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
     #[inline(always)]
     fn pop_y_split(&mut self) {
         debug_assert!(self.y_views.len() >= 2);
-        self.x_views.pop();
+        self.y_views.pop();
     }
 
     #[inline(always)]

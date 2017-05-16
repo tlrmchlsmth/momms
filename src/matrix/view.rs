@@ -18,11 +18,6 @@ impl MatrixView {
         let unzoomed_physical_size = self.physical_size();
 
         let zoomed_padding = cmp::max((index + zoomed_iter_size) as isize - cmp::max(index, unzoomed_physical_size) as isize, 0) as usize;
-/*        let zoomed_padding = if index + zoomed_iter_size < unzoomed_physical_size {
-            0
-        } else {
-            index + zoomed_iter_size - cmp::max(index, unzoomed_physical_size)
-        };*/
         (zoomed_iter_size, zoomed_padding)
     }
 }

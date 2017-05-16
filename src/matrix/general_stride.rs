@@ -151,7 +151,7 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
     #[inline(always)]
     fn pop_y_split(&mut self) {
         debug_assert!(self.y_views.len() >= 2);
-        self.x_views.pop();
+        self.y_views.pop();
     }
 
     #[inline(always)]
