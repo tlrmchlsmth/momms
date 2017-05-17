@@ -89,7 +89,7 @@ impl<T> ThreadComm<T> {
     }
     //Pretty sure with this implementation, split can only be called one time.
     fn split(&self, thread_id: usize, n_way: usize) -> Arc<ThreadComm<T>> {
-        assert!(self.n_threads % n_way == 0);
+        assert_eq!(self.n_threads % n_way, 0);
 
         let subcomm_n_threads = self.n_threads / n_way;
         let sub_comm_number = thread_id / subcomm_n_threads; // Which subcomm are we going to use?
@@ -124,7 +124,7 @@ impl<T> ThreadInfo<T> {
         self.comm.barrier(self.thread_id);
     }
     pub fn broadcast(&self, to_send: *mut T) -> *mut T {
-        self.comm.broadcast(&self, to_send)
+        self.comm.broadcast(self, to_send)
     }
     pub fn num_threads(&self) -> usize { self.comm.n_threads }
     pub fn thread_id(&self) -> usize { self.thread_id }

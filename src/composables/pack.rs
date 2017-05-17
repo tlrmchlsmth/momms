@@ -10,7 +10,7 @@ use composables::{GemmNode,AlgorithmStep};
 //a*b = nt such that a >= b
 fn decompose(nt: usize) -> (usize, usize) {
     let mut index = f64::sqrt(nt as f64) as usize;
-    while (nt % index) != 0 { index = index - 1; }
+    while (nt % index) != 0 { index -= 1; }
     (nt / index, index)
 }
 
@@ -31,7 +31,7 @@ pub struct Packer<T: Scalar, At: Mat<T>, Apt: Mat<T>> {
 impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Copier<T, At, Apt> 
     for Packer<T, At, Apt> {
     default fn pack(a: &mut At, a_pack: &mut Apt, thr: &ThreadInfo<T>) {
-        if a_pack.width() <= 0 || a_pack.height() <= 0 {
+        if a_pack.width() == 0 || a_pack.height() == 0 {
             return;
         }
         let cols_per_thread = (a.width()-1) / thr.num_threads() + 1;
@@ -51,7 +51,7 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> Copier<T, At, Apt>
 impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>> 
     for Packer<T, Matrix<T>, ColumnPanelMatrix<T, PW>> {
     fn pack(a: &mut Matrix<T>, a_pack: &mut ColumnPanelMatrix<T, PW>, thr: &ThreadInfo<T>) {
-        if a_pack.width() <= 0 || a_pack.height() <= 0 {
+        if a_pack.width() == 0 || a_pack.height() == 0 {
             return;
         }
         unsafe {
@@ -94,7 +94,7 @@ impl<T: Scalar, PW: Unsigned> Copier<T, Matrix<T>, ColumnPanelMatrix<T, PW>>
 impl<T: Scalar, PH: Unsigned> Copier<T, Matrix<T>, RowPanelMatrix<T, PH>> 
     for Packer<T, Matrix<T>, RowPanelMatrix<T, PH>> {
     fn pack(a: &mut Matrix<T>, a_pack: &mut RowPanelMatrix<T, PH>, thr: &ThreadInfo<T>) {
-        if a_pack.width() <= 0 || a_pack.height() <= 0 {
+        if a_pack.width() == 0 || a_pack.height() == 0 {
             return;
         }
         unsafe {
@@ -138,8 +138,8 @@ fn score_parallelizability(m: usize, y_hier: &[HierarchyNode]) -> (usize, f64)  
     let mut best_score = 0.0;
     let mut m_tracker = m;
 
-    for i in 0..y_hier.len() {
-        let blksz = y_hier[i].blksz;
+    for (i, item) in y_hier.iter().enumerate() {
+        let blksz = item.blksz;
         let n_iter = (m_tracker as f64) / (blksz as f64);
         let score = n_iter;
         if score > best_score {
@@ -156,21 +156,23 @@ fn pack_hier_leaf<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Uns
 	 x_parallelize_level: isize, x_threads: usize, x_id: usize, 
      y_parallelize_level: isize, y_threads: usize, y_id: usize) {
     //Parallelize Y direction
-    let mut ystart = 0;
-    let mut yend = a.height();
-    if y_parallelize_level == 0 {
+    let (ystart, yend) = if y_parallelize_level == 0 {
 		let rows_per_thread = (a.height()-1) / y_threads + 1; // micro-panels per thread
-		ystart = rows_per_thread*y_id;
-		yend   = cmp::min(a.height(), ystart+rows_per_thread);
-    }
+		let ystart = rows_per_thread*y_id;
+        (ystart, cmp::min(a.height(), ystart+rows_per_thread))
+    } else {
+        (0, a.height())
+    };
+
     //Parallelize X direction
-    let mut xstart = 0;
-    let mut xend = a.width();
-    if x_parallelize_level == 0 {
+    let (xstart, xend) = if x_parallelize_level == 0 {
 		let cols_per_thread = (a.width()-1) / x_threads + 1; // micro-panels per thread
-		xstart = cols_per_thread*x_id;
-		xend   = cmp::min(a.width(), xstart+cols_per_thread);
-    }
+		let xstart = cols_per_thread*x_id;
+        (xstart, cmp::min(a.width(), xstart+cols_per_thread))
+    } else {
+        (0, a.width())
+    };
+
     unsafe{
         let cs_a = a.get_column_stride();
         let rs_a = a.get_row_stride();
@@ -190,22 +192,23 @@ fn pack_hier_y<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsign
     (a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>, y_hier: &[HierarchyNode], 
     x_parallelize_level: isize, x_threads: usize, x_id: usize,
     y_parallelize_level: isize, y_threads: usize, y_id: usize) {
-    if y_hier.len()-1 == 0 { 
+    if y_hier.len() - 1 == 0 { 
         pack_hier_leaf(a, a_pack, x_parallelize_level, x_threads, x_id, y_parallelize_level, y_threads, y_id);
     } else {
         let blksz = y_hier[0].blksz;
         let m_save = a.push_y_view(blksz);
         a_pack.push_y_view(blksz);
         
-        let mut start = 0;
-        let mut end = m_save;
-        if y_parallelize_level == 0 {
+        let (start, end) = if y_parallelize_level == 0 {
 			let range = m_save;
 			let n_blocks = (range-1) / blksz + 1;         
 			let blocks_per_thread = (n_blocks-1) / y_threads + 1; // micro-panels per thread
-			start = blksz*blocks_per_thread*y_id;
-			end   = cmp::min(m_save, start+blksz*blocks_per_thread);
-        }
+			let start = blksz*blocks_per_thread*y_id;
+            (start, cmp::min(m_save, start+blksz*blocks_per_thread))
+        } else {
+            (0, m_save)
+        };
+
         let mut i = start;
         while i < end {
             a.slide_y_view_to(i, blksz);
@@ -232,15 +235,15 @@ fn pack_hier_x<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsign
         let n_save = a.push_x_view(blksz);
         a_pack.push_x_view(blksz);
         
-        let mut start = 0;
-        let mut end = n_save;
-        if x_parallelize_level == 0 {
+        let (start, end) = if x_parallelize_level == 0 {
 			let range = n_save;
 			let n_blocks = (range-1) / blksz + 1;         
 			let blocks_per_thread = (n_blocks-1) / x_threads + 1; // micro-panels per thread
-			start = blksz*blocks_per_thread*x_id;
-			end   = cmp::min(n_save, start+blksz*blocks_per_thread);
-        }
+			let start = blksz*blocks_per_thread*x_id;
+            (start, cmp::min(n_save, start+blksz*blocks_per_thread))
+        } else {
+            (0, n_save)
+        };
         let mut j = start;
         while j < end  {
             a.slide_x_view_to(j, blksz);
@@ -260,7 +263,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned>
     Copier<T, Matrix<T>, Hierarch<T, LH, LW, LRS, LCS>> 
     for Packer<T, Matrix<T>, Hierarch<T, LH, LW, LRS, LCS>> {
     default fn pack(a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>, thr: &ThreadInfo<T>) {
-        if a_pack.width() <= 0 || a_pack.height() <= 0 {
+        if a_pack.width() == 0 || a_pack.height() == 0 {
             return;
         }
 

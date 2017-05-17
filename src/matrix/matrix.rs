@@ -241,12 +241,12 @@ pub trait Mat<T: Scalar> where Self: Send {
 
 //Matrix that can be resized to be used as a packing buffer.
 pub trait ResizableBuffer<T: Scalar> {
-    fn empty(y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep>) -> Self;
+    fn empty(y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]) -> Self;
     fn capacity(&self) -> usize;
     fn set_capacity(&mut self, capacity: usize); 
-    fn capacity_for(other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep>) -> usize;
+    fn capacity_for(other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]) -> usize;
     fn aquire_buffer_for(&mut self, capacity: usize);
-    fn resize_to(&mut self, other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep>); 
+    fn resize_to(&mut self, other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]); 
 }
 
 //Trait indicating that the matrix can be partitioned down into row or column major form.
