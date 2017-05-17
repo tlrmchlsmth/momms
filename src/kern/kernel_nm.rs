@@ -6,6 +6,15 @@ use thread_comm::{ThreadInfo};
 use typenum::Unsigned;
 use super::ukernel_wrapper::{UkernelWrapper,GenericUkernelWrapper};
 
+#[inline(always)]
+unsafe fn prefetch_c_row<T: Scalar>(ptr: *mut T) {
+    asm!(" 
+         prefetchw ($0)
+         prefetchw 64($0)
+         " 
+         : : "r"(ptr));
+}
+
 pub struct KernelNM<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned> {
     tmp: Matrix<T>,
     _at: PhantomData<At>,
@@ -54,18 +63,13 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
             let mut c_ir = c_jr;
             while ir < m {
                 //prefetch next C
-                let next_c_ir = c_ir.offset(c_mr_stride);
-
                 //These prefetches are only correct if C is row major!!!!
                 if cfg!(feature="asm_snippets") {
-                    asm!(" prefetcht2 ($0)
-                           prefetcht2 64($0)" : : "r"(next_c_ir));
-                    asm!(" prefetcht2 ($0)
-                           prefetcht2 64($0)" : : "r"(next_c_ir.offset(c_leaf_rs)));
-                    asm!(" prefetcht2 ($0)
-                           prefetcht2 64($0)" : : "r"(next_c_ir.offset(2*c_leaf_rs)));
-                    asm!(" prefetcht2 ($0)
-                           prefetcht2 64($0)" : : "r"(next_c_ir.offset(3*c_leaf_rs)));
+                    let next_c_ir = c_ir.offset(c_mr_stride);
+                    prefetch_c_row(next_c_ir); 
+                    prefetch_c_row(next_c_ir.offset(c_leaf_rs)); 
+                    prefetch_c_row(next_c_ir.offset(2*c_leaf_rs)); 
+                    prefetch_c_row(next_c_ir.offset(3*c_leaf_rs)); 
                 }
 
                 if Ct::full_leaves() || (n - jr >= Nr::to_isize()) && (m - ir >= Mr::to_isize()) {
