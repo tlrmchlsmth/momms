@@ -11,6 +11,7 @@ typenum = "1.3.1"
 thread_local = "0.2.6"
 hwloc = "0.3.0"
 threadpool = "1.3.2"
+clippy = {version = "*", optional = true}
 
 [profile.release]
 lto = true
@@ -47,13 +48,10 @@ path = "src/exper/out_of_core.rs"
 name = "overlap"
 path = "src/exper/overlap.rs"
 
-[[bin]]
-name = "xsmm"
-path = "src/exper/xsmm.rs"
-
 [features]
 blis = []
 hsw = []
 snb = []
 asm_snippets = []
 libxsmm = []
+default = []

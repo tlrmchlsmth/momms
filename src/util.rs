@@ -1,4 +1,3 @@
-
 extern crate hwloc;
 extern crate libc;
 

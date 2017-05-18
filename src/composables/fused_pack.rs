@@ -100,7 +100,6 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Bpt: Mat<T>, S>
         //Logically resize the c_pack matrix
         self.b_pack.resize_to(b, y_marker, x_marker, &self.algo_desc);
         let mut pair = PackPair::new(b.make_alias(), self.b_pack.make_alias());
-        
         self.child.run(a, &mut pair, c, thr);
     }
     fn new() -> Self {

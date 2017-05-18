@@ -52,11 +52,9 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
     }
     fn get_top_level_dim_size(hierarchy: &[AlgorithmStep], dimension_matcher: AlgorithmStep) -> Option<usize> {
         use composables::AlgorithmStep::*;
-        if hierarchy.len() == 0 { None } else {
+        if hierarchy.is_empty() { None } else {
             match (dimension_matcher, hierarchy[hierarchy.len()-1]) {
-                (M{bsz: _}, M{bsz}) => {Some(bsz)},
-                (N{bsz: _}, N{bsz}) => {Some(bsz)},
-                (K{bsz: _}, K{bsz}) => {Some(bsz)},
+                (M{..}, M{bsz}) | (N{..}, N{bsz}) | (K{..}, K{bsz}) => { Some(bsz) }
                 _ => Self::get_top_level_dim_size(&hierarchy[0..hierarchy.len()-1], dimension_matcher),
             } 
         }
@@ -74,25 +72,13 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         for index in (0..hier.len()).rev() {
             use composables::AlgorithmStep::*;
             match (x_step, hier[index]) {
-                (M{bsz:_}, M{bsz}) => {
-                    x_hierarchy.push(HierarchyNode{stride: h_tracker * bsz, blksz: bsz});
-                    w_tracker = bsz;},
-                (N{bsz:_}, N{bsz}) => {
-                    x_hierarchy.push(HierarchyNode{stride: h_tracker * bsz, blksz: bsz});
-                    w_tracker = bsz;},
-                (K{bsz:_}, K{bsz}) => {
+                (M{..}, M{bsz}) | (N{..}, N{bsz}) | (K{..}, K{bsz}) => {
                     x_hierarchy.push(HierarchyNode{stride: h_tracker * bsz, blksz: bsz});
                     w_tracker = bsz;},
                 _ => {},
             };
             match (y_step, hier[index]) {
-                (M{bsz:_}, M{bsz}) => {
-                    y_hierarchy.push(HierarchyNode{stride: w_tracker * bsz, blksz: bsz});
-                    h_tracker = bsz;},
-                (N{bsz:_}, N{bsz}) => {
-                    y_hierarchy.push(HierarchyNode{stride: w_tracker * bsz, blksz: bsz});
-                    h_tracker = bsz;},
-                (K{bsz:_}, K{bsz}) => {
+                (M{..}, M{bsz}) | (N{..}, N{bsz}) | (K{..}, K{bsz}) => {
                     y_hierarchy.push(HierarchyNode{stride: w_tracker * bsz, blksz: bsz});
                     h_tracker = bsz;},
                 _ => {},
@@ -107,7 +93,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
     pub fn new(h: usize, w: usize, 
                 hier: &[AlgorithmStep], y_step: AlgorithmStep, x_step: AlgorithmStep) 
         -> Hierarch<T,LH,LW,LRS,LCS> {
-        assert!(mem::size_of::<T>() != 0, "Matrix can't handle ZSTs");
+        assert_ne!(mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
 
         //Setup Views stack
         let mut y_views : Vec<MatrixView> = Vec::with_capacity(16);
@@ -116,11 +102,11 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         x_views.push(MatrixView{ offset: 0, padding: 0, iter_size: w });
 
         //Fill up hierarchy description
-        let y_tlds = match Self::get_top_level_dim_size(&hier, y_step) {
+        let y_tlds = match Self::get_top_level_dim_size(hier, y_step) {
             Some(a) => a,
             None => LH::to_usize(),
         };
-        let x_tlds = match Self::get_top_level_dim_size(&hier, x_step) {
+        let x_tlds = match Self::get_top_level_dim_size(hier, x_step) {
             Some(a) => a,
             None => LW::to_usize(),
         };
@@ -130,7 +116,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         let h_padded = n_blocks_y * y_tlds;
         let w_padded = n_blocks_x * x_tlds;
 
-        let (y_hierarchy, x_hierarchy) = Self::parse_input_hierarchy(h_padded, w_padded, &hier, y_step, x_step);
+        let (y_hierarchy, x_hierarchy) = Self::parse_input_hierarchy(h_padded, w_padded, hier, y_step, x_step);
         let yh_index = 0;
         let xh_index = 0;
 
@@ -297,7 +283,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
 
     fn push_y_view(&mut self, blksz: usize) -> usize{
         let iota = self.y_hierarchy[self.yh_index].blksz;
-        debug_assert!(iota == blksz, "iota {}, blksz {} {} ", iota, blksz, self.yh_index);
+        debug_assert_eq!(iota, blksz, "iota {}, blksz {} {} ", iota, blksz, self.yh_index);
 
         let (zoomed_view, uz_iter_size) = {
             let uz_view = self.y_views.last().unwrap();
@@ -311,7 +297,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
     
     fn push_x_view(&mut self, blksz: usize) -> usize {
         let iota = self.x_hierarchy[self.xh_index].blksz;
-        debug_assert!(iota == blksz);
+        debug_assert_eq!(iota, blksz);
 
         let (zoomed_view, uz_iter_size) = {
             let uz_view = self.x_views.last().unwrap();
@@ -341,7 +327,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         let view_len = self.y_views.len();
         debug_assert!(view_len >= 2);
         let iota = self.y_hierarchy[self.yh_index-1].blksz;
-        debug_assert!(y % iota == 0);
+        debug_assert_eq!(y % iota, 0);
 
         let uz_view = self.y_views[view_len-2];
         let(z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(y, blksz);
@@ -356,7 +342,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         let view_len = self.x_views.len();
         debug_assert!(view_len >= 2);
         let iota = self.x_hierarchy[self.xh_index-1].blksz;
-        debug_assert!(x % iota == 0);
+        debug_assert_eq!(x % iota, 0);
 
         let uz_view = self.x_views[view_len-2];
         let(z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(x, blksz);
@@ -414,7 +400,7 @@ unsafe impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned>
 impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> ResizableBuffer<T>
      for Hierarch<T, LH, LW, LRS, LCS> {
     #[inline(always)]
-    fn empty(y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep>) -> Self {
+    fn empty(y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]) -> Self {
         Hierarch::new(0,0, hier, y_hier_label, x_hier_label)
     }
     #[inline(always)]
@@ -422,23 +408,22 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
     #[inline(always)]
     fn set_capacity(&mut self, capacity: usize) { self.capacity = capacity; }
     #[inline(always)]
-    fn capacity_for(other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep>) -> usize {
-        if other.height() <= 0 || other.width() <= 0 {
+    fn capacity_for(other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]) -> usize {
+        if other.height() == 0 || other.width() == 0 {
             0
         } else {
-            let y_tlds = match Self::get_top_level_dim_size(&hier, y_hier_label) {
+            let y_tlds = match Self::get_top_level_dim_size(hier, y_hier_label) {
                 Some(a) => a,
                 None => LH::to_usize(),
             };
-            let x_tlds = match Self::get_top_level_dim_size(&hier, x_hier_label) {
+            let x_tlds = match Self::get_top_level_dim_size(hier, x_hier_label) {
                 Some(a) => a,
                 None => LW::to_usize(),
             };
 
              let n_blocks_y = (other.height()-1) / y_tlds + 1;
              let n_blocks_x = (other.width()-1) / x_tlds + 1;
-             let other_capacity = n_blocks_y * y_tlds * n_blocks_x * x_tlds;
-             other_capacity
+             n_blocks_y * y_tlds * n_blocks_x * x_tlds
         }
     }
 
@@ -458,8 +443,8 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
 
     //(But maybe only need to change y_hierarchy[self.yh_index] and x_hierarchy[self.xh_index])
     #[inline(always)]
-    fn resize_to(&mut self, other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &Vec<AlgorithmStep>) {
-		debug_assert!(self.y_views.len() == 1, "Can't resize a submatrix!");
+    fn resize_to(&mut self, other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]) {
+		debug_assert_eq!(self.y_views.len(), 1, "Can't resize a submatrix!");
 
         let mut y_view = self.y_views.last_mut().unwrap();
         let mut x_view = self.x_views.last_mut().unwrap();
@@ -479,7 +464,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
         let w_padded = n_blocks_x * x_tlds;
 		
 		//Need to rebuild the hierarchy to adjust the strides, since the dimensions changed. 
-        let (y_hierarchy, x_hierarchy) = Self::parse_input_hierarchy(h_padded, w_padded, &hier, y_hier_label, x_hier_label);
+        let (y_hierarchy, x_hierarchy) = Self::parse_input_hierarchy(h_padded, w_padded, hier, y_hier_label, x_hier_label);
 		self.y_hierarchy = y_hierarchy;
 		self.x_hierarchy = x_hierarchy;
         self.yh_index = 0;
@@ -524,7 +509,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> RoCM<T
             LRS::to_usize()
         } else {
             let index = self.y_hierarchy.len() - lvl - 1;
-            debug_assert!(self.y_hierarchy[index].blksz == blksz);
+            debug_assert_eq!(self.y_hierarchy[index].blksz, blksz);
             self.y_hierarchy[index].stride
         }
     }
@@ -534,7 +519,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> RoCM<T
             LCS::to_usize()
         } else {
             let index = self.x_hierarchy.len() - lvl - 1;
-            debug_assert!(self.x_hierarchy[index].blksz == blksz);
+            debug_assert_eq!(self.x_hierarchy[index].blksz, blksz);
             self.x_hierarchy[index].stride
         }
     }

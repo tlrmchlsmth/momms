@@ -25,7 +25,7 @@ pub struct ColumnPanelMatrix<T: Scalar, PW: Unsigned> {
 }
 impl<T: Scalar, PW: Unsigned> ColumnPanelMatrix<T,PW> {
     pub fn new(h: usize, w: usize) -> ColumnPanelMatrix<T,PW> {
-        assert!(mem::size_of::<T>() != 0, "Matrix can't handle ZSTs");
+        assert_ne!(mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
     
         //Figure out the number of panels
         let panel_w = PW::to_usize();
@@ -58,24 +58,6 @@ impl<T: Scalar, PW: Unsigned> ColumnPanelMatrix<T,PW> {
 
     #[inline(always)]
     pub fn get_panel_stride(&self) -> usize { self.panel_stride }
-/*
-    #[inline(always)]
-    pub unsafe fn get_buffer(&self) -> *const T { 
-        let panel_w = PW::to_usize();
-        let y_view = self.y_views.last().unwrap();
-        let x_view = self.x_views.last().unwrap();
-
-        self.buffer.offset((x_view.offset*self.panel_stride + y_view.offset*panel_w) as isize)
-    }
-
-    #[inline(always)]
-    pub unsafe fn get_mut_buffer(&mut self) -> *mut T {
-        let panel_w = PW::to_usize();
-        let y_view = self.y_views.last().unwrap();
-        let x_view = self.x_views.last().unwrap();
-
-        self.buffer.offset((x_view.offset*self.panel_stride + y_view.offset*panel_w) as isize)
-    }*/
 
     #[inline(always)]
     pub unsafe fn get_panel(&mut self, id: usize) -> *mut T {
@@ -273,7 +255,7 @@ unsafe impl<T:Scalar, PW: Unsigned> Send for ColumnPanelMatrix<T, PW> {}
 
 impl<T:Scalar, PW: Unsigned> ResizableBuffer<T> for ColumnPanelMatrix<T, PW> {
     #[inline(always)]
-    fn empty(_: AlgorithmStep, _: AlgorithmStep, _: &Vec<AlgorithmStep>) -> Self {
+    fn empty(_: AlgorithmStep, _: AlgorithmStep, _: &[AlgorithmStep]) -> Self {
         ColumnPanelMatrix::new(0,0)
     }
     #[inline(always)]
@@ -281,8 +263,8 @@ impl<T:Scalar, PW: Unsigned> ResizableBuffer<T> for ColumnPanelMatrix<T, PW> {
     #[inline(always)]
     fn set_capacity(&mut self, capacity: usize) { self.capacity = capacity; }
     #[inline(always)]
-    fn capacity_for(other: &Mat<T>, _: AlgorithmStep, _: AlgorithmStep, _: &Vec<AlgorithmStep>) -> usize {
-        if other.height() <= 0 || other.width() <= 0 { 
+    fn capacity_for(other: &Mat<T>, _: AlgorithmStep, _: AlgorithmStep, _: &[AlgorithmStep]) -> usize {
+        if other.height() == 0 || other.width() == 0 { 
             0   
         } else {
             let new_n_panels = (other.width()-1) / PW::to_usize() + 1;
@@ -302,8 +284,8 @@ impl<T:Scalar, PW: Unsigned> ResizableBuffer<T> for ColumnPanelMatrix<T, PW> {
         }
     }
     #[inline(always)]
-    fn resize_to(&mut self, other: &Mat<T>, _: AlgorithmStep, _: AlgorithmStep, _: &Vec<AlgorithmStep>) {
-        debug_assert!(self.y_views.len() == 1, "Can't resize a submatrix!");
+    fn resize_to(&mut self, other: &Mat<T>, _: AlgorithmStep, _: AlgorithmStep, _: &[AlgorithmStep]) {
+        debug_assert_eq!(self.y_views.len(), 1, "Can't resize a submatrix!");
         let mut y_view = self.y_views.last_mut().unwrap();
         let mut x_view = self.x_views.last_mut().unwrap();
 
@@ -359,7 +341,7 @@ impl<T: Scalar, PW: Unsigned> RoCM<T> for ColumnPanelMatrix<T, PW> {
         if lvl == 0 {
             1
         } else {
-			debug_assert!(blksz % PW::to_usize() == 0);
+			debug_assert_eq!(blksz % PW::to_usize(), 0);
 			self.panel_stride * blksz / PW::to_usize()
         }
     }
