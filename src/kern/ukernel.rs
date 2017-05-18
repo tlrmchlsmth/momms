@@ -27,7 +27,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>
             }   
         }   
     }   
-    fn new() -> Ukernel<T, At, Bt, Ct, Mr, Nr> { 
+    fn new() -> Self {
         let mut tmp = <Matrix<T>>::new(Nr::to_usize(), Mr::to_usize());
         tmp.transpose();
         Ukernel{ tmp: tmp, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _mrt: PhantomData, _nrt: PhantomData } 
