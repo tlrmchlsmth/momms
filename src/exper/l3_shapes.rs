@@ -88,7 +88,8 @@ fn test(m_selector: isize, n_selector: isize, k_selector: isize) {
           ParallelN<T, MTA, MTB, MTC, Nr, TheRest,
           KernelNM<T, MTA, MTB, MTC, Nr, Mr>>>>>>>;
 
-    type L3CNc = typenum::U780;
+//    type L3CNc = typenum::U780; //Too Big!
+    type L3CNc = typenum::U624;
     type L3CKc = typenum::U156;
     //Resident C algorithm
     type L3C<T,MTA,MTB,MTC> 
@@ -163,10 +164,24 @@ fn test(m_selector: isize, n_selector: isize, k_selector: isize) {
 }
 
 fn main() {
-    //Best for Resident A
-    test(768,-1,768);
-    //Best for Resident B
-    test(-1,768,768);
-    //Best for Resident C
-    test(768,768,-1);
+    let smalldim = 600;
+    //2 small 1 large
+    println!("Best for L3B");
+    test(-1,smalldim,smalldim);
+    println!("Best for L3A");
+    test(smalldim,-1,smalldim);
+    println!("Best for L3C");
+    test(smalldim,smalldim,-1);
+
+    //square
+    println!("Square");
+    test(-1,-1,-1);
+    
+    //2 large 1 small
+    println!("Best for L3A or L3C");
+    test(smalldim,-1,-1);
+    println!("Best for L3B or L3C");
+    test(-1,smalldim,-1);
+    println!("Best for L3A or L3B");
+    test(-1,-1,smalldim);
 }
