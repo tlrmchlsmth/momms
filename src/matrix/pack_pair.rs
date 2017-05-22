@@ -155,7 +155,7 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> RoCM<T> for PackPair<T, At, Apt>
         let ap_buf = self.ap.get_mut_buffer().offset((y * self.ap.get_block_rs(1,height) 
             + x * self.ap.get_block_cs(1,width)) as isize);
         
-/*        if cfg!(feature="asm_snippets") && self.ap.get_leaf_cs() == 1 && self.a.get_leaf_cs() == 1 && width % 4 == 0 {
+        if cfg!(feature="asm_snippets") && self.ap.get_leaf_cs() == 1 && self.a.get_leaf_cs() == 1 && width % 4 == 0 {
             for ii in 0..height {
                 let a_ii = a_buf.offset((ii * self.a.get_leaf_rs()) as isize);
                 let ap_ii = ap_buf.offset((ii * self.ap.get_leaf_rs()) as isize);
@@ -171,18 +171,19 @@ impl<T: Scalar, At: Mat<T>, Apt: Mat<T>> RoCM<T> for PackPair<T, At, Apt>
                           : "ymm0 memory"
                           : "intel");
                     asm!("prefetcht0 ($0)" : : "r"(a_ii_jj.offset((4*self.a.get_leaf_rs()) as isize)));
-                    asm!("prefetcht1 ($0)" : : "r"(ap_ii_jj.offset((8*self.a.get_leaf_rs()) as isize)));
+                    //asm!("prefetchw ($0)" : : "r"(ap_ii_jj.offset((4*self.ap.get_leaf_rs()) as isize)));
+                    //asm!("prefetcht2 ($0)" : : "r"(a_ii_jj.offset((16*self.a.get_leaf_rs()) as isize)));
                 }
             }
         }
-        else {*/
+        else {
             for ii in 0..height {
                 for jj in 0..width {
                     let alpha = ptr::read(a_buf.offset((ii * self.a.get_leaf_rs() + jj * self.a.get_leaf_cs()) as isize));
                     ptr::write(ap_buf.offset((ii * self.ap.get_leaf_rs() + jj * self.ap.get_leaf_cs()) as isize), alpha);
                 }
             }
-//        }
+        }
     }
 
     #[inline(always)]

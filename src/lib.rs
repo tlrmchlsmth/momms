@@ -3,6 +3,7 @@
 #![feature(conservative_impl_trait)]
 #![feature(cfg_target_feature)]
 #![feature(asm)]
+#![feature(step_by)]
 
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
