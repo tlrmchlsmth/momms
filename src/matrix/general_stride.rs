@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use thread_comm::ThreadInfo;
-use self::alloc::heap;
+use self::alloc::heap::{Alloc,Heap};
 use matrix::{Scalar,Mat,RoCM};
 use super::view::{MatrixView};
 use core::{mem,ptr};
@@ -14,7 +14,7 @@ pub struct Matrix<T: Scalar> {
     //Stack of views of the matrix
     y_views: Vec<MatrixView>,
     x_views: Vec<MatrixView>,
-    
+
     //Strides and buffer
     row_stride: usize,
     column_stride: usize,
@@ -25,21 +25,20 @@ pub struct Matrix<T: Scalar> {
 impl<T: Scalar> Matrix<T> {
     pub fn new(h: usize, w: usize) -> Matrix<T> {
         assert_ne!(mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
-        let buf = 
+        let layout = ::util::capacity_to_aligned_layout::<T>(h * w);
+        let buf =
             unsafe {
-                let ptr = heap::allocate(h*w * mem::size_of::<T>(), 4096);
-                assert!(!ptr.is_null(), "Could not allocate buffer for matrix!");
-                ptr
+                Heap.alloc(layout).expect("Could not allocate buffer for matrix!")
             };
 
         let mut y_views : Vec<MatrixView> = Vec::with_capacity(16);
         let mut x_views : Vec<MatrixView> = Vec::with_capacity(16);
         y_views.push(MatrixView{ offset: 0, padding: 0, iter_size: h });
         x_views.push(MatrixView{ offset: 0, padding: 0, iter_size: w });
-    
+
         Matrix{ alpha: T::one(),
                 y_views: y_views,
-                x_views: x_views, 
+                x_views: x_views,
                 row_stride: 1, column_stride: h,
                 buffer: buf as *mut _,
                 capacity: h * w,
@@ -48,8 +47,8 @@ impl<T: Scalar> Matrix<T> {
 
     #[inline(always)] pub fn get_row_stride(&self) -> usize { self.row_stride }
     #[inline(always)] pub fn get_column_stride(&self) -> usize { self.column_stride }
-    
-    pub fn transpose(&mut self)  { 
+
+    pub fn transpose(&mut self) {
         if self.y_views.len() != 1 || self.x_views.len() != 1 { panic!("can't transpose a submatrix!") };
         let xview = self.x_views.pop().unwrap();
         let yview = self.y_views.pop().unwrap();
@@ -161,7 +160,7 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
         self.x_views.push(zoomed_view);
         uz_iter_size
     }
-    
+
     #[inline(always)]
     fn pop_y_view(&mut self) {
         debug_assert!(self.y_views.len() >= 2);
@@ -185,7 +184,7 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
         z_view.padding = z_padding;
         z_view.offset = uz_view.offset + y;
     }
-    
+
     fn slide_x_view_to(&mut self, x: usize, blksz: usize) {
         let view_len = self.x_views.len();
         debug_assert!(view_len >= 2);
@@ -198,8 +197,7 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
         z_view.padding = z_padding;
         z_view.offset = uz_view.offset + x;
     }
-    
-   
+
     #[inline(always)]
     unsafe fn make_alias(&self) -> Self {
        let x_view = self.x_views.last().unwrap();
@@ -229,7 +227,8 @@ impl<T:Scalar> Drop for Matrix<T> {
     fn drop(&mut self) {
         unsafe {
             if !self.is_alias {
-                heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+                let layout = ::util::capacity_to_aligned_layout::<T>(self.capacity);
+                Heap.dealloc(self.buffer as *mut _, layout);
             }
         }
     }

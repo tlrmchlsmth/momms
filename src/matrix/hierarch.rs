@@ -2,10 +2,11 @@ extern crate alloc;
 
 use thread_comm::ThreadInfo;
 use typenum::Unsigned;
-use self::alloc::heap;
+use self::alloc::heap::{Alloc,Heap};
 use matrix::{Scalar,Mat,ResizableBuffer,RoCM};
 use super::view::{MatrixView};
 use composables::AlgorithmStep;
+use util::capacity_to_aligned_layout;
 
 use core::marker::PhantomData;
 use core::{mem,ptr};
@@ -124,13 +125,11 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         let (ptr, capacity) = {
             //Figure out the number of top-level blocks in each direction
             let capacity = n_blocks_y * y_tlds * n_blocks_x * x_tlds;
-
-            //Allocate Buffer
-            unsafe {
-                let ptr = heap::allocate(capacity * mem::size_of::<T>(), 4096);
-                assert!(!ptr.is_null(), "Could not allocate buffer for matrix!");
-                (ptr, capacity)
-            }
+            let layout = capacity_to_aligned_layout::<T>(capacity);
+            let ptr = unsafe {
+                Heap.alloc(layout).expect("Could not allocate buffer for matrix!")
+            };
+            (ptr, capacity)
         };
 
       
@@ -390,7 +389,8 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Drop f
     fn drop(&mut self) {
         if !self.is_alias {
             unsafe {
-                heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+                let layout = capacity_to_aligned_layout::<T>(self.capacity);
+                Heap.dealloc(self.buffer as *mut _, layout);
             }
         }
     }
@@ -433,9 +433,10 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
         let req_padded_capacity = req_capacity;
         if req_padded_capacity > self.capacity {
             unsafe {
-                heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
-                self.buffer = heap::allocate(req_padded_capacity * mem::size_of::<T>(), 4096) as *mut _;
-                assert!(!self.buffer.is_null(), "Could not allocate buffer for matrix!");
+                let old_layout = capacity_to_aligned_layout::<T>(self.capacity);
+                let new_layout = capacity_to_aligned_layout::<T>(req_padded_capacity);
+                self.buffer = Heap.realloc(self.buffer as *mut u8, old_layout, new_layout)
+                    .expect("Could not allocate buffer for matrix!") as *mut _;
                 self.capacity = req_padded_capacity;
             }
         }

@@ -2,9 +2,10 @@ extern crate alloc;
 
 use thread_comm::ThreadInfo;
 use typenum::Unsigned;
-use self::alloc::heap;
+use self::alloc::heap::{Alloc,Heap};
 use matrix::{Scalar,Mat,ResizableBuffer,RoCM};
 use super::view::{MatrixView};
+use util::capacity_to_aligned_layout;
 
 use core::marker::PhantomData;
 use core::{mem,ptr};
@@ -26,7 +27,7 @@ pub struct ColumnPanelMatrix<T: Scalar, PW: Unsigned> {
 impl<T: Scalar, PW: Unsigned> ColumnPanelMatrix<T,PW> {
     pub fn new(h: usize, w: usize) -> ColumnPanelMatrix<T,PW> {
         assert_ne!(mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
-    
+
         //Figure out the number of panels
         let panel_w = PW::to_usize();
         let mut n_panels = w / panel_w;
@@ -40,21 +41,20 @@ impl<T: Scalar, PW: Unsigned> ColumnPanelMatrix<T,PW> {
         y_views.push(MatrixView{ offset: 0, padding: 0, iter_size: h }); 
         x_views.push(MatrixView{ offset: 0, padding: 0, iter_size: w }); 
 
+        let layout = capacity_to_aligned_layout::<T>(capacity);
         //Figure out buffer and capacity
         let buf = unsafe {
-            let ptr = heap::allocate(capacity * mem::size_of::<T>(), 4096);
-            assert!(!ptr.is_null(), "Could not allocate buffer for matrix!");
-            ptr
+            Heap.alloc(layout).expect("Could not allocate buffer for matrix!")
         };
 
         ColumnPanelMatrix{ alpha: T::one(),
                            y_views: y_views, x_views: x_views,
-                           panel_stride: panel_w*h, 
+                           panel_stride: panel_w*h,
                            buffer: buf as *mut _, capacity: capacity,
                            is_alias: false,
                            _pwt: PhantomData }
     }
-    
+
 
     #[inline(always)]
     pub fn get_panel_stride(&self) -> usize { self.panel_stride }
@@ -244,8 +244,9 @@ impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
 impl<T:Scalar, PW: Unsigned> Drop for ColumnPanelMatrix<T, PW> {
     fn drop(&mut self) {
         if !self.is_alias {
+            let layout = capacity_to_aligned_layout::<T>(self.capacity);
             unsafe {
-                heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+                Heap.dealloc(self.buffer as *mut _, layout);
             }
         }
     }
@@ -276,9 +277,10 @@ impl<T:Scalar, PW: Unsigned> ResizableBuffer<T> for ColumnPanelMatrix<T, PW> {
         let req_padded_capacity = req_capacity;
         if req_padded_capacity > self.capacity {
             unsafe {
-                heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
-                self.buffer = heap::allocate(req_padded_capacity * mem::size_of::<T>(), 4096) as *mut _;
-                assert!(!self.buffer.is_null(), "Could not allocate buffer for matrix!");
+                let old_layout = capacity_to_aligned_layout::<T>(self.capacity);
+                let new_layout = capacity_to_aligned_layout::<T>(req_padded_capacity);
+                self.buffer = Heap.realloc(self.buffer as *mut _, old_layout, new_layout)
+                    .expect("Could not allocate buffer for matrix!") as *mut T;
                 self.capacity = req_padded_capacity;
             }
         }

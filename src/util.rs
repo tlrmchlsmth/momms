@@ -1,5 +1,6 @@
 extern crate hwloc;
 extern crate libc;
+extern crate alloc;
 
 use std::time::Instant;
 #[allow(unused_imports)]
@@ -11,6 +12,7 @@ use thread_comm::ThreadInfo;
 #[allow(unused_imports)]
 use matrix::{Scalar, Mat, Matrix, RoCM};
 use composables::{GemmNode, TripleLoop};
+use self::alloc::heap::Layout;
 
 #[cfg(feature="blis")]
 extern{
@@ -26,7 +28,7 @@ extern{
 #[cfg(feature="blis")]
 pub fn blas_dgemm( a: &mut Matrix<f64>, b: &mut Matrix<f64>, c: &mut Matrix<f64> ) 
 {
-    unsafe{ 
+    unsafe {
         let transa = CString::new("N").unwrap();
         let transb = CString::new("N").unwrap();
         let ap = a.get_mut_buffer();
@@ -43,10 +45,10 @@ pub fn blas_dgemm( a: &mut Matrix<f64>, b: &mut Matrix<f64>, c: &mut Matrix<f64>
 
         let alpha: f64 = 1.0;
         let beta: f64 = 1.0;
-    
+
         dgemm_( transa.as_ptr() as *const c_char, transb.as_ptr() as *const c_char,
                 &m, &n, &k,
-                &alpha as *const c_double, 
+                &alpha as *const c_double,
                 ap as *const c_double, &lda,
                 bp as *const c_double, &ldb,
                 &beta as *const c_double,
@@ -55,32 +57,32 @@ pub fn blas_dgemm( a: &mut Matrix<f64>, b: &mut Matrix<f64>, c: &mut Matrix<f64>
 }
 
 pub fn test_c_eq_a_b<T:Scalar, At:Mat<T>, Bt:Mat<T>, Ct:Mat<T>>( a: &mut At, b: &mut Bt, c: &mut Ct ) -> T {
-    let mut ref_gemm : TripleLoop = TripleLoop{};
+    let mut ref_gemm: TripleLoop = TripleLoop{};
 
     let m = c.height();
     let n = b.width();
     let k = a.width();
 
-    let mut w : Matrix<T> = Matrix::new(n, 1);
-    let mut bw : Matrix<T> = Matrix::new(k, 1);
-    let mut abw : Matrix<T> = Matrix::new(m, 1);
-    let mut cw : Matrix<T> = Matrix::new(m, 1);
+    let mut w: Matrix<T> = Matrix::new(n, 1);
+    let mut bw: Matrix<T> = Matrix::new(k, 1);
+    let mut abw: Matrix<T> = Matrix::new(m, 1);
+    let mut cw: Matrix<T> = Matrix::new(m, 1);
     w.fill_rand();
     cw.fill_zero();
     bw.fill_zero();
     abw.fill_zero();
 
-    //Do bw = Bw, then abw = A*(Bw)   
+    //Do bw = Bw, then abw = A*(Bw)
     unsafe {
-        ref_gemm.run( b, &mut w, &mut bw, &ThreadInfo::single_thread() );
-        ref_gemm.run( a, &mut bw, &mut abw, &ThreadInfo::single_thread() );
+        ref_gemm.run(b, &mut w, &mut bw, &ThreadInfo::single_thread() );
+        ref_gemm.run(a, &mut bw, &mut abw, &ThreadInfo::single_thread() );
     }
 
     //Do cw = Cw
     unsafe {
         ref_gemm.run( c, &mut w, &mut cw, &ThreadInfo::single_thread() );
     }
-    
+
     //Cw -= abw
     cw.axpy( T::zero() - T::one(), &abw );
     cw.frosqr()
@@ -111,4 +113,8 @@ pub fn pin_to_core(core: usize) {
         }
     };
     let _ = topo.set_cpubind_for_thread(tid, bind_to, CPUBIND_THREAD);
+}
+
+pub fn capacity_to_aligned_layout<T>(capacity: usize) -> Layout {
+    Layout::new::<T>().repeat_packed(capacity).unwrap().align_to(4096)
 }

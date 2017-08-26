@@ -1,9 +1,9 @@
 #![feature(specialization)]
-#![feature(alloc, heap_api)]
+#![feature(alloc, heap_api, allocator_api)]
 #![feature(conservative_impl_trait)]
 #![feature(cfg_target_feature)]
 #![feature(asm)]
-#![feature(step_by)]
+#![feature(step_by,iterator_step_by)]
 
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]

@@ -2,9 +2,10 @@ extern crate alloc;
 
 use thread_comm::ThreadInfo;
 use typenum::Unsigned;
-use self::alloc::heap;
+use self::alloc::heap::{Alloc,Heap};
 use matrix::{Scalar,Mat,ResizableBuffer,RoCM};
 use super::view::{MatrixView};
+use util::capacity_to_aligned_layout;
 
 use core::marker::PhantomData;
 use core::{mem,ptr};
@@ -41,10 +42,9 @@ impl<T: Scalar, PH: Unsigned> RowPanelMatrix<T,PH> {
         y_views.push(MatrixView{ offset: 0, padding: 0, iter_size: h }); 
         x_views.push(MatrixView{ offset: 0, padding: 0, iter_size: w }); 
 
+        let layout = capacity_to_aligned_layout::<T>(capacity);
         let buf =  unsafe {
-            let ptr = heap::allocate(capacity * mem::size_of::<T>(), 4096);
-            assert!(!ptr.is_null(), "Could not allocate buffer for matrix!");
-            ptr
+            Heap.alloc(layout).expect("Could not allocate buffer for matrix!")
         };
 
         RowPanelMatrix{ alpha: T::one(),
@@ -244,7 +244,8 @@ impl<T:Scalar, PH: Unsigned> Drop for RowPanelMatrix<T, PH> {
     fn drop(&mut self) {
         if !self.is_alias {
             unsafe {
-                heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
+                let layout = capacity_to_aligned_layout::<T>(self.capacity);
+                Heap.dealloc(self.buffer as *mut _, layout);
             }
         }
     }
@@ -275,9 +276,10 @@ impl<T:Scalar, PH: Unsigned> ResizableBuffer<T> for RowPanelMatrix<T, PH> {
         let req_padded_capacity = req_capacity;
         if req_padded_capacity > self.capacity {
             unsafe {
-                heap::deallocate(self.buffer as *mut _, mem::size_of::<T>() * self.capacity, 4096);
-                self.buffer = heap::allocate(req_padded_capacity * mem::size_of::<T>(), 4096) as *mut _;
-                assert!(!self.buffer.is_null(), "Could not allocate buffer for matrix!");
+                let old_layout = capacity_to_aligned_layout::<T>(self.capacity);
+                let new_layout = capacity_to_aligned_layout::<T>(req_capacity);
+                self.buffer = Heap.realloc(self.buffer as *mut u8, old_layout, new_layout)
+                    .expect("Could not allocate buffer for matrix!") as *mut _;
                 self.capacity = req_padded_capacity;
             }
         }
