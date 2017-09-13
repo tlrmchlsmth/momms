@@ -88,3 +88,28 @@ pub mod snb
         }
     }
 }
+
+#[cfg(feature="knl")]
+pub mod knl
+{
+	extern crate libc;
+    use self::libc::{ c_double, int64_t };
+    use typenum::{U24,U8};
+    use kern::ukernel_wrapper::{GenericUkernelWrapper,UkernelWrapper};
+
+	// KNL ukernels
+	extern{
+        fn bli_dgemm_opt_24x8 (k: int64_t,
+            alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
+            c: *mut f64, rs_c: int64_t, cs_c: int64_t) -> (); 
+    }
+
+    impl GenericUkernelWrapper<U24, U8, f64> for UkernelWrapper<U24, U8, f64> {
+        #[inline(always)]
+        unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
+            bli_dgemm_opt_24x8(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
+                              beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t);
+        }
+    }
+
+}
