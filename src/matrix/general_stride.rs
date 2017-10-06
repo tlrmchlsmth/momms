@@ -208,7 +208,7 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
        x_views_alias.push(MatrixView{ offset: x_view.offset, padding: x_view.offset, iter_size: x_view.iter_size });
        y_views_alias.push(MatrixView{ offset: y_view.offset, padding: y_view.offset, iter_size: y_view.iter_size });
 
-        Matrix{ alpha: T::one(),
+        Matrix{ alpha: self.alpha,
                 x_views: x_views_alias, y_views: y_views_alias,
                 row_stride: self.row_stride, column_stride: self.column_stride,
                 buffer: self.buffer,
