@@ -134,7 +134,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
 
       
         //Return
-        Hierarch{ alpha: T::one(),
+        Hierarch{ alpha: self.alpha,
                   y_views: y_views, x_views: x_views,
                   y_hierarchy: y_hierarchy, x_hierarchy: x_hierarchy,
                   yh_index: yh_index, xh_index: xh_index,  
