@@ -4,6 +4,9 @@ version = "0.2.0"
 authors = ["Tyler Smith <tms@cs.utexas.edu>"]
 build = "build.rs"
 
+[build-dependencies]
+bindgen = "0.26.3"
+
 [dependencies]
 rand = "0.3"
 libc = "0.2.0"

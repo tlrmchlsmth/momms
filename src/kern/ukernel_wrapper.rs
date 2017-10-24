@@ -1,6 +1,15 @@
+#[allow(dead_code, non_snake_case, non_camel_case_types, non_upper_case_globals)]
+#[cfg(feature="blis")]
+pub mod blis_types 
+{
+    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+}
+
 use matrix::{Scalar};
 use core::marker::{PhantomData};
 use typenum::{Unsigned};
+
+
 
 
 pub trait GenericUkernelWrapper<Mr: Unsigned, Nr: Unsigned, T: Scalar> {
@@ -28,39 +37,73 @@ pub mod hsw
     use self::libc::{ c_double, int64_t };
     use typenum::{U4,U6,U8,U12};
     use kern::ukernel_wrapper::{GenericUkernelWrapper,UkernelWrapper};
+    use kern::ukernel_wrapper::blis_types::{auxinfo_t,pack_t,inc_t};
 
     //Haswell ukernels
     extern{
         fn bli_dgemm_asm_6x8 (k: int64_t,
             alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
-            c: *mut f64, rs_c: int64_t, cs_c: int64_t) -> (); 
+            c: *mut f64, rs_c: int64_t, cs_c: int64_t,
+            auxinfo: *mut auxinfo_t) -> (); 
         fn bli_dgemm_asm_4x12 (k: int64_t,
             alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
-            c: *mut f64, rs_c: int64_t, cs_c: int64_t) -> (); 
+            c: *mut f64, rs_c: int64_t, cs_c: int64_t,
+            auxinfo: *mut auxinfo_t) -> (); 
         fn bli_dgemm_asm_12x4 (k: int64_t,
             alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
-            c: *mut f64, rs_c: int64_t, cs_c: int64_t) -> (); 
+            c: *mut f64, rs_c: int64_t, cs_c: int64_t,
+            auxinfo: *mut auxinfo_t) -> (); 
     }
 
     impl GenericUkernelWrapper<U4, U12, f64> for UkernelWrapper<U4, U12, f64> {
         #[inline(always)]
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
+
+            let mut info = auxinfo_t{
+				schema_a: pack_t::BLIS_PACKED_ROW_PANELS,
+				schema_b: pack_t::BLIS_PACKED_COL_PANELS,
+				a_next: a as *mut ::std::os::raw::c_void,
+				b_next: b as *mut ::std::os::raw::c_void,
+				is_a: 1 as inc_t,
+				is_b: 1 as inc_t,
+            };
+            
             bli_dgemm_asm_4x12(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
-                              beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t);
+                beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t, &mut info as *mut auxinfo_t);
         }
     }
     impl GenericUkernelWrapper<U6, U8, f64> for UkernelWrapper<U6, U8, f64> {
         #[inline(always)]
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
+
+            let mut info = auxinfo_t{
+				schema_a: pack_t::BLIS_PACKED_ROW_PANELS,
+				schema_b: pack_t::BLIS_PACKED_COL_PANELS,
+				a_next: a as *mut ::std::os::raw::c_void,
+				b_next: b as *mut ::std::os::raw::c_void,
+				is_a: 1 as inc_t,
+				is_b: 1 as inc_t,
+            };
+            
             bli_dgemm_asm_6x8(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
-                              beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t);
+                beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t, &mut info as *mut auxinfo_t);
         }
     }
     impl GenericUkernelWrapper<U12, U4, f64> for UkernelWrapper<U12, U4, f64> {
         #[inline(always)]
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
+
+            let mut info = auxinfo_t{
+				schema_a: pack_t::BLIS_PACKED_ROW_PANELS,
+				schema_b: pack_t::BLIS_PACKED_COL_PANELS,
+				a_next: a as *mut ::std::os::raw::c_void,
+				b_next: b as *mut ::std::os::raw::c_void,
+				is_a: 1 as inc_t,
+				is_b: 1 as inc_t,
+            };
+
             bli_dgemm_asm_12x4(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
-                              beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t);
+                beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t, &mut info as *mut auxinfo_t);
         }
     }
 }
@@ -72,19 +115,31 @@ pub mod snb
     use self::libc::{ c_double, int64_t };
     use typenum::{U4,U8};
     use kern::ukernel_wrapper::{GenericUkernelWrapper,UkernelWrapper};
+    use kern::ukernel_wrapper::blis_types::{auxinfo_t,pack_t,inc_t};
 
     //Haswell ukernels
     extern{
         fn bli_dgemm_int_8x4 (k: int64_t,
             alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
-            c: *mut f64, rs_c: int64_t, cs_c: int64_t) -> (); 
+            c: *mut f64, rs_c: int64_t, cs_c: int64_t,
+            auxinfo: *mut auxinfo_t) -> (); 
     }
 
     impl GenericUkernelWrapper<U8, U4, f64> for UkernelWrapper<U8, U4, f64> {
         #[inline(always)]
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
+
+            let mut info = auxinfo_t{
+				schema_a: pack_t::BLIS_PACKED_ROW_PANELS,
+				schema_b: pack_t::BLIS_PACKED_COL_PANELS,
+				a_next: a as *mut ::std::os::raw::c_void,
+				b_next: b as *mut ::std::os::raw::c_void,
+				is_a: 1 as inc_t,
+				is_b: 1 as inc_t,
+            };
+
             bli_dgemm_int_8x4(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
-                              beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t);
+                beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t, &mut info as *mut auxinfo_t);
         }
     }
 }
@@ -96,19 +151,31 @@ pub mod knl
     use self::libc::{ c_double, int64_t };
     use typenum::{U24,U8};
     use kern::ukernel_wrapper::{GenericUkernelWrapper,UkernelWrapper};
+    use kern::ukernel_wrapper::blis_types::{auxinfo_t,pack_t,inc_t};
 
 	// KNL ukernels
 	extern{
         fn bli_dgemm_opt_24x8 (k: int64_t,
             alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
-            c: *mut f64, rs_c: int64_t, cs_c: int64_t) -> (); 
+            c: *mut f64, rs_c: int64_t, cs_c: int64_t,
+            auxinfo: *mut auxinfo_t) -> (); 
     }
 
     impl GenericUkernelWrapper<U24, U8, f64> for UkernelWrapper<U24, U8, f64> {
         #[inline(always)]
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
+
+            let mut info = auxinfo_t{
+				schema_a: pack_t::BLIS_PACKED_ROW_PANELS,
+				schema_b: pack_t::BLIS_PACKED_COL_PANELS,
+				a_next: a as *mut ::std::os::raw::c_void,
+				b_next: b as *mut ::std::os::raw::c_void,
+				is_a: 1 as inc_t,
+				is_b: 1 as inc_t,
+            };
+
             bli_dgemm_opt_24x8(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
-                              beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t);
+                beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t, &mut info as *mut auxinfo_t);
         }
     }
 
