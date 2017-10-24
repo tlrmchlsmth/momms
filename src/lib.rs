@@ -7,6 +7,7 @@
 
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
+#![allow(unknown_lints)]
 #![allow(inline_always)] 
 #![allow(too_many_arguments)]
 #![allow(many_single_char_names)]
