@@ -179,7 +179,7 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
         let uz_view = self.y_views[view_len-2];
         let(z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(y, blksz);
 
-        let mut z_view = self.y_views.last_mut().unwrap();
+        let z_view = self.y_views.last_mut().unwrap();
         z_view.iter_size = z_iter_size;
         z_view.padding = z_padding;
         z_view.offset = uz_view.offset + y;
@@ -192,7 +192,7 @@ impl<T: Scalar> Mat<T> for Matrix<T> {
         let uz_view = self.x_views[view_len-2];
         let(z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(x, blksz);
 
-        let mut z_view = self.x_views.last_mut().unwrap();
+        let z_view = self.x_views.last_mut().unwrap();
         z_view.iter_size = z_iter_size;
         z_view.padding = z_padding;
         z_view.offset = uz_view.offset + x;

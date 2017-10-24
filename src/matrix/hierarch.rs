@@ -134,7 +134,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
 
       
         //Return
-        Hierarch{ alpha: self.alpha,
+        Hierarch{ alpha: T::one(),
                   y_views: y_views, x_views: x_views,
                   y_hierarchy: y_hierarchy, x_hierarchy: x_hierarchy,
                   yh_index: yh_index, xh_index: xh_index,  
@@ -331,7 +331,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         let uz_view = self.y_views[view_len-2];
         let(z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(y, blksz);
 
-        let mut z_view = self.y_views.last_mut().unwrap();
+        let z_view = self.y_views.last_mut().unwrap();
         z_view.iter_size = z_iter_size;
         z_view.padding = z_padding;
         z_view.offset = uz_view.offset + (y / iota) * self.y_hierarchy[self.yh_index-1].stride;
@@ -346,7 +346,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         let uz_view = self.x_views[view_len-2];
         let(z_iter_size, z_padding) = uz_view.zoomed_size_and_padding(x, blksz);
 
-        let mut z_view = self.x_views.last_mut().unwrap();
+        let z_view = self.x_views.last_mut().unwrap();
         z_view.iter_size = z_iter_size;
         z_view.padding = z_padding;
         z_view.offset = uz_view.offset + (x / iota) * self.x_hierarchy[self.xh_index-1].stride;
@@ -447,8 +447,8 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
     fn resize_to(&mut self, other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]) {
 		debug_assert_eq!(self.y_views.len(), 1, "Can't resize a submatrix!");
 
-        let mut y_view = self.y_views.last_mut().unwrap();
-        let mut x_view = self.x_views.last_mut().unwrap();
+        let y_view = self.y_views.last_mut().unwrap();
+        let x_view = self.x_views.last_mut().unwrap();
 
 		//Adjust the size of this matrix
         y_view.iter_size = other.iter_height();
