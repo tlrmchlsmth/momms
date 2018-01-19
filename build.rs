@@ -16,6 +16,8 @@ fn main() -> () {
         //This allows us to interface with the BLIS micro-kernel
 		let bindings = bindgen::Builder::default()
 			.header("blis_types_wrapper.h")
+            .clang_arg("-include")
+            .clang_arg("stddef.h")
             .clang_arg(format!("-I/{}/blis/include/blis", std::env::home_dir().unwrap().to_str().unwrap()))
 			.generate()
 			.expect("Unable to generate bindings");
