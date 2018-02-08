@@ -41,15 +41,15 @@ pub mod hsw
 
     //Haswell ukernels
     extern{
-        fn bli_dgemm_asm_6x8 (k: int64_t,
+        fn bli_dgemm_haswell_asm_6x8 (k: int64_t,
             alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
             c: *mut f64, rs_c: int64_t, cs_c: int64_t,
             auxinfo: *mut auxinfo_t) -> (); 
-        fn bli_dgemm_asm_4x12 (k: int64_t,
+        fn bli_dgemm_haswell_asm_4x12 (k: int64_t,
             alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
             c: *mut f64, rs_c: int64_t, cs_c: int64_t,
             auxinfo: *mut auxinfo_t) -> (); 
-        fn bli_dgemm_asm_12x4 (k: int64_t,
+        fn bli_dgemm_haswell_asm_12x4 (k: int64_t,
             alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
             c: *mut f64, rs_c: int64_t, cs_c: int64_t,
             auxinfo: *mut auxinfo_t) -> (); 
@@ -68,7 +68,7 @@ pub mod hsw
 				is_b: 1 as inc_t,
             };
             
-            bli_dgemm_asm_4x12(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
+            bli_dgemm_haswell_asm_4x12(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
                 beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t, &mut info as *mut auxinfo_t);
         }
     }
@@ -85,7 +85,7 @@ pub mod hsw
 				is_b: 1 as inc_t,
             };
             
-            bli_dgemm_asm_6x8(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
+            bli_dgemm_haswell_asm_6x8(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
                 beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t, &mut info as *mut auxinfo_t);
         }
     }
@@ -102,7 +102,7 @@ pub mod hsw
 				is_b: 1 as inc_t,
             };
 
-            bli_dgemm_asm_12x4(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
+            bli_dgemm_haswell_asm_12x4(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
                 beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t, &mut info as *mut auxinfo_t);
         }
     }
@@ -119,7 +119,7 @@ pub mod snb
 
     //Haswell ukernels
     extern{
-        fn bli_dgemm_int_8x4 (k: int64_t,
+        fn bli_dgemm_sandybridge_int_8x4 (k: int64_t,
             alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
             c: *mut f64, rs_c: int64_t, cs_c: int64_t,
             auxinfo: *mut auxinfo_t) -> (); 
@@ -138,7 +138,7 @@ pub mod snb
 				is_b: 1 as inc_t,
             };
 
-            bli_dgemm_int_8x4(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
+            bli_dgemm_sandybridge_int_8x4(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
                 beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t, &mut info as *mut auxinfo_t);
         }
     }
@@ -155,7 +155,7 @@ pub mod knl
 
 	// KNL ukernels
 	extern{
-        fn bli_dgemm_opt_24x8 (k: int64_t,
+        fn bli_dgemm_knl_asm_24x8 (k: int64_t,
             alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, 
             c: *mut f64, rs_c: int64_t, cs_c: int64_t,
             auxinfo: *mut auxinfo_t) -> (); 
@@ -174,7 +174,7 @@ pub mod knl
 				is_b: 1 as inc_t,
             };
 
-            bli_dgemm_opt_24x8(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
+            bli_dgemm__knl_asm_24x8(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
                 beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t, &mut info as *mut auxinfo_t);
         }
     }
