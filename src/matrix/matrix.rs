@@ -165,6 +165,13 @@ pub trait Mat<T: Scalar> where Self: Send {
                 self.set(y,x,rand::random::<T>());
             }
         }
+        let alpha = self.frosqr();
+        for x in 0..self.width() {
+            for y in 0..self.height() {
+                let tau = self.get(y,x);
+                self.set(y,x,tau/alpha);
+            }
+        }
     }
 
     fn fill_zero(&mut self) {
