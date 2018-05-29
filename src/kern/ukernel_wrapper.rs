@@ -37,7 +37,7 @@ pub mod hsw
     use self::libc::{ c_double, int64_t };
     use typenum::{U4,U6,U8,U12};
     use kern::ukernel_wrapper::{GenericUkernelWrapper,UkernelWrapper};
-    use kern::ukernel_wrapper::blis_types::{auxinfo_t,pack_t,inc_t};
+    use kern::ukernel_wrapper::blis_types::{self,auxinfo_t,inc_t};
 
     //Haswell ukernels
     extern{
@@ -60,8 +60,8 @@ pub mod hsw
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
 
             let mut info = auxinfo_t{
-				schema_a: pack_t::BLIS_PACKED_ROW_PANELS,
-				schema_b: pack_t::BLIS_PACKED_COL_PANELS,
+				schema_a: blis_types::pack_t_BLIS_PACKED_ROW_PANELS,
+				schema_b: blis_types::pack_t_BLIS_PACKED_COL_PANELS,
 				a_next: a as *mut ::std::os::raw::c_void,
 				b_next: b as *mut ::std::os::raw::c_void,
 				is_a: 1 as inc_t,
@@ -77,8 +77,8 @@ pub mod hsw
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
 
             let mut info = auxinfo_t{
-				schema_a: pack_t::BLIS_PACKED_ROW_PANELS,
-				schema_b: pack_t::BLIS_PACKED_COL_PANELS,
+				schema_a: blis_types::pack_t_BLIS_PACKED_ROW_PANELS,
+				schema_b: blis_types::pack_t_BLIS_PACKED_COL_PANELS,
 				a_next: a as *mut ::std::os::raw::c_void,
 				b_next: b as *mut ::std::os::raw::c_void,
 				is_a: 1 as inc_t,
@@ -94,8 +94,8 @@ pub mod hsw
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
 
             let mut info = auxinfo_t{
-				schema_a: pack_t::BLIS_PACKED_ROW_PANELS,
-				schema_b: pack_t::BLIS_PACKED_COL_PANELS,
+				schema_a: blis_types::pack_t_BLIS_PACKED_ROW_PANELS,
+				schema_b: blis_types::pack_t_BLIS_PACKED_COL_PANELS,
 				a_next: a as *mut ::std::os::raw::c_void,
 				b_next: b as *mut ::std::os::raw::c_void,
 				is_a: 1 as inc_t,
@@ -115,7 +115,7 @@ pub mod snb
     use self::libc::{ c_double, int64_t };
     use typenum::{U4,U8};
     use kern::ukernel_wrapper::{GenericUkernelWrapper,UkernelWrapper};
-    use kern::ukernel_wrapper::blis_types::{auxinfo_t,pack_t,inc_t};
+    use kern::ukernel_wrapper::blis_types::{self,auxinfo_t,inc_t};
 
     //Haswell ukernels
     extern{
@@ -130,8 +130,8 @@ pub mod snb
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
 
             let mut info = auxinfo_t{
-				schema_a: pack_t::BLIS_PACKED_ROW_PANELS,
-				schema_b: pack_t::BLIS_PACKED_COL_PANELS,
+				schema_a: blis_types::pack_t_BLIS_PACKED_ROW_PANELS,
+				schema_b: blis_types::pack_t_BLIS_PACKED_COL_PANELS,
 				a_next: a as *mut ::std::os::raw::c_void,
 				b_next: b as *mut ::std::os::raw::c_void,
 				is_a: 1 as inc_t,
@@ -151,7 +151,7 @@ pub mod knl
     use self::libc::{ c_double, int64_t };
     use typenum::{U24,U8};
     use kern::ukernel_wrapper::{GenericUkernelWrapper,UkernelWrapper};
-    use kern::ukernel_wrapper::blis_types::{auxinfo_t,pack_t,inc_t};
+    use kern::ukernel_wrapper::blis_types::{auxinfo_t,inc_t};
 
 	// KNL ukernels
 	extern{
@@ -166,8 +166,8 @@ pub mod knl
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
 
             let mut info = auxinfo_t{
-				schema_a: pack_t::BLIS_PACKED_ROW_PANELS,
-				schema_b: pack_t::BLIS_PACKED_COL_PANELS,
+				schema_a: blis_types::pack_t_BLIS_PACKED_ROW_PANELS,
+				schema_b: blis_types::pack_t_BLIS_PACKED_COL_PANELS,
 				a_next: a as *mut ::std::os::raw::c_void,
 				b_next: b as *mut ::std::os::raw::c_void,
 				is_a: 1 as inc_t,

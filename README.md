@@ -9,16 +9,21 @@ Algorithms are instantiated via type composition.
 How-to
 ------
 Get Rust Nightly:
-https://www.rustup.rs/
+[https://www.rustup.rs/]
 
 Install BLIS to your home directory:
-https://github.com/flame/blis
+[https://github.com/flame/blis]
 
 Get and install hwloc:
-https://www.open-mpi.org/projects/hwloc/
+[https://www.open-mpi.org/projects/hwloc/]
+On Ubuntu:
+    apt-get install libhwloc-dev
+
+Install libclang (for bindgen to automatically generate bindings to BLIS)
+    apt-get install llvm-3.9-dev libclang-3.9-dev clang-3.9
 
 To build MOMMS binaries in release using the blis kernel:
-cargo build --release --features "blis hsw"
+    cargo build --release --features "blis hsw"
 
 
 Funding

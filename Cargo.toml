@@ -5,7 +5,7 @@ authors = ["Tyler Smith <tms@cs.utexas.edu>"]
 build = "build.rs"
 
 [build-dependencies]
-bindgen = "0.26.3"
+bindgen = "0.37.0"
 
 [dependencies]
 rand = "0.3"
