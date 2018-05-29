@@ -2,14 +2,12 @@ extern crate alloc;
 
 use thread_comm::ThreadInfo;
 use typenum::Unsigned;
-use self::alloc::heap::{Alloc,Heap};
+use self::alloc::heap::{Alloc,Global};
 use matrix::{Scalar,Mat,ResizableBuffer,RoCM};
 use super::view::{MatrixView};
 use composables::AlgorithmStep;
 use util::capacity_to_aligned_layout;
-
-use core::marker::PhantomData;
-use core::{mem,ptr};
+use core::{self,ptr,marker::PhantomData};
 
 #[derive(Clone)]
 pub struct HierarchyNode {
@@ -94,7 +92,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
     pub fn new(h: usize, w: usize, 
                 hier: &[AlgorithmStep], y_step: AlgorithmStep, x_step: AlgorithmStep) 
         -> Hierarch<T,LH,LW,LRS,LCS> {
-        assert_ne!(mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
+        assert_ne!(core::mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
 
         //Setup Views stack
         let mut y_views : Vec<MatrixView> = Vec::with_capacity(16);
@@ -127,7 +125,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
             let capacity = n_blocks_y * y_tlds * n_blocks_x * x_tlds;
             let layout = capacity_to_aligned_layout::<T>(capacity);
             let ptr = unsafe {
-                Heap.alloc(layout).expect("Could not allocate buffer for matrix!")
+                Global.alloc(layout).expect("Could not allocate buffer for matrix!")
             };
             (ptr, capacity)
         };
@@ -138,7 +136,8 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
                   y_views: y_views, x_views: x_views,
                   y_hierarchy: y_hierarchy, x_hierarchy: x_hierarchy,
                   yh_index: yh_index, xh_index: xh_index,  
-                  buffer: ptr as *mut _, capacity: capacity,
+                  buffer: ptr.as_ptr() as *mut _,
+                  capacity: capacity,
                   is_alias: false,
                   _lht: PhantomData, _lwt: PhantomData,
                   _lrst: PhantomData, _lcst: PhantomData }
@@ -390,7 +389,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Drop f
         if !self.is_alias {
             unsafe {
                 let layout = capacity_to_aligned_layout::<T>(self.capacity);
-                Heap.dealloc(self.buffer as *mut _, layout);
+                Global.dealloc(ptr::NonNull::new(self.buffer as *mut _).expect("Attempting to dealloc null buffer in hierarch"), layout);
             }
         }
     }
@@ -433,10 +432,9 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
         let req_padded_capacity = req_capacity;
         if req_padded_capacity > self.capacity {
             unsafe {
-                let old_layout = capacity_to_aligned_layout::<T>(self.capacity);
                 let new_layout = capacity_to_aligned_layout::<T>(req_padded_capacity);
-                self.buffer = Heap.realloc(self.buffer as *mut u8, old_layout, new_layout)
-                    .expect("Could not allocate buffer for matrix!") as *mut _;
+                self.buffer = Global.realloc(ptr::NonNull::new(self.buffer as *mut _).expect("Attempting to deallocate null buffer for matrix"),
+                    new_layout, req_padded_capacity).expect("Could not allocate buffer for matrix!").as_ptr() as *mut _;
                 self.capacity = req_padded_capacity;
             }
         }

@@ -1,6 +1,4 @@
 #![feature(specialization)]
-#![feature(conservative_impl_trait)]
-#![feature(cfg_target_feature)]
 #![feature(asm)] 
 
 #![allow(unused_imports)]

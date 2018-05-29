@@ -2,13 +2,11 @@ extern crate alloc;
 
 use thread_comm::ThreadInfo;
 use typenum::Unsigned;
-use self::alloc::heap::{Alloc,Heap};
+use self::alloc::heap::{Alloc,Global};
 use matrix::{Scalar,Mat,ResizableBuffer,RoCM};
 use super::view::{MatrixView};
 use util::capacity_to_aligned_layout;
-
-use core::marker::PhantomData;
-use core::{mem,ptr};
+use core::{self, ptr,marker::PhantomData};
 
 use composables::{AlgorithmStep};
 
@@ -27,7 +25,7 @@ pub struct RowPanelMatrix<T: Scalar, PH: Unsigned> {
 }
 impl<T: Scalar, PH: Unsigned> RowPanelMatrix<T,PH> {
     pub fn new(h: usize, w: usize) -> RowPanelMatrix<T,PH> {
-        assert_ne!(mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
+        assert_ne!(core::mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
     
         //Figure out the number of panels
         let panel_h = PH::to_usize();
@@ -44,13 +42,14 @@ impl<T: Scalar, PH: Unsigned> RowPanelMatrix<T,PH> {
 
         let layout = capacity_to_aligned_layout::<T>(capacity);
         let buf =  unsafe {
-            Heap.alloc(layout).expect("Could not allocate buffer for matrix!")
+            Global.alloc(layout).expect("Could not allocate buffer for matrix!")
         };
 
         RowPanelMatrix{ alpha: T::one(),
                         y_views: y_views, x_views: x_views,
                         panel_stride: panel_h*w, 
-                        buffer: buf as *mut _, capacity: capacity,
+                        buffer: buf.as_ptr() as *mut _,
+                        capacity: capacity,
                         is_alias: false,
                         _pht: PhantomData }
     }
@@ -245,7 +244,7 @@ impl<T:Scalar, PH: Unsigned> Drop for RowPanelMatrix<T, PH> {
         if !self.is_alias {
             unsafe {
                 let layout = capacity_to_aligned_layout::<T>(self.capacity);
-                Heap.dealloc(self.buffer as *mut _, layout);
+                Global.dealloc(ptr::NonNull::new(self.buffer as *mut _).unwrap(), layout);
             }
         }
     }
@@ -276,10 +275,9 @@ impl<T:Scalar, PH: Unsigned> ResizableBuffer<T> for RowPanelMatrix<T, PH> {
         let req_padded_capacity = req_capacity;
         if req_padded_capacity > self.capacity {
             unsafe {
-                let old_layout = capacity_to_aligned_layout::<T>(self.capacity);
-                let new_layout = capacity_to_aligned_layout::<T>(req_capacity);
-                self.buffer = Heap.realloc(self.buffer as *mut u8, old_layout, new_layout)
-                    .expect("Could not allocate buffer for matrix!") as *mut _;
+                let new_layout = capacity_to_aligned_layout::<T>(req_padded_capacity);
+                self.buffer = Global.realloc(ptr::NonNull::new(self.buffer as *mut _).expect("Attempting to deallocate null buffer for matrix"),
+                    new_layout, req_padded_capacity).expect("Could not allocate buffer for matrix!").as_ptr() as *mut _;
                 self.capacity = req_padded_capacity;
             }
         }
