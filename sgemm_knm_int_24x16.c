@@ -12,11 +12,11 @@
 void sgemm_knm_int_16x24
      (
        dim_t               k_,
-       double*    restrict alpha_,
-       double*    restrict a,
-       double*    restrict b,
-       double*    restrict beta_,
-       double*    restrict c, inc_t rs_c, inc_t cs_c,
+       float*    restrict alpha_,
+       float*    restrict a,
+       float*    restrict b,
+       float*    restrict beta_,
+       float*    restrict c, inc_t rs_c, inc_t cs_c
      )
 {
     int64_t k = k_;
@@ -93,8 +93,8 @@ void sgemm_knm_int_16x24
     //
     // Load alpha and beta
     //
-    __m512 alpha = _mm512_set1_ps(alpha);
-    __m512 beta = _mm512_set1_ps(beta);
+    __m512 alpha = _mm512_set1_ps(*alpha_);
+    __m512 beta = _mm512_set1_ps(*beta_);
 
     //
     // Update C
@@ -102,121 +102,121 @@ void sgemm_knm_int_16x24
     __m512 t;
     t = _mm512_load_ps(c + 0*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c1, t);
-    _mm512_store_ps(c + 0*cs_c);
+    t = _mm512_fmadd_ps(alpha, c1, t);
+    _mm512_store_ps(c + 0*cs_c, t);
 
     t = _mm512_load_ps(c + 1*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c2, t);
-    _mm512_store_ps(c + 1*cs_c);
+    t = _mm512_fmadd_ps(alpha, c2, t);
+    _mm512_store_ps(c + 1*cs_c, t);
 
     t = _mm512_load_ps(c + 2*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c3, t);
-    _mm512_store_ps(c + 2*cs_c);
+    t = _mm512_fmadd_ps(alpha, c3, t);
+    _mm512_store_ps(c + 2*cs_c, t);
     
     t = _mm512_load_ps(c + 3*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c4, t);
-    _mm512_store_ps(c + 3*cs_c);
+    t = _mm512_fmadd_ps(alpha, c4, t);
+    _mm512_store_ps(c + 3*cs_c, t);
     
     t = _mm512_load_ps(c + 4*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c5, t);
-    _mm512_store_ps(c + 4*cs_c);
+    t = _mm512_fmadd_ps(alpha, c5, t);
+    _mm512_store_ps(c + 4*cs_c, t);
     
     t = _mm512_load_ps(c + 5*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c6, t);
-    _mm512_store_ps(c + 5*cs_c);
+    t = _mm512_fmadd_ps(alpha, c6, t);
+    _mm512_store_ps(c + 5*cs_c, t);
     
     t = _mm512_load_ps(c + 6*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c7, t);
-    _mm512_store_ps(c + 6*cs_c);
+    t = _mm512_fmadd_ps(alpha, c7, t);
+    _mm512_store_ps(c + 6*cs_c, t);
     
     t = _mm512_load_ps(c + 7*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c8, t);
-    _mm512_store_ps(c + 7*cs_c);
+    t = _mm512_fmadd_ps(alpha, c8, t);
+    _mm512_store_ps(c + 7*cs_c, t);
     
     t = _mm512_load_ps(c + 8*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c9, t);
-    _mm512_store_ps(c + 8*cs_c);
+    t = _mm512_fmadd_ps(alpha, c9, t);
+    _mm512_store_ps(c + 8*cs_c, t);
     
     t = _mm512_load_ps(c + 9*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c10, t);
-    _mm512_store_ps(c + 9*cs_c);
+    t = _mm512_fmadd_ps(alpha, c10, t);
+    _mm512_store_ps(c + 9*cs_c, t);
     
     t = _mm512_load_ps(c + 10*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c11, t);
-    _mm512_store_ps(c + 10*cs_c);
+    t = _mm512_fmadd_ps(alpha, c11, t);
+    _mm512_store_ps(c + 10*cs_c, t);
     
     t = _mm512_load_ps(c + 11*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c12, t);
-    _mm512_store_ps(c + 11*cs_c);
+    t = _mm512_fmadd_ps(alpha, c12, t);
+    _mm512_store_ps(c + 11*cs_c, t);
     
     t = _mm512_load_ps(c + 12*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c13, t);
-    _mm512_store_ps(c + 12*cs_c);
+    t = _mm512_fmadd_ps(alpha, c13, t);
+    _mm512_store_ps(c + 12*cs_c, t);
 
     t = _mm512_load_ps(c + 13*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c14, t);
-    _mm512_store_ps(c + 13*cs_c);
+    t = _mm512_fmadd_ps(alpha, c14, t);
+    _mm512_store_ps(c + 13*cs_c, t);
 
     t = _mm512_load_ps(c + 14*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c15, t);
-    _mm512_store_ps(c + 14*cs_c);
+    t = _mm512_fmadd_ps(alpha, c15, t);
+    _mm512_store_ps(c + 14*cs_c, t);
 
     t = _mm512_load_ps(c + 15*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c16, t);
-    _mm512_store_ps(c + 15*cs_c);
+    t = _mm512_fmadd_ps(alpha, c16, t);
+    _mm512_store_ps(c + 15*cs_c, t);
 
     t = _mm512_load_ps(c + 16*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c17, t);
-    _mm512_store_ps(c + 16*cs_c);
+    t = _mm512_fmadd_ps(alpha, c17, t);
+    _mm512_store_ps(c + 16*cs_c, t);
 
     t = _mm512_load_ps(c + 17*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c18, t);
-    _mm512_store_ps(c + 17*cs_c);
+    t = _mm512_fmadd_ps(alpha, c18, t);
+    _mm512_store_ps(c + 17*cs_c, t);
 
     t = _mm512_load_ps(c + 18*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c19, t);
-    _mm512_store_ps(c + 18*cs_c);
+    t = _mm512_fmadd_ps(alpha, c19, t);
+    _mm512_store_ps(c + 18*cs_c, t);
 
     t = _mm512_load_ps(c + 19*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c20, t);
-    _mm512_store_ps(c + 19*cs_c);
+    t = _mm512_fmadd_ps(alpha, c20, t);
+    _mm512_store_ps(c + 19*cs_c, t);
 
     t = _mm512_load_ps(c + 20*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c21, t);
-    _mm512_store_ps(c + 20*cs_c);
+    t = _mm512_fmadd_ps(alpha, c21, t);
+    _mm512_store_ps(c + 20*cs_c, t);
 
     t = _mm512_load_ps(c + 21*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c22, t);
-    _mm512_store_ps(c + 21*cs_c);
+    t = _mm512_fmadd_ps(alpha, c22, t);
+    _mm512_store_ps(c + 21*cs_c, t);
 
     t = _mm512_load_ps(c + 22*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c23, t);
-    _mm512_store_ps(c + 22*cs_c);
+    t = _mm512_fmadd_ps(alpha, c23, t);
+    _mm512_store_ps(c + 22*cs_c, t);
 
     t = _mm512_load_ps(c + 23*cs_c);
     t = _mm512_mul_ps(t, beta);
-    t = _mm512_fmadd(alpha, c24, t);
-    _mm512_store_ps(c + 23*cs_c);
+    t = _mm512_fmadd_ps(alpha, c24, t);
+    _mm512_store_ps(c + 23*cs_c, t);
 }

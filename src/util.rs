@@ -3,16 +3,14 @@ extern crate libc;
 extern crate alloc;
 
 use std::time::Instant;
-#[allow(unused_imports)]
 use libc::{c_double, int64_t, c_char};
 
-#[allow(unused_imports)]
 use std::ffi::{CString};
 use thread_comm::ThreadInfo;
-#[allow(unused_imports)]
 use matrix::{Scalar, Mat, Matrix, RoCM};
 use composables::{GemmNode, TripleLoop};
 use self::alloc::heap::Layout;
+use core;
 
 #[cfg(feature="blis")]
 extern{
@@ -116,5 +114,7 @@ pub fn pin_to_core(core: usize) {
 }
 
 pub fn capacity_to_aligned_layout<T>(capacity: usize) -> Layout {
-    Layout::new::<T>().repeat_packed(capacity).unwrap().align_to(4096)
+//    Layout::new::<T>().repeat_packed(capacity).unwrap().align_to(4096)
+    //Layout::array::<T>(capacity).unwrap().align_to(4096)
+    Layout::from_size_align(core::mem::size_of::<T>() * capacity, 4096).unwrap()
 }

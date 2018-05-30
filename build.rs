@@ -1,16 +1,13 @@
 extern crate bindgen;
 
-use std::{sync::{Arc, RwLock},collections::HashSet};
+use std::{env, process::Command, path::Path};
 use bindgen::callbacks::{MacroParsingBehavior, ParseCallbacks};
 
 
  #[derive(Debug)]
- struct MacroCallback {
-//     macros: Arc<RwLock<HashSet<String>>>,
- }
+ struct MacroCallback { }
  impl ParseCallbacks for MacroCallback {
     fn will_parse_macro(&self, name: &str) -> MacroParsingBehavior {
- //       self.macros.write().unwrap().insert(name.into());
         if ["FP_SUBNORMAL", "FP_NORMAL", "FP_ZERO", "FP_INFINITE", "FP_NAN"].contains(&name) {
             return MacroParsingBehavior::Ignore
         }
@@ -19,6 +16,7 @@ use bindgen::callbacks::{MacroParsingBehavior, ParseCallbacks};
  }
 
 fn main() -> () {
+    let out_dir = env::var("OUT_DIR").unwrap();
 
     if cfg!(feature="blis") {
         //Link with BLIS assuming it is installed to the default location:
@@ -44,10 +42,27 @@ fn main() -> () {
 			.expect("Unable to generate bindings");
 
         // Write the bindings to the $OUT_DIR/bindings.rs file.
-    	let out_path = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    	let out_path = std::path::PathBuf::from(&out_dir);
     	bindings
 			.write_to_file(out_path.join("bindings.rs"))
 			.expect("Couldn't write bindings!");
+
+        //
+        // Compile knm "micro-kernel" standalone
+        // via: icc -I${HOME}/blis/include/blis -march=knm -O3 -std=c11 -c sgemm_knm_int_24x16.c -o sgemm_knm_int_24x16.o
+        //
+        if cfg!(feature="knm"){
+            Command::new("icc").arg(&format!("-I{}/blis/include/blis", std::env::home_dir().unwrap().to_str().unwrap()))
+                               .args(&["-march=knm", "-O3", "-std=c11", "-fPIC", "-c", "sgemm_knm_int_24x16.c", "-o"])
+                               .arg(&format!("{}/sgemm_knm_int_24x16.o", &out_dir))
+                               .status().unwrap();
+            Command::new("ar").args(&["crus", "libknmkernel.a", "sgemm_knm_int_24x16.o"])
+                              .current_dir(&Path::new(&out_dir))
+                              .status().unwrap();
+            println!("cargo:rustc-link-search=native={}", &out_dir);
+            println!("cargo:rustc-link-lib=static=knmkernel");
+//            
+        }
 
         //Needed for linking with BLIS when it was compiled with icc
 //        println!("cargo:rustc-link-lib=static=irc");

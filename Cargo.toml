@@ -51,10 +51,15 @@ path = "src/exper/out_of_core.rs"
 name = "overlap"
 path = "src/exper/overlap.rs"
 
+[[bin]]
+name = "knm"
+path = "src/exper/knm.rs"
+
 [features]
 blis = []
 hsw = []
 snb = []
+knm = []
 asm_snippets = []
 libxsmm = []
 default = []
