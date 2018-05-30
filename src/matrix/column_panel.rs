@@ -275,13 +275,14 @@ impl<T:Scalar, PW: Unsigned> ResizableBuffer<T> for ColumnPanelMatrix<T, PW> {
     }
     #[inline(always)]
     fn aquire_buffer_for(&mut self, req_capacity: usize) {
-        let req_padded_capacity = req_capacity;
-        if req_padded_capacity > self.capacity {
+        let req_capacity = req_capacity;
+        if req_capacity > self.capacity {
             unsafe {
-                let new_layout = capacity_to_aligned_layout::<T>(req_padded_capacity);
-                self.buffer = Global.realloc(ptr::NonNull::new(self.buffer as *mut _).expect("Attempting to deallocate null buffer for matrix"),
-                    new_layout, req_padded_capacity).expect("Could not allocate buffer for matrix!").as_ptr() as *mut _;
-                self.capacity = req_padded_capacity;
+                let new_layout = capacity_to_aligned_layout::<T>(req_capacity);
+                let old_layout = capacity_to_aligned_layout::<T>(self.capacity);
+                Global.dealloc(ptr::NonNull::new(self.buffer as *mut _).unwrap(), old_layout);
+                self.buffer = Global.alloc(new_layout).expect("Could not allocate buffer for matrix!").as_ptr() as *mut _;
+                self.capacity = req_capacity;
             }
         }
     }
