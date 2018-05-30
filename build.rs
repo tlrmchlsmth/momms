@@ -56,7 +56,13 @@ fn main() -> () {
                                .args(&["-march=knm", "-O3", "-std=c11", "-fPIC", "-c", "sgemm_knm_int_24x16.c", "-o"])
                                .arg(&format!("{}/sgemm_knm_int_24x16.o", &out_dir))
                                .status().unwrap();
-            Command::new("ar").args(&["crus", "libknmkernel.a", "sgemm_knm_int_24x16.o"])
+
+            Command::new("icc").arg(&format!("-I{}/blis/include/blis", std::env::home_dir().unwrap().to_str().unwrap()))
+                               .args(&["-march=knm", "-O3", "-std=c11", "-fPIC", "-c", "sgemm_knm_asm_24x16.c", "-o"])
+                               .arg(&format!("{}/sgemm_knm_asm_24x16.o", &out_dir))
+                               .status().unwrap();
+
+            Command::new("ar").args(&["crus", "libknmkernel.a", "sgemm_knm_int_24x16.o", "sgemm_knm_asm_24x16.o"])
                               .current_dir(&Path::new(&out_dir))
                               .status().unwrap();
             println!("cargo:rustc-link-search=native={}", &out_dir);

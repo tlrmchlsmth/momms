@@ -35,14 +35,16 @@ pub mod knm
     use self::libc::{ c_float, int64_t };
     use typenum::{U16,U24};
     use kern::knm_kernel_wrapper::{GenericKnmKernelWrapper,KnmKernelWrapper};
-    use kern::knm_kernel_wrapper::blis_types::{self,auxinfo_t,inc_t};
+   // use kern::knm_kernel_wrapper::blis_types::{self,auxinfo_t,inc_t};
 
     //Haswell ukernels
     extern{
         fn sgemm_knm_int_16x24 (k: int64_t,
             alpha: *mut f32, a: *mut f32, b: *mut f32, beta: *mut f32, 
             c: *mut f32, rs_c: int64_t, cs_c: int64_t) -> (); 
-            //auxinfo: *mut auxinfo_t) -> (); 
+        fn sgemm_knm_asm_16x24 (k: int64_t,
+            alpha: *mut f32, a: *mut f32, b: *mut f32, beta: *mut f32, 
+            c: *mut f32, rs_c: int64_t, cs_c: int64_t) -> (); 
     }
 
     impl GenericKnmKernelWrapper<U16, U24, f32> for KnmKernelWrapper<U16, U24, f32> {
@@ -58,7 +60,7 @@ pub mod knm
 				is_b: 1 as inc_t,
             };*/
 
-            sgemm_knm_int_16x24(k as int64_t, alpha as *mut c_float, a as *mut c_float, b as *mut c_float,
+            sgemm_knm_asm_16x24(k as int64_t, alpha as *mut c_float, a as *mut c_float, b as *mut c_float,
                 beta as *mut c_float, c as *mut c_float, rs_c as int64_t, cs_c as int64_t); //, &mut info as *mut auxinfo_t);
         }
     }
