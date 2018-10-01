@@ -9,9 +9,6 @@ use matrix::{Scalar};
 use core::marker::{PhantomData};
 use typenum::{Unsigned};
 
-
-
-
 pub trait GenericUkernelWrapper<Mr: Unsigned, Nr: Unsigned, T: Scalar> {
     unsafe fn run( k: isize, alpha: *mut T, a: *mut T, b: *mut T, beta: *mut T, c: *mut T, rs_c: isize, cs_c: isize) -> (); 
 }
@@ -66,6 +63,7 @@ pub mod hsw
 				b_next: b as *mut ::std::os::raw::c_void,
 				is_a: 1 as inc_t,
 				is_b: 1 as inc_t,
+                dt_on_output: blis_types::num_t_BLIS_DOUBLE,
             };
             
             bli_dgemm_haswell_asm_4x12(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
@@ -83,6 +81,7 @@ pub mod hsw
 				b_next: b as *mut ::std::os::raw::c_void,
 				is_a: 1 as inc_t,
 				is_b: 1 as inc_t,
+                dt_on_output: blis_types::num_t_BLIS_DOUBLE,
             };
             
             bli_dgemm_haswell_asm_6x8(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
@@ -100,6 +99,7 @@ pub mod hsw
 				b_next: b as *mut ::std::os::raw::c_void,
 				is_a: 1 as inc_t,
 				is_b: 1 as inc_t,
+                dt_on_output: blis_types::num_t_BLIS_DOUBLE,
             };
 
             bli_dgemm_haswell_asm_12x4(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
@@ -136,6 +136,7 @@ pub mod snb
 				b_next: b as *mut ::std::os::raw::c_void,
 				is_a: 1 as inc_t,
 				is_b: 1 as inc_t,
+                dt_on_output: blis_types::num_t_BLIS_DOUBLE,
             };
 
             bli_dgemm_sandybridge_int_8x4(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,
@@ -172,6 +173,7 @@ pub mod knl
 				b_next: b as *mut ::std::os::raw::c_void,
 				is_a: 1 as inc_t,
 				is_b: 1 as inc_t,
+                dt_on_output: blis_types::num_t_BLIS_DOUBLE,
             };
 
             bli_dgemm__knl_asm_24x8(k as int64_t, alpha as *mut c_double, a as *mut c_double, b as *mut c_double,

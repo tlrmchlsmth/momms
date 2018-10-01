@@ -54,21 +54,48 @@ fn main() -> () {
         //
         if cfg!(feature="knm"){
             Command::new("icc").arg(&format!("-I{}/blis/include/blis", dirs::home_dir().unwrap().to_str().unwrap()))
-                               .args(&["-march=knm", "-O3", "-std=c11", "-fPIC", "-c", "sgemm_knm_int_24x16.c", "-o"])
+                               .args(&["-march=knm", "-O3", "-std=c11", "-fPIC", "-c", "ukernels/sgemm_knm_int_24x16.c", "-o"])
                                .arg(&format!("{}/sgemm_knm_int_24x16.o", &out_dir))
                                .status().unwrap();
 
             Command::new("icc").arg(&format!("-I{}/blis/include/blis", dirs::home_dir().unwrap().to_str().unwrap()))
-                               .args(&["-march=knm", "-O3", "-std=c11", "-fPIC", "-c", "sgemm_knm_asm_24x16.c", "-o"])
+                               .args(&["-march=knm", "-O3", "-std=c11", "-fPIC", "-c", "ukernels/sgemm_knm_asm_24x16.c", "-o"])
                                .arg(&format!("{}/sgemm_knm_asm_24x16.o", &out_dir))
                                .status().unwrap();
 
-            Command::new("ar").args(&["crus", "libknmkernel.a", "sgemm_knm_int_24x16.o", "sgemm_knm_asm_24x16.o"])
+            Command::new("ar").args(&["crus", "libukernel.a", "sgemm_knm_int_24x16.o", "sgemm_knm_asm_24x16.o"])
                               .current_dir(&Path::new(&out_dir))
                               .status().unwrap();
             println!("cargo:rustc-link-search=native={}", &out_dir);
-            println!("cargo:rustc-link-lib=static=knmkernel");
-//            
+            println!("cargo:rustc-link-lib=static=ukernel");
+        }
+
+        if cfg!(feature="hsw"){
+            Command::new("icc").arg(&format!("-I{}/blis/include/blis", dirs::home_dir().unwrap().to_str().unwrap()))
+                               .args(&["-march=hsw", "-O3", "-std=c11", "-fPIC", "-c", "ukernels/bli_gemm_haswell_asm_d12x4.c", "-o"])
+                               .arg(&format!("{}/bli_gemm_haswell_asm_d12x4.o", &out_dir))
+                               .status().unwrap();
+
+            Command::new("icc").arg(&format!("-I{}/blis/include/blis", dirs::home_dir().unwrap().to_str().unwrap()))
+                               .args(&["-march=hsw", "-O3", "-std=c11", "-fPIC", "-c", "ukernels/bli_gemm_haswell_asm_d4x12.c", "-o"])
+                               .arg(&format!("{}/bli_gemm_haswell_asm_d4x12.o", &out_dir))
+                               .status().unwrap();
+
+            Command::new("icc").arg(&format!("-I{}/blis/include/blis", dirs::home_dir().unwrap().to_str().unwrap()))
+                               .args(&["-march=hsw", "-O3", "-std=c11", "-fPIC", "-c", "ukernels/bli_gemm_haswell_asm_d8x6.c", "-o"])
+                               .arg(&format!("{}/bli_gemm_haswell_asm_d8x6.o", &out_dir))
+                               .status().unwrap();
+
+            Command::new("icc").arg(&format!("-I{}/blis/include/blis", dirs::home_dir().unwrap().to_str().unwrap()))
+                               .args(&["-march=hsw", "-O3", "-std=c11", "-fPIC", "-c", "ukernels/bli_gemm_haswell_asm_d6x8.c", "-o"])
+                               .arg(&format!("{}/bli_gemm_haswell_asm_d6x8.o", &out_dir))
+                               .status().unwrap();
+
+            Command::new("ar").args(&["crus", "libukernel.a", "bli_gemm_haswell_asm_d12x4.o", "bli_gemm_haswell_asm_d4x12.o", "bli_gemm_haswell_asm_d6x8.o", "bli_gemm_haswell_asm_d8x6.o"])
+                              .current_dir(&Path::new(&out_dir))
+                              .status().unwrap();
+            println!("cargo:rustc-link-search=native={}", &out_dir);
+            println!("cargo:rustc-link-lib=static=ukernel");
         }
 
         //Needed for linking with BLIS when it was compiled with icc
