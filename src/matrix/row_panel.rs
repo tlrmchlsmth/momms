@@ -4,9 +4,7 @@ use std::alloc::{Alloc, Global};
 use matrix::{Scalar,Mat,ResizableBuffer,RoCM};
 use super::view::{MatrixView};
 use util::capacity_to_aligned_layout;
-
-use core::marker::PhantomData;
-use core::{mem,ptr};
+use core::{self, ptr,marker::PhantomData};
 
 use composables::{AlgorithmStep};
 
@@ -25,7 +23,7 @@ pub struct RowPanelMatrix<T: Scalar, PH: Unsigned> {
 }
 impl<T: Scalar, PH: Unsigned> RowPanelMatrix<T,PH> {
     pub fn new(h: usize, w: usize) -> RowPanelMatrix<T,PH> {
-        assert_ne!(mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
+        assert_ne!(core::mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
     
         //Figure out the number of panels
         let panel_h = PH::to_usize();
@@ -270,13 +268,12 @@ impl<T:Scalar, PH: Unsigned> ResizableBuffer<T> for RowPanelMatrix<T, PH> {
     }
     #[inline(always)]
     fn aquire_buffer_for(&mut self, req_capacity: usize) {
-        let req_padded_capacity = req_capacity;
-        if req_padded_capacity > self.capacity {
+        if req_capacity > self.capacity {
             unsafe {
                 let old_layout = capacity_to_aligned_layout::<T>(self.capacity);
                 self.buffer = Global.realloc(std::ptr::NonNull::new_unchecked(self.buffer as *mut u8), old_layout, req_capacity)
                     .expect("Could not allocate buffer for matrix!").cast::<T>().as_mut();
-                self.capacity = req_padded_capacity;
+                self.capacity = req_capacity;
             }
         }
     }

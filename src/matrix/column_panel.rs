@@ -1,12 +1,12 @@
 use thread_comm::ThreadInfo;
 use typenum::Unsigned;
 use std::alloc::{Alloc, Global};
-use matrix::{Scalar,Mat,ResizableBuffer,RoCM};
+use matrix::{Scalar, Mat, ResizableBuffer, RoCM};
 use super::view::{MatrixView};
 use util::capacity_to_aligned_layout;
 
 use core::marker::PhantomData;
-use core::{mem,ptr};
+use core::{mem, ptr};
 use composables::{AlgorithmStep};
 
 pub struct ColumnPanelMatrix<T: Scalar, PW: Unsigned> {
@@ -270,13 +270,13 @@ impl<T:Scalar, PW: Unsigned> ResizableBuffer<T> for ColumnPanelMatrix<T, PW> {
     }
     #[inline(always)]
     fn aquire_buffer_for(&mut self, req_capacity: usize) {
-        let req_padded_capacity = req_capacity;
-        if req_padded_capacity > self.capacity {
+        let req_capacity = req_capacity;
+        if req_capacity > self.capacity {
             unsafe {
                 let old_layout = capacity_to_aligned_layout::<T>(self.capacity);
                 self.buffer = Global.realloc(std::ptr::NonNull::new_unchecked(self.buffer as *mut u8), old_layout, req_capacity)
                     .expect("Could not allocate buffer for matrix!").cast::<T>().as_mut();
-                self.capacity = req_padded_capacity;
+                self.capacity = req_capacity;
             }
         }
     }

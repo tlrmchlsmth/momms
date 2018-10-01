@@ -156,21 +156,21 @@ fn pack_hier_leaf<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Uns
 	 x_parallelize_level: isize, x_threads: usize, x_id: usize, 
      y_parallelize_level: isize, y_threads: usize, y_id: usize) {
     //Parallelize Y direction
-    let (ystart, yend) = if y_parallelize_level == 0 {
+    let (ystart, yend_a, yend_a_pack) = if y_parallelize_level == 0 {
 		let rows_per_thread = (a.height()-1) / y_threads + 1; // micro-panels per thread
 		let ystart = rows_per_thread*y_id;
-        (ystart, cmp::min(a.height(), ystart+rows_per_thread))
+        (ystart, cmp::min(a.height(), ystart+rows_per_thread), cmp::min(LH::to_usize(), ystart+rows_per_thread))
     } else {
-        (0, a.height())
+        (0, a.height(), LH::to_usize())
     };
 
     //Parallelize X direction
-    let (xstart, xend) = if x_parallelize_level == 0 {
+    let (xstart, xend_a, xend_a_pack) = if x_parallelize_level == 0 {
 		let cols_per_thread = (a.width()-1) / x_threads + 1; // micro-panels per thread
 		let xstart = cols_per_thread*x_id;
-        (xstart, cmp::min(a.width(), xstart+cols_per_thread))
+        (xstart, cmp::min(a.width(), xstart+cols_per_thread), cmp::min(LW::to_usize(), xstart+cols_per_thread))
     } else {
-        (0, a.width())
+        (0, a.width(), LW::to_usize())
     };
 
     unsafe{
@@ -180,10 +180,20 @@ fn pack_hier_leaf<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Uns
 
         let a_pack_p = a_pack.get_mut_buffer();
 
-        for y in ystart..yend {
-            for x in xstart..xend {
+        for y in ystart..yend_a {
+            for x in xstart..xend_a {
                 let alpha = ptr::read(ap.offset((y*rs_a + x*cs_a) as isize));
                 ptr::write(a_pack_p.offset((y*LRS::to_usize() + x*LCS::to_usize()) as isize), alpha);
+            }
+        }
+        for y in yend_a..yend_a_pack {
+            for x in xstart..xend_a_pack {
+                ptr::write(a_pack_p.offset((y*LRS::to_usize() + x*LCS::to_usize()) as isize), T::zero());
+            }
+        }
+        for y in ystart..yend_a_pack {
+            for x in xend_a..xend_a_pack {
+                ptr::write(a_pack_p.offset((y*LRS::to_usize() + x*LCS::to_usize()) as isize), T::zero());
             }
         }
     }

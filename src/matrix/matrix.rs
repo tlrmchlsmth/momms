@@ -160,16 +160,10 @@ pub trait Mat<T: Scalar> where Self: Send {
     }
 
     fn fill_rand(&mut self) {
+        let mut rng = rand::thread_rng();
         for x in 0..self.width() {
             for y in 0..self.height() {
-                self.set(y,x,rand::random::<T>());
-            }
-        }
-        let alpha = self.frosqr();
-        for x in 0..self.width() {
-            for y in 0..self.height() {
-                let tau = self.get(y,x);
-                self.set(y,x,tau/alpha);
+                self.set(y, x, (T::one() + T::one()) * T::rand(&mut rng) - T::one());
             }
         }
     }

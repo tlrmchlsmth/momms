@@ -1,9 +1,8 @@
 use thread_comm::ThreadInfo;
 use std::alloc::{Alloc, Global};
-use matrix::{Scalar,Mat,RoCM};
+use matrix::{Scalar, Mat, RoCM};
 use super::view::{MatrixView};
-use core::{mem,ptr};
-use std;
+use core::{self, ptr};
 
 pub struct Matrix<T: Scalar> {
     //Matrix scalar
@@ -22,7 +21,7 @@ pub struct Matrix<T: Scalar> {
 }
 impl<T: Scalar> Matrix<T> {
     pub fn new(h: usize, w: usize) -> Matrix<T> {
-        assert_ne!(mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
+        assert_ne!(core::mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
         let layout = ::util::capacity_to_aligned_layout::<T>(h * w);
         let buf = unsafe { Global.alloc(layout).expect("Could not allocate buffer for matrix!") };
 
@@ -50,7 +49,7 @@ impl<T: Scalar> Matrix<T> {
         self.y_views.push(xview);
         self.x_views.push(yview);
         
-        std::mem::swap(&mut self.column_stride, &mut self.row_stride);
+        core::mem::swap(&mut self.column_stride, &mut self.row_stride);
     }
 }
 impl<T: Scalar> Mat<T> for Matrix<T> {

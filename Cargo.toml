@@ -5,7 +5,7 @@ authors = ["Tyler Smith <tyler.smith@inf.ethz.ch>"]
 build = "build.rs"
 
 [build-dependencies]
-bindgen = "0.26.3"
+bindgen = "0.37.0"
 dirs = "1.0.4"
 
 [dependencies]
@@ -52,10 +52,15 @@ path = "src/exper/out_of_core.rs"
 name = "overlap"
 path = "src/exper/overlap.rs"
 
+[[bin]]
+name = "knm"
+path = "src/exper/knm.rs"
+
 [features]
 blis = []
 hsw = []
 snb = []
+knm = []
 asm_snippets = []
 libxsmm = []
 default = []
