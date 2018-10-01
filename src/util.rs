@@ -1,6 +1,5 @@
 extern crate hwloc;
 extern crate libc;
-extern crate alloc;
 
 use std::time::Instant;
 #[allow(unused_imports)]
@@ -12,7 +11,7 @@ use thread_comm::ThreadInfo;
 #[allow(unused_imports)]
 use matrix::{Scalar, Mat, Matrix, RoCM};
 use composables::{GemmNode, TripleLoop};
-use self::alloc::heap::Layout;
+use std::alloc::Layout;
 
 #[cfg(feature="blis")]
 extern{

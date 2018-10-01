@@ -1,7 +1,5 @@
-extern crate alloc;
-
 use thread_comm::ThreadInfo;
-use self::alloc::heap::{Alloc,Heap};
+use std::alloc::{Alloc, Global};
 use matrix::{Scalar,Mat,RoCM};
 use super::view::{MatrixView};
 use core::{mem,ptr};
@@ -26,10 +24,7 @@ impl<T: Scalar> Matrix<T> {
     pub fn new(h: usize, w: usize) -> Matrix<T> {
         assert_ne!(mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
         let layout = ::util::capacity_to_aligned_layout::<T>(h * w);
-        let buf =
-            unsafe {
-                Heap.alloc(layout).expect("Could not allocate buffer for matrix!")
-            };
+        let buf = unsafe { Global.alloc(layout).expect("Could not allocate buffer for matrix!") };
 
         let mut y_views : Vec<MatrixView> = Vec::with_capacity(16);
         let mut x_views : Vec<MatrixView> = Vec::with_capacity(16);
@@ -40,7 +35,7 @@ impl<T: Scalar> Matrix<T> {
                 y_views: y_views,
                 x_views: x_views,
                 row_stride: 1, column_stride: h,
-                buffer: buf as *mut _,
+                buffer: unsafe{buf.cast::<T>().as_mut()},
                 capacity: h * w,
                 is_alias: false }
     }
@@ -228,7 +223,7 @@ impl<T:Scalar> Drop for Matrix<T> {
         unsafe {
             if !self.is_alias {
                 let layout = ::util::capacity_to_aligned_layout::<T>(self.capacity);
-                Heap.dealloc(self.buffer as *mut _, layout);
+                Global.dealloc(std::ptr::NonNull::new_unchecked(self.buffer as *mut u8), layout);
             }
         }
     }

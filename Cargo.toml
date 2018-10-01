@@ -1,11 +1,12 @@
 [package]
 name = "momms"
-version = "0.2.0"
-authors = ["Tyler Smith <tms@cs.utexas.edu>"]
+version = "0.2.1"
+authors = ["Tyler Smith <tyler.smith@inf.ethz.ch>"]
 build = "build.rs"
 
 [build-dependencies]
 bindgen = "0.26.3"
+dirs = "1.0.4"
 
 [dependencies]
 rand = "0.3"

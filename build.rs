@@ -1,16 +1,17 @@
 extern crate bindgen;
+extern crate dirs;
 
 fn main() -> () {
 
     if cfg!(feature="blis") {
         //Link with BLIS assuming it is installed to the default location:
-        println!("cargo:rustc-link-search=native={}/blis/lib", std::env::home_dir().unwrap().to_str().unwrap() );
+        println!("cargo:rustc-link-search=native={}/blis/lib", dirs::home_dir().unwrap().to_str().unwrap() );
         println!("cargo:rustc-link-search=native=/usr/local/lib");
         println!("cargo:rustc-link-lib=static=blis");
         
         //Needed when BLIS is compiled with GCC and OpenMP:
         println!("cargo:rustc-link-search=native=/usr/lib/gcc/x86_64-linux-gnu/5");
-        println!("cargo:rustc-link-lib=dylib=gomp");
+//        println!("cargo:rustc-link-lib=dylib=gomp");
 
         //Use bindgen to create bindings to BLIS's typedefs
         //This allows us to interface with the BLIS micro-kernel
@@ -18,7 +19,7 @@ fn main() -> () {
 			.header("blis_types_wrapper.h")
             .clang_arg("-include")
             .clang_arg("stddef.h")
-            .clang_arg(format!("-I/{}/blis/include/blis", std::env::home_dir().unwrap().to_str().unwrap()))
+            .clang_arg(format!("-I/{}/blis/include/blis", dirs::home_dir().unwrap().to_str().unwrap()))
 			.generate()
 			.expect("Unable to generate bindings");
 
@@ -35,7 +36,7 @@ fn main() -> () {
     }
 
     if cfg!(feature="libxsmm"){
-        println!("cargo:rustc-link-search=native={}/libxsmm/lib", std::env::home_dir().unwrap().to_str().unwrap() );
+        println!("cargo:rustc-link-search=native={}/libxsmm/lib", dirs::home_dir().unwrap().to_str().unwrap() );
         println!("cargo:rustc-link-lib=static=xsmm");
     }
 }
