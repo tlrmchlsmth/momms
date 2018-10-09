@@ -3,23 +3,34 @@ extern crate threadpool;
 extern crate thread_local;
 extern crate hwloc;
 
-use matrix::{Scalar,Mat};
+use matrix::{Scalar, Mat};
 use core::marker::{PhantomData};
-use thread_comm::{ThreadComm,ThreadInfo};
-use composables::{GemmNode,AlgorithmStep};
-
-use std::sync::{Arc,Mutex};
-use std::cell::{RefCell};
+use thread_comm::{ThreadComm, ThreadInfo};
+use composables::{GemmNode, AlgorithmStep};
+use std::{
+    sync::{Arc, Mutex},
+    cell::RefCell,
+    ops::{DerefMut}
+};
 use self::threadpool::ThreadPool;
 use self::thread_local::ThreadLocal;
-use self::hwloc::{Topology, ObjectType, CPUBIND_THREAD, CpuSet};
+use self::hwloc::{Topology, ObjectType, CPUBIND_THREAD};
 use libc;
 
-fn cpuset_for_core(topology: &Topology, idx: usize) -> CpuSet {
-    let cores = (*topology).objects_with_type(&ObjectType::Core).unwrap();
-    match cores.get(idx) {
-        Some(val) => val.cpuset().unwrap(),
-        None => panic!("No Core found with id {}", idx)
+fn bind_thread_to_core(topology: &mut Topology, idx: usize) -> () {
+    let tid = unsafe { libc::pthread_self() };
+    {
+        let bind_to = {
+            if let Ok(cores) = topology.objects_with_type(&ObjectType::Core) {
+                if let Some(core) = cores.get(idx) {
+                    core.cpuset()
+                } else { None }
+            } else { None }
+        };
+        match bind_to {
+            Some(thing) => {let _ = topology.set_cpubind_for_thread(tid, thing, CPUBIND_THREAD);}
+            None => ()
+        };
     }
 }
 
@@ -63,26 +74,20 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>>
             let my_topo = topo.clone();
             let my_comm  = comm.clone();
             self.pool.execute(move || {
-                let tid = unsafe { libc::pthread_self() };
                 {
                     let mut locked_topo = my_topo.lock().unwrap();
-                    //let before = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
-                    let bind_to = cpuset_for_core(&*locked_topo, id);
-                    let _ = locked_topo.set_cpubind_for_thread(tid, bind_to, CPUBIND_THREAD);
-                    //let after = locked_topo.get_cpubind_for_thread(tid, CPUBIND_THREAD);
+                    bind_thread_to_core(locked_topo.deref_mut(), id);
                 }
-                //Barrier to make sure therad binding is done.
+                //Barrier to make sure thread binding is done.
                 let thr = ThreadInfo::new(id, my_comm);
-                thr.barrier()
+                thr.barrier();
             });
         }
-        
-        //Bind parent to a core.
-        let tid = unsafe { libc::pthread_self() };
+
+        //Bind parent thread to a core.
         {
             let mut locked_topo = topo.lock().unwrap();
-            let bind_to = cpuset_for_core(&*locked_topo, 0);
-            let _ = locked_topo.set_cpubind_for_thread(tid, bind_to, CPUBIND_THREAD);
+            bind_thread_to_core(locked_topo.deref_mut(), 0);
         }
         let thr = ThreadInfo::new(0, comm);
         thr.barrier();
