@@ -1,5 +1,5 @@
 #![feature(specialization)]
-#![feature(alloc, allocator_api)]
+#![feature(allocator_api)]
 #![feature(asm)]
 
 #![cfg_attr(feature="clippy", feature(plugin))]
