@@ -9,7 +9,7 @@ mod unpack;
 mod fused_pack;
 
 //pub use self::gemm::{GemmNode,AlgorithmStep};
-pub use self::part::{PartM,PartN,PartK,FirstDiffPartM,FirstDiffPartN,FirstDiffPartK};
+pub use self::part::{PartM,PartN,PartK};
 pub use self::pack::{PackA,PackB};
 pub use self::parallel_range::{ParallelM,ParallelN,Nwayer,TheRest,Target};
 pub use self::spawn::{SpawnThreads};

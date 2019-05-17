@@ -14,7 +14,6 @@ fn decompose(nt: usize) -> (usize, usize) {
     (nt / index, index)
 }
 
-
 //This trait exists so that Packer has a type to specialize over.
 //Yes this is stupid.
 pub trait Copier <T: Scalar, At: Mat<T>, Apt: Mat<T>> {
