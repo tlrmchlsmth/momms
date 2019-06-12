@@ -3,7 +3,6 @@ use core::marker::PhantomData;
 use core::cmp;
 
 use matrix::{Scalar,Mat,Hierarch,Matrix,ResizableBuffer,HierarchyNode,RoCM};
-use typenum::Unsigned;
 use thread_comm::ThreadInfo;
 use composables::{GemmNode,AlgorithmStep};
 
@@ -58,8 +57,8 @@ fn score_parallelizability(m: usize, y_hier: &[HierarchyNode]) -> (usize, f64)  
     (best_depth, best_score)
 }
 
-fn unpack_hier_leaf<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> 
-	(a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>,
+fn unpack_hier_leaf<T: Scalar, const LH: usize, const LW: usize, const LRS: usize, const LCS: usize> 
+	(a: &mut Matrix<T>, a_pack: &mut Hierarch<T, {LH}, {LW}, {LRS}, {LCS}>,
 	 x_parallelize_level: isize, x_threads: usize, x_id: usize, 
      y_parallelize_level: isize, y_threads: usize, y_id: usize) {
 
@@ -91,14 +90,14 @@ fn unpack_hier_leaf<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: U
         for y in ystart..yend {
             for x in xstart..xend {
                 let alpha_a = ptr::read(ap.offset((y*rs_a + x*cs_a) as isize));
-                let alpha_ap = ptr::read(a_pack_p.offset((y*LRS::to_usize() + x*LCS::to_usize()) as isize));
+                let alpha_ap = ptr::read(a_pack_p.offset((y*LRS + x*LCS) as isize));
                 ptr::write(ap.offset((y*rs_a + x*cs_a) as isize), alpha_a + alpha_ap);
             }
         }
     }
 }
-fn unpack_hier_y<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> 
-    (a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>, y_hier: &[HierarchyNode], 
+fn unpack_hier_y<T: Scalar, const LH: usize, const LW: usize, const LRS: usize, const LCS: usize> 
+    (a: &mut Matrix<T>, a_pack: &mut Hierarch<T, {LH}, {LW}, {LRS}, {LCS}>, y_hier: &[HierarchyNode], 
     x_parallelize_level: isize, x_threads: usize, x_id: usize,
     y_parallelize_level: isize, y_threads: usize, y_id: usize) {
     if y_hier.len()-1 == 0 { 
@@ -132,8 +131,8 @@ fn unpack_hier_y<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsi
         a_pack.pop_y_view();
     }
 }
-fn unpack_hier_x<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> 
-    (a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>, x_hier: &[HierarchyNode], y_hier: &[HierarchyNode],
+fn unpack_hier_x<T: Scalar, const LH: usize, const LW: usize, const LRS: usize, const LCS: usize> 
+    (a: &mut Matrix<T>, a_pack: &mut Hierarch<T, {LH}, {LW}, {LRS}, {LCS}>, x_hier: &[HierarchyNode], y_hier: &[HierarchyNode],
 	 x_parallelize_level: isize, x_threads: usize, x_id: usize, 
      y_parallelize_level: isize, y_threads: usize, y_id: usize)
 {
@@ -168,10 +167,10 @@ fn unpack_hier_x<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsi
 }
 
 //Specialized implementation of Unpacker for adding to Matrix<T> from Hierarch<T>
-impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> 
-    Adder<T, Matrix<T>, Hierarch<T, LH, LW, LRS, LCS>> 
-    for Unpacker<T, Matrix<T>, Hierarch<T, LH, LW, LRS, LCS>> {
-    default fn add(a: &mut Matrix<T>, a_pack: &mut Hierarch<T, LH, LW, LRS, LCS>, thr: &ThreadInfo<T>) {
+impl<T: Scalar, const LH: usize, const LW: usize, const LRS: usize, const LCS: usize> 
+    Adder<T, Matrix<T>, Hierarch<T, {LH}, {LW}, {LRS}, {LCS}>> 
+    for Unpacker<T, Matrix<T>, Hierarch<T, {LH}, {LW}, {LRS}, {LCS}>> {
+    default fn add(a: &mut Matrix<T>, a_pack: &mut Hierarch<T, {LH}, {LW}, {LRS}, {LCS}>, thr: &ThreadInfo<T>) {
         //Get copies of the x and y hierarchy.
         //Since we borrow a_pack as mutable during pack_hier_x,
         //we can't borrow x_hier and y_hier immutably so we must copy

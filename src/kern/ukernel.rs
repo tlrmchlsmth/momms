@@ -3,19 +3,16 @@ use core::ptr;
 use core::marker::{PhantomData};
 use composables::{GemmNode,AlgorithmStep};
 use thread_comm::{ThreadInfo};
-use typenum::Unsigned;
 use super::ukernel_wrapper::{UkernelWrapper,GenericUkernelWrapper};
 
-pub struct Ukernel<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>{
+pub struct Ukernel<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: usize>{
     tmp: Matrix<T>,
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
-    _mrt: PhantomData<Mr>,
-    _nrt: PhantomData<Nr>,
 }
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned> 
-    GemmNode<T, At, Bt, Ct> for Ukernel<T, At, Bt, Ct, Mr, Nr> {
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: usize> 
+    GemmNode<T, At, Bt, Ct> for Ukernel<T, At, Bt, Ct, {Mr}, {Nr}> {
     #[inline(always)]
     default unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T>) -> () {
         for z in 0..a.width() {
@@ -28,7 +25,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>
         }   
     }   
     fn new() -> Self {
-        let mut tmp = <Matrix<T>>::new(Nr::to_usize(), Mr::to_usize());
+        let mut tmp = <Matrix<T>>::new(Nr, Mr);
         tmp.transpose();
         Ukernel{ tmp: tmp, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _mrt: PhantomData, _nrt: PhantomData } 
     }   
@@ -37,14 +34,14 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>
     }   
 }
 
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned> 
-    GemmNode<T, At, Bt, Ct> for Ukernel<T, At, Bt, Ct, Mr, Nr> 
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: usize> 
+    GemmNode<T, At, Bt, Ct> for Ukernel<T, At, Bt, Ct, {Mr}, {Nr}> 
     where At: RoCM<T>, Bt: RoCM<T>, Ct: RoCM<T>
 {
     #[inline(always)]
     unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T>) -> () {
-        debug_assert!(c.height() <= Mr::to_usize());
-        debug_assert!(c.width() <= Nr::to_usize());
+        debug_assert!(c.height() <= Mr);
+        debug_assert!(c.width() <= Nr);
         let ap = a.get_mut_buffer();
         let bp = b.get_mut_buffer();
         let cp = c.get_mut_buffer();
@@ -57,15 +54,15 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Mr: Unsigned, Nr: Unsigned>
 
         let k = a.width() as isize;
 
-        if Ct::full_leaves() || (c.height() == Mr::to_usize() && c.width() == Nr::to_usize()) {
-            <UkernelWrapper<Mr,Nr,T>>::run(k, &mut alpha, ap, bp, &mut beta, cp, c_leaf_rs, c_leaf_cs);
+        if Ct::full_leaves() || (c.height() == Mr && c.width() == Nr) {
+            <UkernelWrapper<T,{Mr},{Nr}>>::run(k, &mut alpha, ap, bp, &mut beta, cp, c_leaf_rs, c_leaf_cs);
         }
         else {
             let tp = self.tmp.get_mut_buffer();
             let t_rs = self.tmp.get_row_stride() as isize;
             let t_cs = self.tmp.get_column_stride() as isize;
             let mut zero = T::zero();
-            <UkernelWrapper<Mr,Nr,T>>::run(k, &mut alpha, ap, bp, &mut zero, tp, t_rs, t_cs);
+            <UkernelWrapper<T,{Mr},{Nr}>>::run(k, &mut alpha, ap, bp, &mut zero, tp, t_rs, t_cs);
 
             //Add t to c
             for ii in 0..c.height() as isize {

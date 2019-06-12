@@ -7,24 +7,20 @@ pub mod blis_types
 
 use matrix::{Scalar};
 use core::marker::{PhantomData};
-use typenum::{Unsigned};
 
-
-pub trait GenericKnmKernelWrapper<Mr: Unsigned, Nr: Unsigned, T: Scalar> {
+pub trait GenericKnmKernelWrapper<T: Scalar, const Mr: usize, const Nr: usize> {
     unsafe fn run( k: isize, alpha: *mut T, a: *mut T, b: *mut T, beta: *mut T, c: *mut T, rs_c: isize, cs_c: isize) -> (); 
 }
 
-pub struct KnmKernelWrapper<Mr: Unsigned, Nr: Unsigned, T: Scalar> {
+pub struct KnmKernelWrapper<T: Scalar, const Mr: usize, const Nr: usize> {
     _t: PhantomData<T>,
-    _mr: PhantomData<Mr>,
-    _nr: PhantomData<Nr>,
 }
-impl<Mr: Unsigned, Nr: Unsigned, T: Scalar> KnmKernelWrapper<Mr, Nr, T> {
+impl<T:Scalar, const Mr: usize, const Nr: usize> KnmKernelWrapper<T, {Mr}, {Nr}> {
 }
-impl<Mr: Unsigned, Nr: Unsigned, T: Scalar> GenericKnmKernelWrapper<Mr, Nr, T> for KnmKernelWrapper<Mr, Nr, T> {
+impl<T:Scalar, const Mr: usize, const Nr: usize> GenericKnmKernelWrapper<T, {Mr}, {Nr}> for KnmKernelWrapper<T, {Mr}, {Nr}> {
     #[inline(always)]
     default unsafe fn run( _: isize, _: *mut T, _: *mut T, _: *mut T, _: *mut T, _: *mut T, _: isize, _: isize) {
-        panic!("KnmKernel Wrapper not implemented for Mr {} Nr {} and this datatype!", Mr::to_usize(), Nr::to_usize());
+        panic!("KnmKernel Wrapper not implemented for Mr {} Nr {} and this datatype!", Mr, Nr);
     }
 }
 
@@ -33,7 +29,6 @@ pub mod knm
 {
     extern crate libc;
     use self::libc::{ c_float, int64_t };
-    use typenum::{U16,U24};
     use kern::knm_kernel_wrapper::{GenericKnmKernelWrapper,KnmKernelWrapper};
    // use kern::knm_kernel_wrapper::blis_types::{self,auxinfo_t,inc_t};
 
@@ -47,7 +42,7 @@ pub mod knm
             c: *mut f32, rs_c: int64_t, cs_c: int64_t) -> (); 
     }
 
-    impl GenericKnmKernelWrapper<U16, U24, f32> for KnmKernelWrapper<U16, U24, f32> {
+    impl GenericKnmKernelWrapper<f32, 16, 24> for KnmKernelWrapper<f32, 16, 24> {
         #[inline(always)]
         unsafe fn run( k: isize, alpha: *mut f32, a: *mut f32, b: *mut f32, beta: *mut f32, c: *mut f32, rs_c: isize, cs_c: isize) {
 

@@ -32,7 +32,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>, 
         c.pop_y_view();
     }
     fn new() -> Self{
-        PartM::<{NB}>{ child: S::new(), _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
+        PartM{ child: S::new(), _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
     fn hierarchy_description() -> Vec<AlgorithmStep> {
         let mut child_desc = S::hierarchy_description();
@@ -68,7 +68,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>, 
         c.pop_x_view();
     }
     fn new() -> Self {
-        PartN::<{NB}>{ child: S::new(), _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
+        PartN{ child: S::new(), _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
     fn hierarchy_description() -> Vec<AlgorithmStep> {
         let mut child_desc = S::hierarchy_description();
@@ -108,7 +108,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, S: GemmNode<T, At, Bt, Ct>, 
         c.set_scalar(beta_save);
     }
     fn new() -> Self {
-        PartK::<{NB}>{ child: S::new(), _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
+        PartK{ child: S::new(), _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
     fn hierarchy_description() -> Vec<AlgorithmStep> {
         let mut child_desc = S::hierarchy_description();

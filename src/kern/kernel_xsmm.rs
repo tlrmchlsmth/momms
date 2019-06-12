@@ -2,7 +2,6 @@ use matrix::{Scalar,Mat,RoCM};
 use core::marker::{PhantomData};
 use composables::{GemmNode,AlgorithmStep};
 use thread_comm::{ThreadInfo};
-use typenum::Unsigned;
 use super::xsmm_wrapper::*;
 
 pub struct Xsmm<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>> {
@@ -51,16 +50,14 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
     }
 }
 
-pub struct KernelXsmmA2<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned> {
+pub struct KernelXsmmA2<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Nr: usize, const Mr: usize> {
     _t: PhantomData<T>,
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
-    _nrt: PhantomData<Nr>,
-    _mrt: PhantomData<Mr>,
 }
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned> 
-    GemmNode<T, At, Bt, Ct> for KernelXsmmA2<T, At, Bt, Ct, Nr, Mr> 
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Nr: usize, const Mr: usize> 
+    GemmNode<T, At, Bt, Ct> for KernelXsmmA2<T, At, Bt, Ct, {Nr}, {Mr}> 
     where At: RoCM<T>, Bt: RoCM<T>, Ct: RoCM<T>
 {
     #[inline(always)]
@@ -83,17 +80,17 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
         let b_leaf_rs = b.get_leaf_rs() as isize;
         let c_leaf_rs = c.get_leaf_rs() as isize;
 
-        let c_nr_stride = c.get_block_cs(1, Nr::to_usize()) as isize;
-        let b_nr_stride = b.get_block_cs(1, Nr::to_usize()) as isize;
+        let c_nr_stride = c.get_block_cs(1, Nr) as isize;
+        let b_nr_stride = b.get_block_cs(1, Nr) as isize;
 
-        let c_mr_stride = c.get_block_rs(1, Mr::to_usize()) as isize;
-        let a_mr_stride = a.get_block_rs(1, Mr::to_usize()) as isize;
+        let c_mr_stride = c.get_block_rs(1, Mr) as isize;
+        let a_mr_stride = a.get_block_rs(1, Mr) as isize;
 
         let mut c_jr = cp;
         let mut b_jr = bp;
         let mut jr : isize = 0;
         while jr < n {
-            b.establish_leaf(0, (jr as usize) / Nr::to_usize(), k as usize, Nr::to_usize());
+            b.establish_leaf(0, (jr as usize) / Nr, k as usize, Nr);
             let mut ir : isize = 0;
             let mut a_ir = ap;
             let mut c_ir = c_jr;
@@ -111,29 +108,29 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, Nr: Unsigned, Mr: Unsigned>
                            prefetcht2 64($0)" : : "r"(next_c_ir.offset(3*c_leaf_rs)));
                 }
 
-                let u_m = if m-ir >= Mr::to_isize() { Mr::to_isize() } else { m-ir };
-                let u_n = if n-jr >= Nr::to_isize() { Nr::to_isize() } else { n-jr };
+                let u_m = if m-ir >= Mr { Mr } else { m-ir };
+                let u_n = if n-jr >= Nr { Nr } else { n-jr };
 
                 //Call libxsmm to perform
                 // C^T += B^T A^T
 			    <XsmmWrapper<T>>::run(u_n,u_m,k, &mut alpha, b_jr, b_leaf_rs, a_ir, a_leaf_rs, &mut beta, c_ir, c_leaf_rs);
 
-                ir += Mr::to_isize();
+                ir += Mr;
                 a_ir = a_ir.offset(a_mr_stride);
                 c_ir = c_ir.offset(c_mr_stride);
             }
-            jr += Nr::to_isize();
+            jr += Nr;
             c_jr = c_jr.offset(c_nr_stride);
             b_jr = b_jr.offset(b_nr_stride);
         }
     }
     fn new() -> Self { 
-        KernelXsmmA2{ _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _nrt: PhantomData, _mrt: PhantomData } 
+        KernelXsmmA2{ _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
     fn hierarchy_description() -> Vec<AlgorithmStep> {
         let mut desc = Vec::new();
-        desc.push(AlgorithmStep::M{bsz: Mr::to_usize()});
-        desc.push(AlgorithmStep::N{bsz: Nr::to_usize()});
+        desc.push(AlgorithmStep::M{bsz: Mr});
+        desc.push(AlgorithmStep::N{bsz: Nr});
         desc
     }  
 }

@@ -86,11 +86,16 @@ fn test() {
     type GotoC<T> = Hierarch<T, MR, NR, NR, U1>;
     type Goto<T,MTA,MTB,MTC> 
         = SpawnThreads<T, MTA, MTB, MTC,
-          PartN<T, MTA, MTB, MTC, NC,
-          PartK<T, MTA, MTB, MTC, KC,
-          PartM<T, MTA, MTB, MTC, MC,
-          ParallelN<T, MTA, MTB, MTC, NR, TheRest,
-          KernelNM<T, MTA, MTB, MTC, NR, MR>>>>>>;
+            PartN<T, MTA, MTB, MTC,
+                PartK<T, MTA, MTB, MTC,
+                    PartM<T, MTA, MTB, MTC,
+                        ParallelN<T, MTA, MTB, MTC, NR, TheRest,
+                            KernelNM<T, MTA, MTB, MTC, NR, MR>
+                        >, 
+                    120>,
+                192>,
+            3000>
+          >;
 
     type NcL3 = typenum::U768;
     type KcL3 = typenum::U768;
@@ -101,12 +106,18 @@ fn test() {
     type L3bC<T> = Hierarch<T, MR, NR, NR, U1>;
     type L3B<T,MTA,MTB,MTC> 
         = SpawnThreads<T, MTA, MTB, MTC,
-          PartN<T, MTA, MTB, MTC, NcL3,
-          PartK<T, MTA, MTB, MTC, KcL3,
-          PartM<T, MTA, MTB, MTC, McL2,
-          PartK<T, MTA, MTB, MTC, KcL2,
-          ParallelN<T, MTA, MTB, MTC, NR, TheRest,
-          KernelNM<T, MTA, MTB, MTC, NR, MR>>>>>>>;
+              PartN<T, MTA, MTB, MTC,
+                  PartK<T, MTA, MTB, MTC,
+                      PartM<T, MTA, MTB, MTC,
+                          PartK<T, MTA, MTB, MTC,
+                              ParallelN<T, MTA, MTB, MTC, NR, TheRest,
+                                  KernelNM<T, MTA, MTB, MTC, NR, MR>
+                              >,
+                          192>,
+                      120>,
+                  768>,
+              768>,
+          >;
 
     let mut goto = <Goto<f64, GotoA<f64>, GotoB<f64>, GotoC<f64>>>::new();
     let mut l3b = <L3B<f64, L3bA<f64>, L3bB<f64>, L3bC<f64>>>::new();

@@ -1,14 +1,13 @@
 use thread_comm::ThreadInfo;
-use typenum::Unsigned;
 use std::alloc::{Alloc, Global};
 use matrix::{Scalar,Mat,ResizableBuffer,RoCM};
 use super::view::{MatrixView};
 use util::capacity_to_aligned_layout;
-use core::{self, ptr,marker::PhantomData};
+use core::{self, ptr};
 
 use composables::{AlgorithmStep};
 
-pub struct RowPanelMatrix<T: Scalar, PH: Unsigned> {
+pub struct RowPanelMatrix<T: Scalar, const PH: usize> {
     alpha: T,
 
     y_views: Vec<MatrixView>, //offset is in # of panels
@@ -18,15 +17,13 @@ pub struct RowPanelMatrix<T: Scalar, PH: Unsigned> {
     buffer: *mut T,
     capacity: usize,
     is_alias: bool,
-
-    _pht: PhantomData<PH>,
 }
-impl<T: Scalar, PH: Unsigned> RowPanelMatrix<T,PH> {
-    pub fn new(h: usize, w: usize) -> RowPanelMatrix<T,PH> {
+impl<T: Scalar, const PH: usize> RowPanelMatrix<T,{PH}> {
+    pub fn new(h: usize, w: usize) -> RowPanelMatrix<T,{PH}> {
         assert_ne!(core::mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
     
         //Figure out the number of panels
-        let panel_h = PH::to_usize();
+        let panel_h = PH;
         let mut n_panels = h / panel_h;
         if n_panels * panel_h < h {
             n_panels += 1;
@@ -46,8 +43,7 @@ impl<T: Scalar, PH: Unsigned> RowPanelMatrix<T,PH> {
                         panel_stride: panel_h*w, 
                         buffer: unsafe{buf.cast::<T>().as_mut()},
                         capacity: capacity,
-                        is_alias: false,
-                        _pht: PhantomData }
+                        is_alias: false }
     }
     
 
@@ -60,10 +56,10 @@ impl<T: Scalar, PH: Unsigned> RowPanelMatrix<T,PH> {
         self.buffer.offset(((y_view.offset + id)*self.panel_stride) as isize)
     }
 }
-impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
+impl<T: Scalar, const PH: usize> Mat<T> for RowPanelMatrix<T, {PH}> {
     #[inline(always)]
     fn get(&self, y: usize, x: usize) -> T {
-        let panel_h = PH::to_usize();
+        let panel_h = PH;
         let y_view = self.y_views.last().unwrap();
         let x_view = self.x_views.last().unwrap();
 
@@ -76,7 +72,7 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
     }
     #[inline(always)]
     fn set(&mut self, y: usize, x: usize, alpha: T) {
-        let panel_h = PH::to_usize();
+        let panel_h = PH;
         let y_view = self.y_views.last().unwrap();
         let x_view = self.x_views.last().unwrap();
 
@@ -119,12 +115,12 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
     }
 
     fn push_y_split(&mut self, start: usize, end: usize) {
-        debug_assert!(start % PH::to_usize() == 0 && end % PH::to_usize() == 0);
+        debug_assert!(start % PH == 0 && end % PH == 0);
 
         let zoomed_view = {
             let uz_view = self.y_views.last().unwrap();
             let new_padding = if end <= self.height() { 0 } else { end - self.height() };
-            let new_offset = uz_view.offset + start / PH::to_usize();
+            let new_offset = uz_view.offset + start / PH;
             MatrixView{ offset: new_offset, padding: new_padding, iter_size: end-start }
         };
         self.y_views.push(zoomed_view);
@@ -193,7 +189,7 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
         let z_view = self.y_views.last_mut().unwrap();
         z_view.iter_size = z_iter_size;
         z_view.padding = z_padding;
-        z_view.offset = uz_view.offset + y / PH::to_usize();
+        z_view.offset = uz_view.offset + y / PH;
     }
 
     fn slide_x_view_to(&mut self, x: usize, blksz: usize) {
@@ -224,8 +220,7 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
                         panel_stride: self.panel_stride,
                         buffer: self.buffer, 
                         capacity: self.capacity,
-                        is_alias: true,
-                        _pht: PhantomData }
+                        is_alias: true }
     }
 
     #[inline(always)]
@@ -235,7 +230,7 @@ impl<T: Scalar, PH: Unsigned> Mat<T> for RowPanelMatrix<T, PH> {
         self.buffer = buf;
     }
 }
-impl<T:Scalar, PH: Unsigned> Drop for RowPanelMatrix<T, PH> {
+impl<T:Scalar, const PH: usize> Drop for RowPanelMatrix<T, {PH}> {
     fn drop(&mut self) {
         if !self.is_alias {
             unsafe {
@@ -246,9 +241,9 @@ impl<T:Scalar, PH: Unsigned> Drop for RowPanelMatrix<T, PH> {
     }
 }
 
-unsafe impl<T:Scalar, PH: Unsigned> Send for RowPanelMatrix<T, PH> {}
+unsafe impl<T:Scalar, const PH: usize> Send for RowPanelMatrix<T, {PH}> {}
 
-impl<T:Scalar, PH: Unsigned> ResizableBuffer<T> for RowPanelMatrix<T, PH> {
+impl<T:Scalar, const PH: usize> ResizableBuffer<T> for RowPanelMatrix<T, {PH}> {
     #[inline(always)]
     fn empty(_: AlgorithmStep, _: AlgorithmStep, _: &[AlgorithmStep]) -> Self {
         RowPanelMatrix::new(0,0)
@@ -258,12 +253,12 @@ impl<T:Scalar, PH: Unsigned> ResizableBuffer<T> for RowPanelMatrix<T, PH> {
     #[inline(always)]
     fn set_capacity(&mut self, capacity: usize) { self.capacity = capacity; }
     #[inline(always)]
-    fn capacity_for(other: &Mat<T>, _: AlgorithmStep, _: AlgorithmStep, _: &[AlgorithmStep]) -> usize {
+    fn capacity_for<O: Mat<T>>(other: &O, _: AlgorithmStep, _: AlgorithmStep, _: &[AlgorithmStep]) -> usize {
         if other.height() == 0 || other.width() == 0 { 
             0   
         } else {
-            let new_n_panels = (other.height()-1) / PH::to_usize() + 1;
-            (new_n_panels + 1) * PH::to_usize() * other.width()
+            let new_n_panels = (other.height()-1) / PH + 1;
+            (new_n_panels + 1) * PH * other.width()
         }
     }
     #[inline(always)]
@@ -278,7 +273,7 @@ impl<T:Scalar, PH: Unsigned> ResizableBuffer<T> for RowPanelMatrix<T, PH> {
         }
     }
     #[inline(always)]
-    fn resize_to(&mut self, other: &Mat<T>, _: AlgorithmStep, _: AlgorithmStep, _: &[AlgorithmStep]) {
+    fn resize_to<O: Mat<T>>(&mut self, other: &O, _: AlgorithmStep, _: AlgorithmStep, _: &[AlgorithmStep]) {
         debug_assert_eq!(self.y_views.len(), 1, "Can't resize a submatrix!");
         let y_view = self.y_views.last_mut().unwrap();
         let x_view = self.x_views.last_mut().unwrap();
@@ -287,14 +282,14 @@ impl<T:Scalar, PH: Unsigned> ResizableBuffer<T> for RowPanelMatrix<T, PH> {
         x_view.iter_size = other.iter_width();
         y_view.padding = other.logical_h_padding();
         x_view.padding = other.logical_w_padding();
-        self.panel_stride = PH::to_usize()*other.width();
+        self.panel_stride = PH*other.width();
     }
 }
 
-impl<T: Scalar, PH: Unsigned> RoCM<T> for RowPanelMatrix<T,PH> {
+impl<T: Scalar, const PH: usize> RoCM<T> for RowPanelMatrix<T,{PH}> {
     #[inline(always)]
     fn partition_is_rocm(&self) -> bool { 
-        self.height() <= PH::to_usize()
+        self.height() <= PH
     }
 
     #[inline(always)]
@@ -304,12 +299,12 @@ impl<T: Scalar, PH: Unsigned> RoCM<T> for RowPanelMatrix<T,PH> {
 
     #[inline(always)]
     fn get_leaf_cs(&self) -> usize { 
-        PH::to_usize()
+        PH
     }
 
     #[inline(always)]
     unsafe fn get_buffer(&self) -> *const T {
-        let panel_h = PH::to_usize();
+        let panel_h = PH;
         let y_view = self.y_views.last().unwrap();
         let x_view = self.x_views.last().unwrap();
 
@@ -318,7 +313,7 @@ impl<T: Scalar, PH: Unsigned> RoCM<T> for RowPanelMatrix<T,PH> {
 
     #[inline(always)]
     unsafe fn get_mut_buffer(&mut self) -> *mut T {
-        let panel_h = PH::to_usize();
+        let panel_h = PH;
         let y_view = self.y_views.last().unwrap();
         let x_view = self.x_views.last().unwrap();
 
@@ -330,14 +325,14 @@ impl<T: Scalar, PH: Unsigned> RoCM<T> for RowPanelMatrix<T,PH> {
         if lvl == 0 {
             1
         } else {
-			debug_assert_eq!(blksz % PH::to_usize(), 0);
-			self.panel_stride * blksz / PH::to_usize()
+			debug_assert_eq!(blksz % PH, 0);
+			self.panel_stride * blksz / PH
         }
     }
 
 	#[inline(always)]
     fn get_block_cs(&self, _: usize, blksz: usize) -> usize {
-		blksz * PH::to_usize()
+		blksz * PH
     }
     #[inline(always)]
     fn full_leaves() -> bool {

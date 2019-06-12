@@ -1,11 +1,10 @@
 use thread_comm::ThreadInfo;
-use typenum::Unsigned;
 use std::alloc::{Alloc, Global};
 use matrix::{Scalar, Mat, ResizableBuffer, RoCM};
 use super::view::{MatrixView};
 use composables::AlgorithmStep;
 use util::capacity_to_aligned_layout;
-use core::{self, ptr, marker::PhantomData};
+use core::{self, ptr};
 
 #[derive(Clone)]
 pub struct HierarchyNode {
@@ -15,7 +14,7 @@ pub struct HierarchyNode {
 
 //LH is leaf height, LW is leaf width
 //LRS is leaf row stride, LCS is leaf column stride
-pub struct Hierarch<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned>{ 
+pub struct Hierarch<T: Scalar, const LH: usize, const LW: usize, const LRS: usize, const LCS: usize>{ 
     alpha: T,
 
     //These are the view stacks just like the other Matrices
@@ -33,14 +32,9 @@ pub struct Hierarch<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: U
     buffer: *mut T,
     capacity: usize,
     is_alias: bool,
-    
-    _lht:  PhantomData<LH>,
-    _lwt:  PhantomData<LW>,
-    _lrst: PhantomData<LRS>,
-    _lcst: PhantomData<LCS>,
 }
 
-impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierarch<T, LH, LW, LRS, LCS> {
+impl<T: Scalar, const LH: usize, const LW: usize, const LRS: usize, const LCS: usize> Hierarch<T, {LH}, {LW}, {LRS}, {LCS}> {
     pub fn get_y_hierarchy(&self) -> &[HierarchyNode] {
         &self.y_hierarchy[self.yh_index..self.y_hierarchy.len()]
     }
@@ -81,15 +75,15 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
                 _ => {},
             };
         }
-        y_hierarchy.push(HierarchyNode{stride:LRS::to_usize(), blksz:1});
-        x_hierarchy.push(HierarchyNode{stride:LCS::to_usize(), blksz:1});
+        y_hierarchy.push(HierarchyNode{stride:LRS, blksz:1});
+        x_hierarchy.push(HierarchyNode{stride:LCS, blksz:1});
 
         (y_hierarchy, x_hierarchy)
 
     }
     pub fn new(h: usize, w: usize, 
                 hier: &[AlgorithmStep], y_step: AlgorithmStep, x_step: AlgorithmStep) 
-        -> Hierarch<T,LH,LW,LRS,LCS> {
+        -> Hierarch<T, {LH}, {LW}, {LRS}, {LCS}> {
         assert_ne!(core::mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
 
         //Setup Views stack
@@ -101,11 +95,11 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         //Fill up hierarchy description
         let y_tlds = match Self::get_top_level_dim_size(hier, y_step) {
             Some(a) => a,
-            None => LH::to_usize(),
+            None => LH,
         };
         let x_tlds = match Self::get_top_level_dim_size(hier, x_step) {
             Some(a) => a,
-            None => LW::to_usize(),
+            None => LW,
         };
     
         let n_blocks_y = if h == 0 {1} else {(h-1) / y_tlds + 1};
@@ -134,9 +128,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
                   yh_index: yh_index, xh_index: xh_index,  
                   buffer: unsafe{buf.cast::<T>().as_mut()},
                   capacity: capacity,
-                  is_alias: false,
-                  _lht: PhantomData, _lwt: PhantomData,
-                  _lrst: PhantomData, _lcst: PhantomData }
+                  is_alias: false }
     }
     
     #[inline(always)]
@@ -161,7 +153,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         }
 
         //Handle the leaf node
-        (y_off + y_index * LRS::to_usize()) as isize
+        (y_off + y_index * LRS) as isize
     }
     
     pub fn get_offset_x(&self, x: usize) -> isize {
@@ -175,15 +167,15 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Hierar
         }
         
         //Handle the leaf node
-        (x_off + x_index * LCS::to_usize()) as isize
+        (x_off + x_index * LCS) as isize
     }
     #[inline(always)]
     pub fn get_offset(&self, y: usize, x: usize) -> isize {
         self.get_offset_y(y) + self.get_offset_x(x)
     }
 }
-impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T> for
-    Hierarch<T, LH, LW, LRS, LCS> {
+impl<T: Scalar, const LH: usize, const LW: usize, const LRS: usize, const LCS: usize> Mat<T> 
+    for Hierarch<T, {LH}, {LW}, {LRS}, {LCS}> {
     #[inline(always)]
     fn get(&self, y: usize, x: usize) -> T {
         unsafe{
@@ -368,9 +360,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
                   yh_index: self.yh_index, xh_index: self.xh_index,  
                   buffer: self.buffer,
                   capacity: self.capacity,
-                  is_alias: true,
-                  _lht: PhantomData, _lwt: PhantomData,
-                  _lrst: PhantomData, _lcst: PhantomData }
+                  is_alias: true }
     }
 
     #[inline(always)]
@@ -380,7 +370,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Mat<T>
         self.buffer = buf;
     }
 }
-impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Drop for Hierarch<T, LH, LW, LRS, LCS> {
+impl<T: Scalar, const LH: usize, const LW: usize, const LRS: usize, const LCS: usize> Drop for Hierarch<T, {LH}, {LW}, {LRS}, {LCS}> {
     fn drop(&mut self) {
         if !self.is_alias {
             unsafe {
@@ -390,10 +380,10 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Drop f
         }
     }
 }
-unsafe impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Send for Hierarch<T, LH, LW, LRS, LCS> {}
+unsafe impl<T: Scalar, const LH: usize, const LW: usize, const LRS: usize, const LCS: usize> Send for Hierarch<T, {LH}, {LW}, {LRS}, {LCS}> {}
 
-impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> ResizableBuffer<T>
-     for Hierarch<T, LH, LW, LRS, LCS> {
+impl<T: Scalar, const LH: usize, const LW: usize, const LRS: usize, const LCS: usize> ResizableBuffer<T>
+     for Hierarch<T, {LH}, {LW}, {LRS}, {LCS}> {
     #[inline(always)]
     fn empty(y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]) -> Self {
         Hierarch::new(0,0, hier, y_hier_label, x_hier_label)
@@ -403,17 +393,17 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
     #[inline(always)]
     fn set_capacity(&mut self, capacity: usize) { self.capacity = capacity; }
     #[inline(always)]
-    fn capacity_for(other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]) -> usize {
+    fn capacity_for<O: Mat<T>>(other: &O, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]) -> usize {
         if other.height() == 0 || other.width() == 0 {
             0
         } else {
             let y_tlds = match Self::get_top_level_dim_size(hier, y_hier_label) {
                 Some(a) => a,
-                None => LH::to_usize(),
+                None => LH,
             };
             let x_tlds = match Self::get_top_level_dim_size(hier, x_hier_label) {
                 Some(a) => a,
-                None => LW::to_usize(),
+                None => LW,
             };
 
              let n_blocks_y = (other.height()-1) / y_tlds + 1;
@@ -437,7 +427,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
 
     //(But maybe only need to change y_hierarchy[self.yh_index] and x_hierarchy[self.xh_index])
     #[inline(always)]
-    fn resize_to(&mut self, other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]) {
+    fn resize_to<O: Mat<T>>(&mut self, other: &O, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]) {
 		debug_assert_eq!(self.y_views.len(), 1, "Can't resize a submatrix!");
 
         let y_view = self.y_views.last_mut().unwrap();
@@ -466,21 +456,21 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> Resiza
     }
 }
 
-impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> RoCM<T> for
-    Hierarch<T, LH, LW, LRS, LCS> {
+impl<T: Scalar, const LH: usize, const LW: usize, const LRS: usize, const LCS: usize> RoCM<T> for
+    Hierarch<T, {LH}, {LW}, {LRS}, {LCS}> {
     #[inline(always)]
     fn partition_is_rocm(&self) -> bool { 
-        self.height() <= LH::to_usize() && self.width() <= LW::to_usize()
+        self.height() <= LH && self.width() <= LW
     }
 
     #[inline(always)]
     fn get_leaf_rs(&self) -> usize { 
-        LRS::to_usize()
+        LRS
     }
 
     #[inline(always)]
     fn get_leaf_cs(&self) -> usize { 
-        LCS::to_usize()
+        LCS
     }
 
     #[inline(always)]
@@ -500,7 +490,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> RoCM<T
     #[inline(always)]
     fn get_block_rs(&self, lvl: usize, blksz: usize) -> usize {
         if lvl == 0 { 
-            LRS::to_usize()
+            LRS
         } else {
             let index = self.y_hierarchy.len() - lvl - 1;
             debug_assert_eq!(self.y_hierarchy[index].blksz, blksz);
@@ -510,7 +500,7 @@ impl<T: Scalar, LH: Unsigned, LW: Unsigned, LRS: Unsigned, LCS: Unsigned> RoCM<T
     #[inline(always)]
     fn get_block_cs(&self, lvl: usize, blksz: usize) -> usize {
         if lvl == 0 { 
-            LCS::to_usize()
+            LCS
         } else {
             let index = self.x_hierarchy.len() - lvl - 1;
             debug_assert_eq!(self.x_hierarchy[index].blksz, blksz);

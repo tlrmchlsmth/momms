@@ -1,15 +1,13 @@
 use thread_comm::ThreadInfo;
-use typenum::Unsigned;
 use std::alloc::{Alloc, Global};
 use matrix::{Scalar, Mat, ResizableBuffer, RoCM};
 use super::view::{MatrixView};
 use util::capacity_to_aligned_layout;
 
-use core::marker::PhantomData;
 use core::{mem, ptr};
 use composables::{AlgorithmStep};
 
-pub struct ColumnPanelMatrix<T: Scalar, PW: Unsigned> {
+pub struct ColumnPanelMatrix<T: Scalar, const PW: usize> {
     alpha: T,
 
     y_views: Vec<MatrixView>,
@@ -19,15 +17,13 @@ pub struct ColumnPanelMatrix<T: Scalar, PW: Unsigned> {
     buffer: *mut T,
     capacity: usize,
     is_alias: bool,
-
-    _pwt: PhantomData<PW>,
 }
-impl<T: Scalar, PW: Unsigned> ColumnPanelMatrix<T,PW> {
-    pub fn new(h: usize, w: usize) -> ColumnPanelMatrix<T,PW> {
+impl<T: Scalar, const PW: usize> ColumnPanelMatrix<T,{PW}> {
+    pub fn new(h: usize, w: usize) -> ColumnPanelMatrix<T,{PW}> {
         assert_ne!(mem::size_of::<T>(), 0, "Matrix can't handle ZSTs");
 
         //Figure out the number of panels
-        let panel_w = PW::to_usize();
+        let panel_w = PW;
         let mut n_panels = w / panel_w;
         if n_panels * panel_w < w {
             n_panels += 1;
@@ -47,8 +43,7 @@ impl<T: Scalar, PW: Unsigned> ColumnPanelMatrix<T,PW> {
                            panel_stride: panel_w*h,
                            buffer: unsafe{buf.cast::<T>().as_mut()},
                            capacity: capacity,
-                           is_alias: false,
-                           _pwt: PhantomData }
+                           is_alias: false }
     }
 
 
@@ -61,10 +56,10 @@ impl<T: Scalar, PW: Unsigned> ColumnPanelMatrix<T,PW> {
         self.buffer.offset(((x_view.offset + id)*self.panel_stride) as isize)
     }
 }
-impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
+impl<T: Scalar, const PW: usize> Mat<T> for ColumnPanelMatrix<T, {PW}> {
     #[inline(always)]
     fn get(&self, y: usize, x: usize) -> T {
-        let panel_w = PW::to_usize();
+        let panel_w = PW;
         let y_view = self.y_views.last().unwrap();
         let x_view = self.x_views.last().unwrap();
 
@@ -77,7 +72,7 @@ impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
     }
     #[inline(always)]
     fn set(&mut self, y: usize, x: usize, alpha: T) {
-        let panel_w = PW::to_usize();
+        let panel_w = PW;
         let y_view = self.y_views.last().unwrap();
         let x_view = self.x_views.last().unwrap();
 
@@ -129,12 +124,12 @@ impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
     }
 
     fn push_x_split(&mut self, start: usize, end: usize) {
-        debug_assert!(start % PW::to_usize() == 0 && end % PW::to_usize() == 0);
+        debug_assert!(start % PW == 0 && end % PW == 0);
 
         let zoomed_view = {
             let uz_view = self.x_views.last().unwrap();
             let new_padding = if end <= self.width() { 0 } else { end - self.width() };
-            let new_offset = uz_view.offset + start / PW::to_usize();
+            let new_offset = uz_view.offset + start / PW;
             MatrixView{ offset: new_offset, padding: new_padding, iter_size: end-start }
         };
         self.x_views.push(zoomed_view);
@@ -206,7 +201,7 @@ impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
         let z_view = self.x_views.last_mut().unwrap();
         z_view.iter_size = z_iter_size;
         z_view.padding = z_padding;
-        z_view.offset = uz_view.offset + x / PW::to_usize();
+        z_view.offset = uz_view.offset + x / PW;
     }   
     
 
@@ -226,8 +221,7 @@ impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
                            panel_stride: self.panel_stride,
                            buffer: self.buffer, 
                            capacity: self.capacity,
-                           is_alias: true,
-                           _pwt: PhantomData }
+                           is_alias: true }
     }
 
     #[inline(always)]
@@ -237,7 +231,7 @@ impl<T: Scalar, PW: Unsigned> Mat<T> for ColumnPanelMatrix<T, PW> {
         self.buffer = buf;
     }
 }
-impl<T:Scalar, PW: Unsigned> Drop for ColumnPanelMatrix<T, PW> {
+impl<T:Scalar, const PW: usize> Drop for ColumnPanelMatrix<T, {PW}> {
     fn drop(&mut self) {
         if !self.is_alias {
             let layout = capacity_to_aligned_layout::<T>(self.capacity);
@@ -248,9 +242,9 @@ impl<T:Scalar, PW: Unsigned> Drop for ColumnPanelMatrix<T, PW> {
     }
 }
 
-unsafe impl<T:Scalar, PW: Unsigned> Send for ColumnPanelMatrix<T, PW> {}
+unsafe impl<T:Scalar, const PW: usize> Send for ColumnPanelMatrix<T, {PW}> {}
 
-impl<T:Scalar, PW: Unsigned> ResizableBuffer<T> for ColumnPanelMatrix<T, PW> {
+impl<T:Scalar, const PW: usize> ResizableBuffer<T> for ColumnPanelMatrix<T, {PW}> {
     #[inline(always)]
     fn empty(_: AlgorithmStep, _: AlgorithmStep, _: &[AlgorithmStep]) -> Self {
         ColumnPanelMatrix::new(0,0)
@@ -260,12 +254,12 @@ impl<T:Scalar, PW: Unsigned> ResizableBuffer<T> for ColumnPanelMatrix<T, PW> {
     #[inline(always)]
     fn set_capacity(&mut self, capacity: usize) { self.capacity = capacity; }
     #[inline(always)]
-    fn capacity_for(other: &Mat<T>, _: AlgorithmStep, _: AlgorithmStep, _: &[AlgorithmStep]) -> usize {
+    fn capacity_for<O: Mat<T>>(other: &O, _: AlgorithmStep, _: AlgorithmStep, _: &[AlgorithmStep]) -> usize {
         if other.height() == 0 || other.width() == 0 { 
             0   
         } else {
-            let new_n_panels = (other.width()-1) / PW::to_usize() + 1;
-            (new_n_panels + 1) * PW::to_usize() * other.height()
+            let new_n_panels = (other.width()-1) / PW + 1;
+            (new_n_panels + 1) * PW * other.height()
         }
     }
     #[inline(always)]
@@ -281,7 +275,7 @@ impl<T:Scalar, PW: Unsigned> ResizableBuffer<T> for ColumnPanelMatrix<T, PW> {
         }
     }
     #[inline(always)]
-    fn resize_to(&mut self, other: &Mat<T>, _: AlgorithmStep, _: AlgorithmStep, _: &[AlgorithmStep]) {
+    fn resize_to<O: Mat<T>>(&mut self, other: &O, _: AlgorithmStep, _: AlgorithmStep, _: &[AlgorithmStep]) {
         debug_assert_eq!(self.y_views.len(), 1, "Can't resize a submatrix!");
         let y_view = self.y_views.last_mut().unwrap();
         let x_view = self.x_views.last_mut().unwrap();
@@ -290,19 +284,19 @@ impl<T:Scalar, PW: Unsigned> ResizableBuffer<T> for ColumnPanelMatrix<T, PW> {
         x_view.iter_size = other.iter_width();
         y_view.padding = other.logical_h_padding();
         x_view.padding = other.logical_w_padding();
-        self.panel_stride = PW::to_usize()*other.height();
+        self.panel_stride = PW*other.height();
     }
 }
 
-impl<T: Scalar, PW: Unsigned> RoCM<T> for ColumnPanelMatrix<T, PW> {
+impl<T: Scalar, const PW: usize> RoCM<T> for ColumnPanelMatrix<T, {PW}> {
     #[inline(always)]
     fn partition_is_rocm(&self) -> bool { 
-        self.width() <= PW::to_usize()
+        self.width() <= PW
     }
 
     #[inline(always)]
     fn get_leaf_rs(&self) -> usize { 
-        PW::to_usize()
+        PW
     }
 
     #[inline(always)]
@@ -312,7 +306,7 @@ impl<T: Scalar, PW: Unsigned> RoCM<T> for ColumnPanelMatrix<T, PW> {
 
     #[inline(always)]
     unsafe fn get_buffer(&self) -> *const T {
-        let panel_w = PW::to_usize();
+        let panel_w = PW;
         let y_view = self.y_views.last().unwrap();
         let x_view = self.x_views.last().unwrap();
 
@@ -321,7 +315,7 @@ impl<T: Scalar, PW: Unsigned> RoCM<T> for ColumnPanelMatrix<T, PW> {
 
     #[inline(always)]
     unsafe fn get_mut_buffer(&mut self) -> *mut T {
-        let panel_w = PW::to_usize();
+        let panel_w = PW;
         let y_view = self.y_views.last().unwrap();
         let x_view = self.x_views.last().unwrap();
 
@@ -330,7 +324,7 @@ impl<T: Scalar, PW: Unsigned> RoCM<T> for ColumnPanelMatrix<T, PW> {
 
 	#[inline(always)]
     fn get_block_rs(&self, _: usize, blksz: usize) -> usize {
-		blksz * PW::to_usize()
+		blksz * PW
     }
 
 	#[inline(always)]
@@ -338,8 +332,8 @@ impl<T: Scalar, PW: Unsigned> RoCM<T> for ColumnPanelMatrix<T, PW> {
         if lvl == 0 {
             1
         } else {
-			debug_assert_eq!(blksz % PW::to_usize(), 0);
-			self.panel_stride * blksz / PW::to_usize()
+			debug_assert_eq!(blksz % PW, 0);
+			self.panel_stride * blksz / PW
         }
     }
     #[inline(always)]

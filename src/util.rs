@@ -2,13 +2,15 @@ extern crate hwloc;
 extern crate libc;
 
 use std::time::Instant;
-use libc::{c_double, int64_t, c_char};
-
-use std::ffi::{CString};
 use thread_comm::ThreadInfo;
-use matrix::{Scalar, Mat, Matrix, RoCM};
+use matrix::{Scalar, Mat, Matrix};
 use composables::{GemmNode, TripleLoop};
 use std::alloc::Layout;
+
+#[cfg(feature="blis")]
+use libc::{c_double, int64_t, c_char};
+#[cfg(feature="blis")]
+use std::ffi::{CString};
 
 #[cfg(feature="blis")]
 extern{

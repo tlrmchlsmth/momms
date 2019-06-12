@@ -186,15 +186,15 @@ pub trait Mat<T: Scalar> where Self: Send {
         norm
     }
     
-    fn copy_from(&mut self, other: &Mat<T> ) {
+    fn copy_from<O: Mat<T>>(&mut self, other: &O ) {
         self.axpby(T::one(), other, T::zero());
     }
 
-    fn axpy(&mut self, alpha: T, other: &Mat<T>) {
+    fn axpy<O: Mat<T>>(&mut self, alpha: T, other: &O) {
         self.axpby(alpha, other, T::one());
     }
 
-    fn axpby_base(&mut self, alpha: T, other: &Mat<T>, beta: T, 
+    fn axpby_base<O: Mat<T>>(&mut self, alpha: T, other: &O, beta: T, 
                   off_y: usize, off_x: usize, h: usize, w: usize) {
         for x in off_x..off_x+w {
             for y in off_y..off_y+h { 
@@ -205,7 +205,7 @@ pub trait Mat<T: Scalar> where Self: Send {
     }
 
     //Split into quarters recursivly for cache oblivious axpby
-    fn axpby_rec(&mut self, alpha: T, other: &Mat<T>, beta: T, 
+    fn axpby_rec<O: Mat<T>>(&mut self, alpha: T, other: &O, beta: T, 
                   off_y: usize, off_x: usize, h: usize, w: usize) {
         if h < 32 || w < 32 { self.axpby_base(alpha, other, beta, off_y, off_x, h, w); }
         else{
@@ -218,7 +218,7 @@ pub trait Mat<T: Scalar> where Self: Send {
         }
     }
     
-    fn axpby(&mut self, alpha: T, other: &Mat<T>, beta: T) {
+    fn axpby<O: Mat<T>>(&mut self, alpha: T, other: &O, beta: T) {
         if self.width() != other.width() || self.height() != other.height() {
             panic!("Cannot operate on nonconformal matrices!");
         }
@@ -227,7 +227,7 @@ pub trait Mat<T: Scalar> where Self: Send {
         self.axpby_rec(alpha, other, beta, 0, 0, h, w); 
     }
 
-    fn axpby_small(&mut self, alpha: T, other: &Mat<T>, beta: T) {
+    fn axpby_small<O: Mat<T>>(&mut self, alpha: T, other: &O, beta: T) {
         if self.width() != other.width() || self.height() != other.height() {
             panic!("Cannot operate on nonconformal matrices!");
         }
@@ -245,9 +245,9 @@ pub trait ResizableBuffer<T: Scalar> {
     fn empty(y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]) -> Self;
     fn capacity(&self) -> usize;
     fn set_capacity(&mut self, capacity: usize); 
-    fn capacity_for(other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]) -> usize;
+    fn capacity_for<O: Mat<T>>(other: &O, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]) -> usize;
     fn aquire_buffer_for(&mut self, capacity: usize);
-    fn resize_to(&mut self, other: &Mat<T>, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]); 
+    fn resize_to<O: Mat<T>>(&mut self, other: &O, y_hier_label: AlgorithmStep, x_hier_label: AlgorithmStep, hier: &[AlgorithmStep]); 
 }
 
 //Trait indicating that the matrix can be partitioned down into row or column major form.

@@ -7,23 +7,20 @@ pub mod blis_types
 
 use matrix::{Scalar};
 use core::marker::{PhantomData};
-use typenum::{Unsigned};
 
-pub trait GenericUkernelWrapper<Mr: Unsigned, Nr: Unsigned, T: Scalar> {
+pub trait GenericUkernelWrapper<T: Scalar, const Mr: usize, const Nr: usize> {
     unsafe fn run( k: isize, alpha: *mut T, a: *mut T, b: *mut T, beta: *mut T, c: *mut T, rs_c: isize, cs_c: isize) -> (); 
 }
 
-pub struct UkernelWrapper<Mr: Unsigned, Nr: Unsigned, T: Scalar> {
+pub struct UkernelWrapper<T: Scalar, const Mr: usize, const Nr: usize> {
     _t: PhantomData<T>,
-    _mr: PhantomData<Mr>,
-    _nr: PhantomData<Nr>,
 }
-impl<Mr: Unsigned, Nr: Unsigned, T: Scalar> UkernelWrapper<Mr, Nr, T> {
+impl<T: Scalar, const Mr: usize, const Nr: usize> UkernelWrapper<T, {Mr}, {Nr}> {
 }
-impl<Mr: Unsigned, Nr: Unsigned, T: Scalar> GenericUkernelWrapper<Mr, Nr, T> for UkernelWrapper<Mr, Nr, T> {
+impl<T: Scalar, const Mr: usize, const Nr: usize> GenericUkernelWrapper<T, {Mr}, {Nr}> for UkernelWrapper<T, {Mr}, {Nr}> {
     #[inline(always)]
     default unsafe fn run( _: isize, _: *mut T, _: *mut T, _: *mut T, _: *mut T, _: *mut T, _: isize, _: isize) {
-        panic!("Ukernel Wrapper not implemented for Mr {} Nr {} and this datatype!", Mr::to_usize(), Nr::to_usize());
+        panic!("Ukernel Wrapper not implemented for Mr {} Nr {} and this datatype!", Mr, Nr);
     }
 }
 
@@ -32,7 +29,6 @@ pub mod hsw
 {
     extern crate libc;
     use self::libc::{ c_double, int64_t };
-    use typenum::{U4,U6,U8,U12};
     use kern::ukernel_wrapper::{GenericUkernelWrapper,UkernelWrapper};
     use kern::ukernel_wrapper::blis_types::{self,auxinfo_t,inc_t};
 
@@ -52,7 +48,7 @@ pub mod hsw
             auxinfo: *mut auxinfo_t) -> (); 
     }
 
-    impl GenericUkernelWrapper<U4, U12, f64> for UkernelWrapper<U4, U12, f64> {
+    impl GenericUkernelWrapper<f64, 4, 12> for UkernelWrapper<f64, 4, 12> {
         #[inline(always)]
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
 
@@ -70,7 +66,7 @@ pub mod hsw
                 beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t, &mut info as *mut auxinfo_t);
         }
     }
-    impl GenericUkernelWrapper<U6, U8, f64> for UkernelWrapper<U6, U8, f64> {
+    impl GenericUkernelWrapper<f64, U6, 8> for UkernelWrapper<f64, U6, 8> {
         #[inline(always)]
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
 
@@ -88,7 +84,7 @@ pub mod hsw
                 beta as *mut c_double, c as *mut c_double, rs_c as int64_t, cs_c as int64_t, &mut info as *mut auxinfo_t);
         }
     }
-    impl GenericUkernelWrapper<U12, U4, f64> for UkernelWrapper<U12, U4, f64> {
+    impl GenericUkernelWrapper<f64, 12, 4> for UkernelWrapper<f64, 12, 4> {
         #[inline(always)]
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
 
@@ -113,7 +109,6 @@ pub mod snb
 {
     extern crate libc;
     use self::libc::{ c_double, int64_t };
-    use typenum::{U4,U8};
     use kern::ukernel_wrapper::{GenericUkernelWrapper,UkernelWrapper};
     use kern::ukernel_wrapper::blis_types::{self,auxinfo_t,inc_t};
 
@@ -125,7 +120,7 @@ pub mod snb
             auxinfo: *mut auxinfo_t) -> (); 
     }
 
-    impl GenericUkernelWrapper<U8, U4, f64> for UkernelWrapper<U8, U4, f64> {
+    impl GenericUkernelWrapper<f64, 8, 4> for UkernelWrapper<f64, 8, 4> {
         #[inline(always)]
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
 
@@ -150,7 +145,6 @@ pub mod knl
 {
 	extern crate libc;
     use self::libc::{ c_double, int64_t };
-    use typenum::{U24,U8};
     use kern::ukernel_wrapper::{GenericUkernelWrapper,UkernelWrapper};
     use kern::ukernel_wrapper::blis_types::{auxinfo_t,inc_t};
 
@@ -162,7 +156,7 @@ pub mod knl
             auxinfo: *mut auxinfo_t) -> (); 
     }
 
-    impl GenericUkernelWrapper<U24, U8, f64> for UkernelWrapper<U24, U8, f64> {
+    impl GenericUkernelWrapper<f64, 24, 8> for UkernelWrapper<f64, 24, 8> {
         #[inline(always)]
         unsafe fn run( k: isize, alpha: *mut f64, a: *mut f64, b: *mut f64, beta: *mut f64, c: *mut f64, rs_c: isize, cs_c: isize) {
 
