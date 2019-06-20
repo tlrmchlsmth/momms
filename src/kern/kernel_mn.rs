@@ -49,7 +49,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: u
             let mut b_jr = bp;
             let mut jr : isize = 0;
             while jr < n {
-                if Ct::full_leaves() || (n - jr >= Nr) && (m - ir >= Mr) {
+                if Ct::full_leaves() || (n - jr >= Nr as isize) && (m - ir >= Mr as isize) {
                     <UkernelWrapper<T,{Mr},{Nr}>>::run(k, &mut alpha, a_ir, b_jr, &mut beta, c_jr, c_leaf_rs, c_leaf_cs);
                 } else {
 					let tp = self.tmp.get_mut_buffer();
@@ -58,8 +58,8 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: u
                     let t_cs = self.tmp.get_column_stride() as isize;
 					<UkernelWrapper<T,{Mr},{Nr}>>::run(k, &mut alpha, a_ir, b_jr, &mut t_scalar, tp, t_rs, t_cs);
 
-                    let local_m = if m-ir >= Mr { Mr } else { m-ir };
-                    let local_n = if n-jr >= Nr { Nr } else { n-jr };
+                    let local_m = if m-ir >= Mr as isize { Mr as isize } else { m-ir };
+                    let local_n = if n-jr >= Nr as isize { Nr as isize } else { n-jr };
 
 					//Add t to c
                     for ii in 0..local_m {
@@ -71,11 +71,11 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: u
                     }
                 }
 
-                jr += Nr;
+                jr += Nr as isize;
                 c_jr = c_jr.offset(c_nr_stride);
                 b_jr = b_jr.offset(b_nr_stride);
             }
-            ir += Mr;
+            ir += Mr as isize;
             a_ir = a_ir.offset(a_mr_stride);
             c_ir = c_ir.offset(c_mr_stride);
         }
@@ -83,7 +83,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: u
     fn new() -> Self {
         let mut tmp = <Matrix<T>>::new(Nr, Mr);
         tmp.transpose();
-        KernelMN{ tmp: tmp, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _nrt: PhantomData, _mrt: PhantomData } 
+        KernelMN{ tmp: tmp, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }
     fn hierarchy_description() -> Vec<AlgorithmStep> {
         let mut desc = Vec::new();

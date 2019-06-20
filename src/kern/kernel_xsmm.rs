@@ -108,18 +108,18 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Nr: usize, const Mr: u
                            prefetcht2 64($0)" : : "r"(next_c_ir.offset(3*c_leaf_rs)));
                 }
 
-                let u_m = if m-ir >= Mr { Mr } else { m-ir };
-                let u_n = if n-jr >= Nr { Nr } else { n-jr };
+                let u_m = if m-ir >= Mr as isize { Mr as isize } else { m-ir };
+                let u_n = if n-jr >= Nr as isize { Nr as isize } else { n-jr };
 
                 //Call libxsmm to perform
                 // C^T += B^T A^T
 			    <XsmmWrapper<T>>::run(u_n,u_m,k, &mut alpha, b_jr, b_leaf_rs, a_ir, a_leaf_rs, &mut beta, c_ir, c_leaf_rs);
 
-                ir += Mr;
+                ir += Mr as isize;
                 a_ir = a_ir.offset(a_mr_stride);
                 c_ir = c_ir.offset(c_mr_stride);
             }
-            jr += Nr;
+            jr += Nr as isize;
             c_jr = c_jr.offset(c_nr_stride);
             b_jr = b_jr.offset(b_nr_stride);
         }

@@ -27,7 +27,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: u
     fn new() -> Self {
         let mut tmp = <Matrix<T>>::new(Nr, Mr);
         tmp.transpose();
-        Ukernel{ tmp: tmp, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _mrt: PhantomData, _nrt: PhantomData } 
+        Ukernel{ tmp: tmp, _at: PhantomData, _bt: PhantomData, _ct: PhantomData }
     }   
     fn hierarchy_description() -> Vec<AlgorithmStep> {
         Vec::new()

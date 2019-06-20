@@ -85,8 +85,7 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>,
     }
     fn new() -> Self {
         ParallelM{ child: S::new(), par_inf: Option::None,
-            _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData,
-            _iotat: PhantomData, _nthr: PhantomData }
+            _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _nthr : PhantomData }
     }
     fn hierarchy_description() -> Vec<AlgorithmStep> {
         S::hierarchy_description()
@@ -151,8 +150,7 @@ impl<T: Scalar,At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>,
     }
     fn new() -> Self {
         ParallelN{ child: S::new(), par_inf: Option::None,
-            _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData,
-            _iotat: PhantomData, _nthr: PhantomData }
+            _t: PhantomData, _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _nthr: PhantomData }
     }
     fn hierarchy_description() -> Vec<AlgorithmStep> {
         S::hierarchy_description()

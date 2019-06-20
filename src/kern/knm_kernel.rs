@@ -25,7 +25,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: u
     }   
     fn new() -> Self {
         KnmKernel{ tmp: <Matrix<T>>::new(Mr, Nr),
-            _at: PhantomData, _bt: PhantomData, _ct: PhantomData, _mrt: PhantomData, _nrt: PhantomData } 
+            _at: PhantomData, _bt: PhantomData, _ct: PhantomData } 
     }   
     fn hierarchy_description() -> Vec<AlgorithmStep> {
         let mut desc = Vec::new();
