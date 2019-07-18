@@ -28,21 +28,21 @@ path = "src/lib.rs"
 name = "exper_l3"
 path = "src/exper/l3.rs"
 
-[[bin]]
-name = "exper_l3_shapes"
-path = "src/exper/l3_shapes.rs"
+#[[bin]]
+#ame = "exper_l3_shapes"
+#ath = "src/exper/l3_shapes.rs"
 
-[[bin]]
-name = "exper_l3_packing"
-path = "src/exper/l3_packing.rs"
+#[bin]]
+#ame = "exper_l3_packing"
+#ath = "src/exper/l3_packing.rs"
 
-[[bin]]
-name = "exper_l4"
-path = "src/exper/l4.rs"
+#[bin]]
+#ame = "exper_l4"
+#ath = "src/exper/l4.rs"
 
-[[bin]]
-name = "exper_l4_packing"
-path = "src/exper/l4_packing.rs"
+#[bin]]
+#ame = "exper_l4_packing"
+#ath = "src/exper/l4_packing.rs"
 
 [features]
 blis = []

@@ -1,5 +1,3 @@
-#![feature(const_generics)]
-
 use matrix::{Scalar,Mat};
 use thread_comm::ThreadInfo;
 use composables::{GemmNode,AlgorithmStep};

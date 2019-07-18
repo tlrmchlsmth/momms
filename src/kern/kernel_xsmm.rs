@@ -50,14 +50,14 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>>
     }
 }
 
-pub struct KernelXsmmA2<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Nr: usize, const Mr: usize> {
+pub struct KernelXsmmA2<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const NR: usize, const MR: usize> {
     _t: PhantomData<T>,
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
 }
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Nr: usize, const Mr: usize> 
-    GemmNode<T, At, Bt, Ct> for KernelXsmmA2<T, At, Bt, Ct, {Nr}, {Mr}> 
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const NR: usize, const MR: usize> 
+    GemmNode<T, At, Bt, Ct> for KernelXsmmA2<T, At, Bt, Ct, {NR}, {MR}> 
     where At: RoCM<T>, Bt: RoCM<T>, Ct: RoCM<T>
 {
     #[inline(always)]
@@ -80,17 +80,17 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Nr: usize, const Mr: u
         let b_leaf_rs = b.get_leaf_rs() as isize;
         let c_leaf_rs = c.get_leaf_rs() as isize;
 
-        let c_nr_stride = c.get_block_cs(1, Nr) as isize;
-        let b_nr_stride = b.get_block_cs(1, Nr) as isize;
+        let c_nr_stride = c.get_block_cs(1, NR) as isize;
+        let b_nr_stride = b.get_block_cs(1, NR) as isize;
 
-        let c_mr_stride = c.get_block_rs(1, Mr) as isize;
-        let a_mr_stride = a.get_block_rs(1, Mr) as isize;
+        let c_mr_stride = c.get_block_rs(1, MR) as isize;
+        let a_mr_stride = a.get_block_rs(1, MR) as isize;
 
         let mut c_jr = cp;
         let mut b_jr = bp;
         let mut jr : isize = 0;
         while jr < n {
-            b.establish_leaf(0, (jr as usize) / Nr, k as usize, Nr);
+            b.establish_leaf(0, (jr as usize) / NR, k as usize, NR);
             let mut ir : isize = 0;
             let mut a_ir = ap;
             let mut c_ir = c_jr;
@@ -108,18 +108,18 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Nr: usize, const Mr: u
                            prefetcht2 64($0)" : : "r"(next_c_ir.offset(3*c_leaf_rs)));
                 }
 
-                let u_m = if m-ir >= Mr as isize { Mr as isize } else { m-ir };
-                let u_n = if n-jr >= Nr as isize { Nr as isize } else { n-jr };
+                let u_m = if m-ir >= MR as isize { MR as isize } else { m-ir };
+                let u_n = if n-jr >= NR as isize { NR as isize } else { n-jr };
 
                 //Call libxsmm to perform
                 // C^T += B^T A^T
 			    <XsmmWrapper<T>>::run(u_n,u_m,k, &mut alpha, b_jr, b_leaf_rs, a_ir, a_leaf_rs, &mut beta, c_ir, c_leaf_rs);
 
-                ir += Mr as isize;
+                ir += MR as isize;
                 a_ir = a_ir.offset(a_mr_stride);
                 c_ir = c_ir.offset(c_mr_stride);
             }
-            jr += Nr as isize;
+            jr += NR as isize;
             c_jr = c_jr.offset(c_nr_stride);
             b_jr = b_jr.offset(b_nr_stride);
         }
@@ -129,8 +129,8 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Nr: usize, const Mr: u
     }
     fn hierarchy_description() -> Vec<AlgorithmStep> {
         let mut desc = Vec::new();
-        desc.push(AlgorithmStep::M{bsz: Mr});
-        desc.push(AlgorithmStep::N{bsz: Nr});
+        desc.push(AlgorithmStep::M{bsz: MR});
+        desc.push(AlgorithmStep::N{bsz: NR});
         desc
     }  
 }

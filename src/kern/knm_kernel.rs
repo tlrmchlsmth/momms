@@ -4,14 +4,14 @@ use composables::{GemmNode,AlgorithmStep};
 use thread_comm::{ThreadInfo};
 use super::knm_kernel_wrapper::{KnmKernelWrapper,GenericKnmKernelWrapper};
 
-pub struct KnmKernel<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: usize>{
+pub struct KnmKernel<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const MR: usize, const NR: usize>{
     tmp: Matrix<T>,
     _at: PhantomData<At>,
     _bt: PhantomData<Bt>,
     _ct: PhantomData<Ct>,
 }
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: usize> 
-    GemmNode<T, At, Bt, Ct> for KnmKernel<T, At, Bt, Ct, {Mr}, {Nr}> {
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const MR: usize, const NR: usize> 
+    GemmNode<T, At, Bt, Ct> for KnmKernel<T, At, Bt, Ct, {MR}, {NR}> {
     #[inline(always)]
     default unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T>) -> () {
         for z in 0..a.width() {
@@ -24,7 +24,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: u
         }   
     }   
     fn new() -> Self {
-        KnmKernel{ tmp: <Matrix<T>>::new(Mr, Nr),
+        KnmKernel{ tmp: <Matrix<T>>::new(MR, NR),
             _at: PhantomData, _bt: PhantomData, _ct: PhantomData } 
     }   
     fn hierarchy_description() -> Vec<AlgorithmStep> {
@@ -34,14 +34,14 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: u
     }
 }
 
-impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: usize> 
-    GemmNode<T, At, Bt, Ct> for KnmKernel<T, At, Bt, Ct, {Mr}, {Nr}> 
+impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const MR: usize, const NR: usize> 
+    GemmNode<T, At, Bt, Ct> for KnmKernel<T, At, Bt, Ct, {MR}, {NR}> 
     where At: RoCM<T>, Bt: RoCM<T>, Ct: RoCM<T>
 {
     #[inline(always)]
     unsafe fn run(&mut self, a: &mut At, b: &mut Bt, c: &mut Ct, _thr: &ThreadInfo<T>) -> () {
-        debug_assert!(c.height() <= Mr);
-        debug_assert!(c.width() <= Nr);
+        debug_assert!(c.height() <= MR);
+        debug_assert!(c.width() <= NR);
         let ap = a.get_mut_buffer();
         let bp = b.get_mut_buffer();
         let cp = c.get_mut_buffer();
@@ -54,8 +54,8 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: u
 
         let k = a.width() as isize;
 
-        if Ct::full_leaves() || (c.height() == Mr && c.width() == Nr) {
-            <KnmKernelWrapper<T,{Mr},{Nr}>>::run(k, &mut alpha, ap, bp, &mut beta, cp, c_leaf_rs, c_leaf_cs);
+        if Ct::full_leaves() || (c.height() == MR && c.width() == NR) {
+            <KnmKernelWrapper<T,{MR},{NR}>>::run(k, &mut alpha, ap, bp, &mut beta, cp, c_leaf_rs, c_leaf_cs);
         }
         else {
             let tp = self.tmp.get_mut_buffer();
@@ -63,7 +63,7 @@ impl<T: Scalar, At: Mat<T>, Bt: Mat<T>, Ct: Mat<T>, const Mr: usize, const Nr: u
             let t_cs = self.tmp.get_column_stride() as isize;
             let mut zero = T::zero();
 
-            <KnmKernelWrapper<T,{Mr},{Nr}>>::run(k, &mut alpha, ap, bp, &mut zero, tp, t_rs, t_cs);
+            <KnmKernelWrapper<T,{MR},{NR}>>::run(k, &mut alpha, ap, bp, &mut zero, tp, t_rs, t_cs);
 
             //Add t to c
             for ii in 0..c.height() as isize {

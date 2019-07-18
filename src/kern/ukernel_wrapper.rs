@@ -8,19 +8,19 @@ pub mod blis_types
 use matrix::{Scalar};
 use core::marker::{PhantomData};
 
-pub trait GenericUkernelWrapper<T: Scalar, const Mr: usize, const Nr: usize> {
+pub trait GenericUkernelWrapper<T: Scalar, const MR: usize, const NR: usize> {
     unsafe fn run( k: isize, alpha: *mut T, a: *mut T, b: *mut T, beta: *mut T, c: *mut T, rs_c: isize, cs_c: isize) -> (); 
 }
 
-pub struct UkernelWrapper<T: Scalar, const Mr: usize, const Nr: usize> {
+pub struct UkernelWrapper<T: Scalar, const MR: usize, const NR: usize> {
     _t: PhantomData<T>,
 }
-impl<T: Scalar, const Mr: usize, const Nr: usize> UkernelWrapper<T, {Mr}, {Nr}> {
+impl<T: Scalar, const MR: usize, const NR: usize> UkernelWrapper<T, {MR}, {NR}> {
 }
-impl<T: Scalar, const Mr: usize, const Nr: usize> GenericUkernelWrapper<T, {Mr}, {Nr}> for UkernelWrapper<T, {Mr}, {Nr}> {
+impl<T: Scalar, const MR: usize, const NR: usize> GenericUkernelWrapper<T, {MR}, {NR}> for UkernelWrapper<T, {MR}, {NR}> {
     #[inline(always)]
     default unsafe fn run( _: isize, _: *mut T, _: *mut T, _: *mut T, _: *mut T, _: *mut T, _: isize, _: isize) {
-        panic!("Ukernel Wrapper not implemented for Mr {} Nr {} and this datatype!", Mr, Nr);
+        panic!("Ukernel Wrapper not implemented for MR {} NR {} and this datatype!", MR, NR);
     }
 }
 

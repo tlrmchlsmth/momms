@@ -3,7 +3,6 @@
 #![allow(unused_imports)]
 
 extern crate core;
-extern crate typenum;
 extern crate momms;
 
 use std::time::{Instant};

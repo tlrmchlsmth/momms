@@ -1,20 +1,20 @@
 #![feature(specialization)]
 #![feature(asm)] 
+#![feature(const_generics)]
 
 #![allow(unused_imports)]
 
 extern crate core;
-extern crate typenum;
 extern crate momms;
 
 use std::time::{Instant};
-use typenum::{Unsigned,U1};
 
 use momms::kern::KernelNM;
 use momms::matrix::{Scalar, Mat, ColumnPanelMatrix, RowPanelMatrix, Matrix, Hierarch};
 use momms::composables::{GemmNode, AlgorithmStep, PartM, PartN, PartK, PackA, PackB, SpawnThreads, ParallelM, ParallelN, TheRest};
 use momms::thread_comm::ThreadInfo;
 use momms::util;
+use core::marker::PhantomData;
 /*
 fn test_blas_dgemm ( m:usize, n: usize, k: usize, flusher: &mut Vec<f64>, n_reps: usize ) -> (f64, f64) 
 {
@@ -43,76 +43,66 @@ fn test_blas_dgemm ( m:usize, n: usize, k: usize, flusher: &mut Vec<f64>, n_reps
     (best_time, worst_err)
 }*/
 
-fn test_algorithm<T: Scalar, Mr: Unsigned, Nr: Unsigned, Kc:Unsigned, 
-    S: GemmNode<T, Hierarch<T, Mr, Kc, U1, Mr>, Hierarch<T, Kc, Nr, Nr, U1>, Hierarch<T, Mr, Nr, Nr, U1>>>
-    ( m:usize, n: usize, k: usize, algo: &mut S, flusher: &mut Vec<f64>, n_reps: usize ) -> (f64, T) 
-{
-    let algo_desc = S::hierarchy_description();
-    let mut best_time: f64 = 9999999999.0;
-    let mut worst_err: T = T::zero();
 
-    for _ in 0..n_reps {
-        //Create matrices.
-        let mut a : Hierarch<T, Mr, Kc, U1, Mr> = Hierarch::new(m, k, &algo_desc, AlgorithmStep::M{bsz: 0}, AlgorithmStep::K{bsz: 0});
-        let mut b : Hierarch<T, Kc, Nr, Nr, U1> = Hierarch::new(k, n, &algo_desc, AlgorithmStep::K{bsz: 0}, AlgorithmStep::N{bsz: 0});
-        let mut c : Hierarch<T, Mr, Nr, Nr, U1> = Hierarch::new(m, n, &algo_desc, AlgorithmStep::M{bsz: 0}, AlgorithmStep::N{bsz: 0});
+pub struct MMMTester<T: Scalar, const MR: usize, const NR: usize, const KC: usize> {
+    _at: PhantomData<T>
+}
+impl<T: Scalar, const MR: usize, const NR: usize, const KC: usize> MMMTester<T, {MR}, {NR}, {KC}> {
+    fn test_algorithm<S: GemmNode<T, Hierarch<T, {MR}, {KC}, {1}, {MR}>, Hierarch<T, {KC}, {NR}, {NR}, {1}>, Hierarch<T, {MR}, {NR}, {NR}, {1}>>>
+        ( &self, m:usize, n: usize, k: usize, algo: &mut S, flusher: &mut Vec<f64>, n_reps: usize ) -> (f64, T) 
+    {
+        let algo_desc = S::hierarchy_description();
+        let mut best_time: f64 = 9999999999.0;
+        let mut worst_err: T = T::zero();
 
-        //Fill the matrices
-        a.fill_rand(); c.fill_zero(); b.fill_rand();
+        for _ in 0..n_reps {
+            //Create matrices.
+            let mut a : Hierarch<T, {MR}, {KC}, {1}, {MR}> = Hierarch::new(m, k, &algo_desc, AlgorithmStep::M{bsz: 0}, AlgorithmStep::K{bsz: 0});
+            let mut b : Hierarch<T, {KC}, {NR}, {NR}, {1}> = Hierarch::new(k, n, &algo_desc, AlgorithmStep::K{bsz: 0}, AlgorithmStep::N{bsz: 0});
+            let mut c : Hierarch<T, {MR}, {NR}, {NR}, {1}> = Hierarch::new(m, n, &algo_desc, AlgorithmStep::M{bsz: 0}, AlgorithmStep::N{bsz: 0});
 
-        //Read a buffer so that A, B, and C are cold in cache.
-        for i in flusher.iter_mut() { *i += 1.0; }
+            //Fill the matrices
+            a.fill_rand(); c.fill_zero(); b.fill_rand();
 
-        //Time and run algorithm
-        let start = Instant::now();
-        unsafe{ algo.run( &mut a, &mut b, &mut c, &ThreadInfo::single_thread() ); }
-        best_time = best_time.min(util::dur_seconds(start));
-        let err = util::test_c_eq_a_b( &mut a, &mut b, &mut c);
-        worst_err = worst_err.max(err);
+            //Read a buffer so that A, B, and C are cold in cache.
+            for i in flusher.iter_mut() { *i += 1.0; }
+
+            //Time and run algorithm
+            let start = Instant::now();
+            unsafe{ algo.run( &mut a, &mut b, &mut c, &ThreadInfo::single_thread() ); }
+            best_time = best_time.min(util::dur_seconds(start));
+            let err = util::test_c_eq_a_b( &mut a, &mut b, &mut c);
+            worst_err = worst_err.max(err);
+        }
+        (best_time, worst_err)
     }
-    (best_time, worst_err)
 }
 
 fn test() {
-    use typenum::{UInt, UTerm, B0, B1, Unsigned};
-    type U3000 = UInt<UInt<typenum::U750, B0>, B0>;
-    type NC = U3000;
-    type KC = typenum::U192; 
-    type MC = typenum::U120; 
-    type MR = typenum::U4;
-    type NR = typenum::U12;
-    type GotoA<T> = Hierarch<T, MR, KC, U1, MR>;
-    type GotoB<T> = Hierarch<T, KC, NR, NR, U1>;
-    type GotoC<T> = Hierarch<T, MR, NR, NR, U1>;
+    type GotoA<T> = Hierarch<T,   4, 192,  1, 4>;
+    type GotoB<T> = Hierarch<T, 192,  12, 12, 1>;
+    type GotoC<T> = Hierarch<T,   4,  12, 12, 1>;
     type Goto<T,MTA,MTB,MTC> 
         = SpawnThreads<T, MTA, MTB, MTC,
             PartN<T, MTA, MTB, MTC,
                 PartK<T, MTA, MTB, MTC,
                     PartM<T, MTA, MTB, MTC,
-                        ParallelN<T, MTA, MTB, MTC, NR, TheRest,
-                            KernelNM<T, MTA, MTB, MTC, NR, MR>
-                        >, 
+                        ParallelN<T, MTA, MTB, MTC, TheRest, KernelNM<T, MTA, MTB, MTC, 4, 12>, 12>, 
                     120>,
                 192>,
             3000>
           >;
 
-    type NcL3 = typenum::U768;
-    type KcL3 = typenum::U768;
-    type McL2 = typenum::U120;
-    type KcL2 = typenum::U192;
-    type L3bA<T> = Hierarch<T, MR, KcL2, U1, MR>;
-    type L3bB<T> = Hierarch<T, KcL2, NR, NR, U1>;
-    type L3bC<T> = Hierarch<T, MR, NR, NR, U1>;
+    type L3bA<T> = Hierarch<T,   4, 192, 1,  4>;
+    type L3bB<T> = Hierarch<T, 192,  12, 12, 1>;
+    type L3bC<T> = Hierarch<T,   4,  12, 12, 1>;
     type L3B<T,MTA,MTB,MTC> 
         = SpawnThreads<T, MTA, MTB, MTC,
               PartN<T, MTA, MTB, MTC,
                   PartK<T, MTA, MTB, MTC,
                       PartM<T, MTA, MTB, MTC,
                           PartK<T, MTA, MTB, MTC,
-                              ParallelN<T, MTA, MTB, MTC, NR, TheRest,
-                                  KernelNM<T, MTA, MTB, MTC, NR, MR>
-                              >,
+                              ParallelN<T, MTA, MTB, MTC, TheRest, KernelNM<T, MTA, MTB, MTC, 12, 4>, 12>,
                           192>,
                       120>,
                   768>,
@@ -135,8 +125,14 @@ fn test() {
         let (m, n, k) = (size, size, size);
 
         let n_reps = 5;
-        let (goto_time, goto_err) = test_algorithm(m, n, k, &mut goto, &mut flusher, n_reps);
-        let (l3b_time, l3b_err) = test_algorithm(m, n, k, &mut l3b, &mut flusher, n_reps);
+        
+       // let tman : MMMTester<f64, 4, 12, 192> = { _at : PhantomData };
+        //let tman = MMMTester<f64, 4, 12, 192> {};
+        let tman : MMMTester<f64, 4, 12, 192> = MMMTester {_at : PhantomData};
+        let (goto_time, goto_err) = tman.test_algorithm(m, n, k, &mut goto, &mut flusher, n_reps);
+        let (l3b_time, l3b_err) = tman.test_algorithm(m, n, k, &mut l3b, &mut flusher, n_reps);
+        //let (goto_time, goto_err) = MMMTester<f64, {4usize, 12usize, 192usize}>::test_algorithm(m, n, k, &mut goto, &mut flusher, n_reps);
+//        let (goto_time, goto_err) = MMMTester<f64, {4}, {12}, {192}>::test_algorithm(m, n, k, &mut goto, &mut flusher, n_reps);
 
         println!("{}\t{}\t{}\t{}{}{}{}", 
                  m, n, k,
